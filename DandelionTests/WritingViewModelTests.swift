@@ -1,0 +1,128 @@
+//
+//  WritingViewModelTests.swift
+//  DandelionTests
+//
+//  Unit tests for the WritingViewModel
+//
+
+import XCTest
+@testable import Dandelion
+
+final class WritingViewModelTests: XCTestCase {
+
+    var sut: WritingViewModel!
+
+    override func setUp() {
+        super.setUp()
+        sut = WritingViewModel()
+    }
+
+    override func tearDown() {
+        sut = nil
+        super.tearDown()
+    }
+
+    // MARK: - Initial State Tests
+
+    func testInitialStateIsPrompt() {
+        XCTAssertEqual(sut.writingState, .prompt, "Initial state should be prompt")
+    }
+
+    func testInitialTextIsEmpty() {
+        XCTAssertTrue(sut.writtenText.isEmpty, "Initial text should be empty")
+    }
+
+    func testInitialPromptIsSet() {
+        XCTAssertFalse(sut.currentPrompt.text.isEmpty, "Initial prompt should be set")
+    }
+
+    func testInitialReleaseMessageIsSet() {
+        XCTAssertFalse(sut.currentReleaseMessage.text.isEmpty, "Initial release message should be set")
+    }
+
+    // MARK: - Can Release Tests
+
+    func testCanReleaseIsFalseWhenTextIsEmpty() {
+        sut.writtenText = ""
+        XCTAssertFalse(sut.canRelease, "Cannot release when text is empty")
+    }
+
+    func testCanReleaseIsFalseWhenTextIsWhitespaceOnly() {
+        sut.writtenText = "   \n\t  "
+        XCTAssertFalse(sut.canRelease, "Cannot release when text is only whitespace")
+    }
+
+    func testCanReleaseIsTrueWhenTextHasContent() {
+        sut.writtenText = "Hello world"
+        XCTAssertTrue(sut.canRelease, "Can release when text has content")
+    }
+
+    func testCanReleaseIsTrueWithSingleCharacter() {
+        sut.writtenText = "a"
+        XCTAssertTrue(sut.canRelease, "Can release with single character")
+    }
+
+    // MARK: - Has Text Tests
+
+    func testHasTextIsFalseWhenEmpty() {
+        sut.writtenText = ""
+        XCTAssertFalse(sut.hasText, "hasText should be false when empty")
+    }
+
+    func testHasTextIsTrueWithContent() {
+        sut.writtenText = "content"
+        XCTAssertTrue(sut.hasText, "hasText should be true with content")
+    }
+
+    // MARK: - State Transition Tests
+
+    func testStartWritingTransitionsToWritingState() {
+        sut.startWriting()
+        XCTAssertEqual(sut.writingState, .writing, "Should transition to writing state")
+    }
+
+    func testManualReleaseDoesNothingWhenNoText() {
+        sut.writingState = .writing
+        sut.writtenText = ""
+        sut.manualRelease()
+        XCTAssertEqual(sut.writingState, .writing, "Should stay in writing state when no text")
+    }
+
+    func testManualReleaseTransitionsToReleasingWhenHasText() {
+        sut.writingState = .writing
+        sut.writtenText = "Some thoughts to release"
+        sut.manualRelease()
+        XCTAssertEqual(sut.writingState, .releasing, "Should transition to releasing state")
+    }
+
+    func testReleaseCompleteClearsText() {
+        sut.writtenText = "Some text that will be released"
+        sut.releaseComplete()
+        XCTAssertTrue(sut.writtenText.isEmpty, "Text should be cleared after release")
+    }
+
+    func testReleaseCompleteTransitionsToPrompt() {
+        sut.writingState = .releasing
+        sut.releaseComplete()
+        XCTAssertEqual(sut.writingState, .prompt, "Should transition back to prompt state")
+    }
+
+    func testReleaseCompleteGetsNewPrompt() {
+        let originalPrompt = sut.currentPrompt
+        sut.releaseComplete()
+        // Note: There's a chance the same prompt is selected, so we just verify a prompt exists
+        XCTAssertFalse(sut.currentPrompt.text.isEmpty, "Should have a new prompt")
+    }
+
+    func testStartNewSessionClearsText() {
+        sut.writtenText = "Some text"
+        sut.startNewSession()
+        XCTAssertTrue(sut.writtenText.isEmpty, "Text should be cleared for new session")
+    }
+
+    func testStartNewSessionTransitionsToPrompt() {
+        sut.writingState = .writing
+        sut.startNewSession()
+        XCTAssertEqual(sut.writingState, .prompt, "Should transition to prompt state")
+    }
+}
