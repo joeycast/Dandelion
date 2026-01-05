@@ -63,22 +63,24 @@ struct WritingView: View {
 
             Spacer()
 
-            // Begin writing button
-            Button("Begin Writing") {
-                viewModel.startWriting()
-            }
-            .buttonStyle(.dandelion)
+            // Buttons with reduced spacing
+            VStack(spacing: DandelionSpacing.md) {
+                // Skip prompt option
+                Button("New Prompt") {
+                    viewModel.currentPrompt = PromptsManager().randomPrompt()
+                }
+                .font(.dandelionCaption)
+                .foregroundColor(.dandelionSecondary)
 
-            // Skip prompt option
-            Button("New Prompt") {
-                viewModel.currentPrompt = PromptsManager().randomPrompt()
+                // Begin writing button
+                Button("Begin Writing") {
+                    viewModel.startWriting()
+                }
+                .buttonStyle(.dandelion)
             }
-            .font(.dandelionCaption)
-            .foregroundColor(.dandelionSecondary)
-            .padding(.top, DandelionSpacing.sm)
-//
+
 //            Spacer()
-//                .frame(height: DandelionSpacing.xxl)
+//                .frame(height: DandelionSpacing.xl)
         }
     }
 
