@@ -11,7 +11,8 @@ import SwiftUI
 
 extension Color {
     /// Soft cream/white background
-    static let dandelionBackground = Color(red: 0.99, green: 0.98, blue: 0.95)
+//    static let dandelionBackground = Color(red: 0.99, green: 0.98, blue: 0.95)
+    static let dandelionBackground = Color(red: 0, green: 0, blue: 0)
 
     /// Pale yellow - primary dandelion color
     static let dandelionPrimary = Color(red: 0.98, green: 0.93, blue: 0.75)

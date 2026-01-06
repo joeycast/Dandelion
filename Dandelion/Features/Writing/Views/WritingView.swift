@@ -51,7 +51,7 @@ struct WritingView: View {
         VStack(spacing: DandelionSpacing.xl) {
             Spacer()
 
-            // Dandelion illustration placeholder
+            // Dandelion illustration
             dandelionIllustration
 
             // Prompt text
@@ -213,9 +213,7 @@ struct WritingView: View {
     // MARK: - Dandelion Illustration
 
     private var dandelionIllustration: some View {
-        Image("Dandelion")
-            .resizable()
-            .aspectRatio(contentMode: .fit)
+        DandelionBloomView()
             .frame(height: 200)
     }
 }
