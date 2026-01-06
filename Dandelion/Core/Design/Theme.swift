@@ -21,7 +21,8 @@ extension Color {
     static let dandelionAccent = Color(red: 0.85, green: 0.75, blue: 0.45)
 
     /// Warm dark gray for text
-    static let dandelionText = Color(red: 0.25, green: 0.24, blue: 0.22)
+//    static let dandelionText = Color(red: 0.25, green: 0.24, blue: 0.22)
+    static let dandelionText = Color(red: 0.98, green: 0.93, blue: 0.75)
 
     /// Light gray for secondary text and hints
     static let dandelionSecondary = Color(red: 0.55, green: 0.53, blue: 0.50)
@@ -129,7 +130,7 @@ struct DandelionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.dandelionButton)
-            .foregroundColor(.dandelionText)
+            .foregroundColor(.dandelionBackground)
             .padding(.horizontal, DandelionSpacing.lg)
             .padding(.vertical, DandelionSpacing.md)
             .background(

@@ -22,7 +22,7 @@ struct PappusView: View {
             .position(isAnimating ? pappus.endPosition : pappus.startPosition)
             .rotationEffect(.degrees(isAnimating ? pappus.endRotation : pappus.startRotation))
             .animation(
-                .easeOut(duration: pappus.duration)
+                .easeInOut(duration: pappus.duration)
                 .delay(pappus.driftDelay),
                 value: isAnimating
             )

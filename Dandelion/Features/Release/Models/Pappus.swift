@@ -30,7 +30,7 @@ struct Pappus: Identifiable, Equatable {
         self.startPosition = startPosition
         self.startRotation = Double.random(in: -5...5)
 
-        // Calculate random end position (drifting upward and outward)
+        // Calculate end position (drifting upward and outward)
         let horizontalDrift = CGFloat.random(in: -150...150)
         let verticalDrift = CGFloat.random(in: -screenSize.height * 0.8 ... -screenSize.height * 0.4)
 
@@ -40,8 +40,8 @@ struct Pappus: Identifiable, Equatable {
         )
 
         self.endRotation = startRotation + Double.random(in: -45...45)
-        self.driftDelay = Double.random(in: 0...0.3)
-        self.duration = Double.random(in: 2.5...4.0)
+        self.driftDelay = Double.random(in: 0...0.1)
+        self.duration = Double.random(in: 5.0...7.2)
     }
 }
 
@@ -51,33 +51,61 @@ extension Pappus {
     /// Parse text into individual pappuses (one per letter)
     static func fromText(
         _ text: String,
-        screenSize: CGSize
+        screenSize: CGSize,
+        textRect: CGRect? = nil
     ) -> [Pappus] {
-        // Filter to just letters and numbers (skip whitespace)
-        let characters = text.filter { !$0.isWhitespace }
-
-        // Estimate character layout based on typical text flow
-        let charsPerLine = Int(screenSize.width / 16) // Approximate chars per line
-        let lineHeight: CGFloat = 35
-        let charWidth: CGFloat = 14
-        let startX: CGFloat = 24 // Left margin
-        let startY: CGFloat = screenSize.height * 0.15 // Start near top
-
-        return characters.enumerated().map { index, char in
-            // Calculate approximate position based on character index
-            let lineNumber = index / charsPerLine
-            let charInLine = index % charsPerLine
-
-            let position = CGPoint(
-                x: startX + CGFloat(charInLine) * charWidth + CGFloat.random(in: -5...5),
-                y: startY + CGFloat(lineNumber) * lineHeight + CGFloat.random(in: -3...3)
-            )
-
-            return Pappus(
-                text: String(char),
-                startPosition: position,
-                screenSize: screenSize
-            )
+        // Use provided rect or fall back to approximate writing area position
+        let layoutRect: CGRect
+        if let rect = textRect, rect.width > 0 && rect.height > 0 {
+            layoutRect = rect
+        } else {
+            layoutRect = CGRect(x: 0, y: screenSize.height * 0.35, width: screenSize.width, height: screenSize.height * 0.5)
         }
+
+        // Font metrics for 22pt serif
+        let lineHeight: CGFloat = 30
+        let charWidth: CGFloat = 11
+        let textInsetX: CGFloat = 4
+        let textInsetY: CGFloat = 10
+        let layoutWidth = max(1, layoutRect.width - textInsetX * 2)
+        let startX: CGFloat = layoutRect.minX + textInsetX
+        let startY: CGFloat = layoutRect.minY + textInsetY
+
+        var pappuses: [Pappus] = []
+        var currentX: CGFloat = startX
+        var currentY: CGFloat = startY
+
+        for char in text {
+            if char == "\n" {
+                currentX = startX
+                currentY += lineHeight
+            } else if char.isWhitespace {
+                currentX += charWidth
+                if currentX > layoutRect.minX + layoutWidth {
+                    currentX = startX
+                    currentY += lineHeight
+                }
+            } else {
+                if currentX + charWidth > layoutRect.minX + layoutWidth {
+                    currentX = startX
+                    currentY += lineHeight
+                }
+
+                let position = CGPoint(
+                    x: currentX + CGFloat.random(in: -2...2),
+                    y: currentY + CGFloat.random(in: -1...1)
+                )
+
+                pappuses.append(Pappus(
+                    text: String(char),
+                    startPosition: position,
+                    screenSize: screenSize
+                ))
+
+                currentX += charWidth
+            }
+        }
+
+        return pappuses
     }
 }

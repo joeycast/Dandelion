@@ -10,6 +10,7 @@ import SwiftUI
 struct WritingView: View {
     @State private var viewModel = WritingViewModel()
     @FocusState private var isTextEditorFocused: Bool
+    @State private var animateLetters: Bool = false
 
     var body: some View {
         ZStack {
@@ -20,102 +21,141 @@ struct WritingView: View {
                     isTextEditorFocused = false
                 }
 
-            switch viewModel.writingState {
-            case .prompt:
-                promptView
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            contentView
 
-            case .writing:
-                writingEditorView
-                    .transition(.opacity)
-
-            case .releasing:
-                ReleaseAnimationView(
-                    text: viewModel.writtenText,
+            // Release message overlay
+            if isReleasing {
+                ReleaseMessageView(
                     releaseMessage: viewModel.currentReleaseMessage.text,
-                    onComplete: viewModel.releaseComplete
+                    onComplete: {}
                 )
-                .transition(.opacity)
-
-            case .complete:
-                // This state transitions back to prompt
-                EmptyView()
+                .onAppear {
+                    viewModel.beginReleaseDetachment()
+                    // Start letter animation immediately
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        animateLetters = true
+                    }
+                    // Complete the release after animation finishes
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5.5) {
+                        animateLetters = false
+                        viewModel.releaseComplete()
+                    }
+                }
+                .zIndex(1)
+                .allowsHitTesting(false)
             }
         }
+        .coordinateSpace(name: "writingSpace")
         .animation(DandelionAnimation.slow, value: viewModel.writingState)
-    }
-
-    // MARK: - Prompt View
-
-    private var promptView: some View {
-        VStack(spacing: DandelionSpacing.xl) {
-            Spacer()
-
-            // Dandelion illustration
-            dandelionIllustration
-
-            // Prompt text
-            Text(viewModel.currentPrompt.text)
-                .font(.dandelionTitle)
-                .foregroundColor(.dandelionText)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, DandelionSpacing.xl)
-
-            Spacer()
-
-            // Buttons with reduced spacing
-            VStack(spacing: DandelionSpacing.md) {
-                // Skip prompt option
-                Button("New Prompt") {
-                    viewModel.currentPrompt = PromptsManager().randomPrompt()
-                }
-                .font(.dandelionCaption)
-                .foregroundColor(.dandelionSecondary)
-
-                // Begin writing button
-                Button("Begin Writing") {
-                    viewModel.startWriting()
-                }
-                .buttonStyle(.dandelion)
+        .onChange(of: viewModel.writingState) { _, newValue in
+            isTextEditorFocused = newValue == .writing
+            if newValue == .writing || newValue == .prompt || newValue == .complete {
+                animateLetters = false
             }
-
-//            Spacer()
-//                .frame(height: DandelionSpacing.xl)
         }
     }
 
-    // MARK: - Writing Editor View
+    private var isPrompt: Bool {
+        viewModel.writingState == .prompt || viewModel.writingState == .complete
+    }
 
-    private var writingEditorView: some View {
+    private var isWriting: Bool {
+        viewModel.writingState == .writing
+    }
+
+    private var isReleasing: Bool {
+        viewModel.writingState == .releasing
+    }
+
+    private var contentView: some View {
         VStack(spacing: 0) {
-            // Top bar with subtle prompt reminder
-            HStack {
-                Text(viewModel.currentPrompt.text)
-                    .font(.dandelionCaption)
-                    .foregroundColor(.dandelionSecondary)
-                    .lineLimit(1)
-
+            if isPrompt {
                 Spacer()
             }
-            .padding(.horizontal, DandelionSpacing.screenEdge)
-            .padding(.top, DandelionSpacing.md)
-            .padding(.bottom, DandelionSpacing.sm)
 
-            // Text editor
-            TextEditor(text: $viewModel.writtenText)
-                .font(.dandelionWriting)
-                .foregroundColor(.dandelionText)
-                .scrollContentBackground(.hidden)
-                .background(Color.clear)
-                .padding(.horizontal, DandelionSpacing.screenEdge - 5) // Account for TextEditor inset
-                .focused($isTextEditorFocused)
-                .onAppear {
-                    isTextEditorFocused = true
-                }
+            headerView
 
-            // Bottom bar with release options
-            bottomBar
+            if isPrompt {
+                Spacer()
+                promptButtons
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                Spacer()
+                    .frame(height: DandelionSpacing.xl)
+            } else {
+                writingArea
+                    .transition(.opacity)
+            }
         }
+    }
+
+    private var headerView: some View {
+        VStack(spacing: isPrompt ? DandelionSpacing.lg : DandelionSpacing.xs) {
+            dandelionIllustration(height: isPrompt ? 200 : 140)
+
+            Text(viewModel.currentPrompt.text)
+                .font(isPrompt ? .dandelionTitle : .dandelionCaption)
+                .foregroundColor(isPrompt ? .dandelionText : .dandelionSecondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(isPrompt ? nil : 1)
+                .padding(.horizontal, isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge)
+        }
+        .padding(.top, isPrompt ? 0 : DandelionSpacing.sm)
+    }
+
+    private var promptButtons: some View {
+        VStack(spacing: DandelionSpacing.md) {
+            Button("New Prompt") {
+                viewModel.currentPrompt = PromptsManager().randomPrompt()
+            }
+            .font(.dandelionCaption)
+            .foregroundColor(.dandelionSecondary)
+
+            Button("Begin Writing") {
+                viewModel.startWriting()
+            }
+            .buttonStyle(.dandelion)
+        }
+    }
+
+    private var writingArea: some View {
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                ZStack(alignment: .topLeading) {
+                    // The actual TextEditor (hidden when releasing)
+                    TextEditor(text: $viewModel.writtenText)
+                        .font(.dandelionWriting)
+                        .foregroundColor(.dandelionText)
+                        .scrollContentBackground(.hidden)
+                        .background(Color.clear)
+                        .focused($isTextEditorFocused)
+                        .disabled(!isWriting)
+                        .opacity(isReleasing ? 0 : 1)
+                        .animation(nil, value: isReleasing)
+
+                    // Animatable text overlay - visible when releasing
+                    AnimatableTextView(
+                        text: viewModel.writtenText,
+                        font: .dandelionWriting,
+                        textColor: .dandelionText,
+                        lineWidth: geometry.size.width - 8,
+                        isAnimating: animateLetters,
+                        screenSize: geometry.size
+                    )
+                    .padding(.top, 7)
+                    .padding(.horizontal, 4)
+                    .opacity(isReleasing ? 1 : 0)
+                    .animation(nil, value: isReleasing)
+                }
+                .padding(.horizontal, DandelionSpacing.screenEdge - 5)
+
+                Spacer(minLength: 0)
+
+                bottomBar
+                    .opacity(isReleasing ? 0 : 1)
+            }
+        }
+        .padding(.top, DandelionSpacing.sm)
+        .allowsHitTesting(isWriting)
     }
 
     // MARK: - Bottom Bar
@@ -212,9 +252,21 @@ struct WritingView: View {
 
     // MARK: - Dandelion Illustration
 
-    private var dandelionIllustration: some View {
-        DandelionBloomView()
-            .frame(height: 200)
+    private func dandelionIllustration(height: CGFloat) -> some View {
+        DandelionBloomView(
+            seedCount: viewModel.dandelionSeedCount,
+            detachedSeedTimes: viewModel.detachedSeedTimes
+        )
+        .frame(height: height)
+        .allowsHitTesting(false)
+    }
+}
+
+private struct TextEditorFrameKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
     }
 }
 
