@@ -30,6 +30,9 @@ final class WritingViewModel {
     /// Current blow level for visual feedback (0-1)
     var blowLevel: Float = 0
 
+    /// Detached seed timestamps for the dandelion bloom
+    var detachedSeedTimes: [Int: TimeInterval] = [:]
+
     /// Whether to show permission request
     var showPermissionRequest: Bool = false
 
@@ -40,6 +43,10 @@ final class WritingViewModel {
 
     private let promptsManager: PromptsManager
     let blowDetection: BlowDetectionService
+    let dandelionSeedCount: Int = 140
+    private var detachmentOrder: [Int] = []
+    private var detachmentCursor: Int = 0
+    private var detachmentTask: Task<Void, Never>?
 
     // MARK: - Computed Properties
 
@@ -62,6 +69,7 @@ final class WritingViewModel {
         self.currentPrompt = promptsManager.randomPrompt()
         self.currentReleaseMessage = promptsManager.randomReleaseMessage()
 
+        prepareDetachmentOrder()
         setupBlowDetection()
     }
 
@@ -104,6 +112,7 @@ final class WritingViewModel {
         // Get new prompt and message for next time
         currentPrompt = promptsManager.randomPrompt()
         currentReleaseMessage = promptsManager.randomReleaseMessage()
+        resetDandelionDetachment()
 
         withAnimation(DandelionAnimation.slow) {
             writingState = .prompt
@@ -115,6 +124,7 @@ final class WritingViewModel {
         writtenText = ""
         currentPrompt = promptsManager.randomPrompt()
         currentReleaseMessage = promptsManager.randomReleaseMessage()
+        resetDandelionDetachment()
 
         withAnimation(DandelionAnimation.gentle) {
             writingState = .prompt
@@ -125,16 +135,29 @@ final class WritingViewModel {
 
     private func setupBlowDetection() {
         blowDetection.onBlowDetected = { [weak self] in
-            guard let self = self, self.canRelease else { return }
-            self.triggerRelease()
+            guard let self else { return }
+            Task { @MainActor in
+                guard self.writingState == .writing else { return }
+                if self.canRelease {
+                    self.triggerRelease()
+                }
+            }
         }
 
         blowDetection.onBlowStarted = { [weak self] in
-            self?.showBlowIndicator = true
+            guard let self else { return }
+            Task { @MainActor in
+                guard self.writingState == .writing else { return }
+                self.showBlowIndicator = true
+            }
         }
 
         blowDetection.onBlowEnded = { [weak self] in
-            self?.showBlowIndicator = false
+            guard let self else { return }
+            Task { @MainActor in
+                self.showBlowIndicator = false
+                self.stopDetachingSeeds()
+            }
         }
     }
 
@@ -142,9 +165,73 @@ final class WritingViewModel {
         // Stop listening during animation
         blowDetection.stopListening()
         showBlowIndicator = false
+        stopDetachingSeeds()
 
         withAnimation(DandelionAnimation.gentle) {
             writingState = .releasing
         }
+    }
+
+    private func prepareDetachmentOrder() {
+        detachmentOrder = Array(0..<dandelionSeedCount).shuffled()
+        detachmentCursor = 0
+    }
+
+    private func resetDandelionDetachment() {
+        detachedSeedTimes = [:]
+        prepareDetachmentOrder()
+        stopDetachingSeeds()
+    }
+
+    private func startDetachingSeeds() {
+        guard detachmentTask == nil else { return }
+
+        detachmentTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                await MainActor.run {
+                    self.detachSeeds(count: 2)
+                }
+                try? await Task.sleep(nanoseconds: 140_000_000)
+            }
+        }
+    }
+
+    private func stopDetachingSeeds() {
+        detachmentTask?.cancel()
+        detachmentTask = nil
+    }
+
+    @MainActor
+    private func detachSeeds(count: Int) {
+        guard detachmentCursor < detachmentOrder.count else { return }
+        var updated = detachedSeedTimes
+        let timestamp = Date().timeIntervalSinceReferenceDate
+        for _ in 0..<count {
+            guard detachmentCursor < detachmentOrder.count else { break }
+            let id = detachmentOrder[detachmentCursor]
+            detachmentCursor += 1
+            updated[id] = timestamp
+        }
+        detachedSeedTimes = updated
+    }
+
+    @MainActor
+    private func detachAllSeeds() {
+        let timestamp = Date().timeIntervalSinceReferenceDate
+        var updated: [Int: TimeInterval] = [:]
+        updated.reserveCapacity(dandelionSeedCount)
+        for id in 0..<dandelionSeedCount {
+            updated[id] = timestamp
+        }
+        detachedSeedTimes = updated
+        detachmentCursor = detachmentOrder.count
+        stopDetachingSeeds()
+    }
+
+    @MainActor
+    func beginReleaseDetachment() {
+        guard detachedSeedTimes.count < dandelionSeedCount else { return }
+        detachAllSeeds()
     }
 }

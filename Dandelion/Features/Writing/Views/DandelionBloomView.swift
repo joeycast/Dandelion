@@ -11,7 +11,7 @@ struct DandelionBloomView: View {
     var seedCount: Int = 140
     var filamentsPerSeed: Int = 20
     var windStrength: CGFloat = 0.8
-    var detachedSeedIDs: Set<Int> = []
+    var detachedSeedTimes: [Int: TimeInterval] = [:]
 
     @State private var simulation: DandelionSimulation
 
@@ -19,12 +19,12 @@ struct DandelionBloomView: View {
         seedCount: Int = 140,
         filamentsPerSeed: Int = 20,
         windStrength: CGFloat = 0.8,
-        detachedSeedIDs: Set<Int> = []
+        detachedSeedTimes: [Int: TimeInterval] = [:]
     ) {
         self.seedCount = seedCount
         self.filamentsPerSeed = filamentsPerSeed
         self.windStrength = windStrength
-        self.detachedSeedIDs = detachedSeedIDs
+        self.detachedSeedTimes = detachedSeedTimes
         _simulation = State(initialValue: DandelionSimulation(
             seedCount: seedCount,
             filamentsPerSeed: filamentsPerSeed
@@ -40,7 +40,7 @@ struct DandelionBloomView: View {
                     time: timeline.date.timeIntervalSinceReferenceDate,
                     simulation: simulation,
                     windStrength: windStrength,
-                    detachedSeedIDs: detachedSeedIDs
+                    detachedSeedTimes: detachedSeedTimes
                 )
             }
             .onChange(of: timeline.date) { _, newDate in
@@ -58,7 +58,7 @@ private enum DandelionRenderer {
         time: TimeInterval,
         simulation: DandelionSimulation,
         windStrength: CGFloat,
-        detachedSeedIDs: Set<Int>
+        detachedSeedTimes: [Int: TimeInterval]
     ) {
         var context = context
         let windField = DandelionWindField()
@@ -76,38 +76,70 @@ private enum DandelionRenderer {
         drawStem(in: &context, base: stemBase, headCenter: headCenter, headRadius: headRadius)
 
         let seeds = simulation.seeds
-        let backSeeds = seeds.filter { $0.depth < 0 }
-        let frontSeeds = seeds.filter { $0.depth >= 0 }
+        let attachedSeeds = seeds.filter { detachedSeedTimes[$0.id] == nil }
+        let detachedSeeds = seeds.filter { detachedSeedTimes[$0.id] != nil }
+        let backSeeds = attachedSeeds.filter { $0.depth < 0 }
+        let frontSeeds = attachedSeeds.filter { $0.depth >= 0 }
 
         for seed in backSeeds {
-            if detachedSeedIDs.contains(seed.id) { continue }
             drawSeed(
                 seed,
                 in: &context,
+                size: size,
                 headCenter: headCenter,
                 headRadius: headRadius,
                 time: t,
                 globalAngle: stemAngle * 0.4,
                 windStrength: windStrength,
-                windField: windField
+                windField: windField,
+                detachment: detachmentState(for: seed, time: time, detachedSeedTimes: detachedSeedTimes)
             )
         }
 
         drawCore(in: &context, center: headCenter, radius: headRadius)
 
         for seed in frontSeeds {
-            if detachedSeedIDs.contains(seed.id) { continue }
             drawSeed(
                 seed,
                 in: &context,
+                size: size,
                 headCenter: headCenter,
                 headRadius: headRadius,
                 time: t,
                 globalAngle: stemAngle * 0.4,
                 windStrength: windStrength,
-                windField: windField
+                windField: windField,
+                detachment: detachmentState(for: seed, time: time, detachedSeedTimes: detachedSeedTimes)
             )
         }
+
+        for seed in detachedSeeds {
+            drawSeed(
+                seed,
+                in: &context,
+                size: size,
+                headCenter: headCenter,
+                headRadius: headRadius,
+                time: t,
+                globalAngle: stemAngle * 0.4,
+                windStrength: windStrength,
+                windField: windField,
+                detachment: detachmentState(for: seed, time: time, detachedSeedTimes: detachedSeedTimes)
+            )
+        }
+    }
+
+    private static func detachmentState(
+        for seed: DandelionSeed,
+        time: TimeInterval,
+        detachedSeedTimes: [Int: TimeInterval]
+    ) -> DetachmentState {
+        guard let startTime = detachedSeedTimes[seed.id] else {
+            return DetachmentState(progress: 0, elapsed: 0)
+        }
+        let elapsed = max(0, time - startTime)
+        let progress = min(1.0, elapsed / 1.0)
+        return DetachmentState(progress: CGFloat(progress), elapsed: CGFloat(elapsed))
     }
 
     private static func drawStem(
@@ -175,12 +207,14 @@ private enum DandelionRenderer {
     private static func drawSeed(
         _ seed: DandelionSeed,
         in context: inout GraphicsContext,
+        size: CGSize,
         headCenter: CGPoint,
         headRadius: CGFloat,
         time: CGFloat,
         globalAngle: CGFloat,
         windStrength: CGFloat,
-        windField: DandelionWindField
+        windField: DandelionWindField,
+        detachment: DetachmentState
     ) {
         let depthFactor = (seed.depth + 1) * 0.5
         let depthScale = 0.78 + depthFactor * 0.32
@@ -191,13 +225,12 @@ private enum DandelionRenderer {
         let deflection = seed.angle + localSway
         let direction = baseDirection.rotated(by: deflection)
 
-        let anchor = headCenter
+        let baseAnchor = headCenter
             + seed.projection * (headRadius * (1 - seed.anchorInset))
             + seed.anchorJitter * headRadius
 
         let beakLength = headRadius * seed.beakLength * depthScale
         let pappusRadius = headRadius * seed.pappusRadius * depthScale
-        let pappusCenter = anchor + direction * beakLength
 
         let windVector = windField.vector(
             at: seed.projection,
@@ -205,6 +238,26 @@ private enum DandelionRenderer {
             strength: windStrength
         )
         let windBend = windVector * (headRadius * 0.08)
+        let detachmentEase = detachment.progress * detachment.progress * (3 - 2 * detachment.progress)
+        let flightProgress = min(1, detachment.elapsed / seed.flightDuration)
+        let flightInverse = 1 - flightProgress
+        let flightEase = 1 - (flightInverse * flightInverse * flightInverse)
+        let offscreenPadding = size.height * 0.15
+        let flightOffset = CGPoint(
+            x: size.width * seed.flightDrift * flightEase,
+            y: -(size.height * seed.flightLift + offscreenPadding) * flightEase
+        )
+        let windOffset = windVector * (size.height * 0.08 * flightProgress)
+        let flutterOffset = direction.perpendicular * (
+            sin(time * 1.2 + seed.detachmentPhase) * size.width * 0.015 * flightProgress
+        )
+        let detachmentOffset = direction * (headRadius * seed.detachmentDistance * detachmentEase)
+            + direction.perpendicular * (sin(time * 1.1 + seed.detachmentPhase) * headRadius * 0.02 * detachmentEase)
+            + flightOffset
+            + windOffset
+            + flutterOffset
+        let anchor = baseAnchor + detachmentOffset
+        let pappusCenter = anchor + direction * beakLength
 
         context.drawLayer { layer in
             layer.opacity = seedOpacity
@@ -280,6 +333,11 @@ private enum DandelionRenderer {
             layer.fill(crownPath, with: .color(Color.dandelionPappus.opacity(0.85)))
         }
     }
+}
+
+private struct DetachmentState {
+    let progress: CGFloat
+    let elapsed: CGFloat
 }
 
 private struct DandelionSimulation {
@@ -366,6 +424,11 @@ private struct DandelionSeed: Identifiable {
     let mass: CGFloat
     let swayFrequency: CGFloat
     let swayPhase: CGFloat
+    let detachmentDistance: CGFloat
+    let detachmentPhase: CGFloat
+    let flightDuration: CGFloat
+    let flightLift: CGFloat
+    let flightDrift: CGFloat
     var angle: CGFloat
     var angularVelocity: CGFloat
 
@@ -424,6 +487,11 @@ private struct DandelionSeed: Identifiable {
             mass: random(in: 0.85...1.2, using: &rng),
             swayFrequency: random(in: 0.6...1.25, using: &rng),
             swayPhase: random(in: 0...(.pi * 2), using: &rng),
+            detachmentDistance: random(in: 0.18...0.32, using: &rng),
+            detachmentPhase: random(in: 0...(.pi * 2), using: &rng),
+            flightDuration: random(in: 5.0...7.2, using: &rng),
+            flightLift: random(in: 1.1...1.5, using: &rng),
+            flightDrift: random(in: -0.35...0.35, using: &rng),
             angle: 0,
             angularVelocity: 0
         )
