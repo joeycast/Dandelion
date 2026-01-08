@@ -45,14 +45,17 @@ final class WritingViewModel {
 
     private let promptsManager: PromptsManager
     let blowDetection: BlowDetectionService
+    private let haptics: HapticsService
     let dandelionSeedCount: Int = 140
     private var detachmentOrder: [Int] = []
     private var detachmentCursor: Int = 0
     private var detachmentTask: Task<Void, Never>?
     private var releaseTask: Task<Void, Never>?
+    private var releaseHapticsTask: Task<Void, Never>?
     private let releaseDuration: TimeInterval = 9.0  // After message fully fades
     private var activeReleaseID: UUID?
     private var seedRestoreTask: Task<Void, Never>?
+    private var regrowHapticsTask: Task<Void, Never>?
     private(set) var seedRestoreStartTime: TimeInterval?
     let seedRestoreDuration: TimeInterval = 5.0
     private let dandelionReturnDuration: TimeInterval = 1.5  // Position animation before regrowth begins
@@ -73,16 +76,19 @@ final class WritingViewModel {
     convenience init() {
         self.init(
             promptsManager: PromptsManager(),
-            blowDetection: BlowDetectionService()
+            blowDetection: BlowDetectionService(),
+            haptics: .shared
         )
     }
 
     init(
         promptsManager: PromptsManager,
-        blowDetection: BlowDetectionService
+        blowDetection: BlowDetectionService,
+        haptics: HapticsService
     ) {
         self.promptsManager = promptsManager
         self.blowDetection = blowDetection
+        self.haptics = haptics
         self.currentPrompt = promptsManager.randomPrompt()
         self.currentReleaseMessage = promptsManager.randomReleaseMessage()
 
@@ -97,6 +103,7 @@ final class WritingViewModel {
         if Self.debugReleaseFlow {
             debugLog("[ReleaseFlow] startWriting")
         }
+        haptics.tap()
         isDandelionReturning = false
         writingState = .writing
 
@@ -130,6 +137,8 @@ final class WritingViewModel {
     func releaseComplete() {
         releaseTask?.cancel()
         releaseTask = nil
+        releaseHapticsTask?.cancel()
+        releaseHapticsTask = nil
         activeReleaseID = nil
         if Self.debugReleaseFlow {
             debugLog("[ReleaseFlow] releaseComplete")
@@ -153,6 +162,10 @@ final class WritingViewModel {
     func startNewSession() {
         releaseTask?.cancel()
         releaseTask = nil
+        releaseHapticsTask?.cancel()
+        releaseHapticsTask = nil
+        regrowHapticsTask?.cancel()
+        regrowHapticsTask = nil
         activeReleaseID = nil
         if Self.debugReleaseFlow {
             debugLog("[ReleaseFlow] startNewSession")
@@ -207,6 +220,8 @@ final class WritingViewModel {
         showBlowIndicator = false
         stopDetachingSeeds()
         cancelSeedRestore()
+        regrowHapticsTask?.cancel()
+        regrowHapticsTask = nil
         if Self.debugReleaseFlow {
             debugLog("[ReleaseFlow] triggerRelease")
         }
@@ -215,10 +230,14 @@ final class WritingViewModel {
         writingState = .releasing
 
         releaseTask?.cancel()
+        releaseHapticsTask?.cancel()
         let releaseID = UUID()
         activeReleaseID = releaseID
         if Self.debugReleaseFlow {
             debugLog("[ReleaseFlow] scheduleReleaseComplete id=\(releaseID)")
+        }
+        releaseHapticsTask = Task { [haptics] in
+            await haptics.playReleasePattern()
         }
         releaseTask = Task { [weak self] in
             guard let self else { return }
@@ -266,6 +285,10 @@ final class WritingViewModel {
             await MainActor.run {
                 guard let self else { return }
                 self.seedRestoreStartTime = Date().timeIntervalSinceReferenceDate
+                self.regrowHapticsTask?.cancel()
+                self.regrowHapticsTask = Task { [haptics] in
+                    await haptics.playRegrowthPattern()
+                }
             }
 
             // Wait for regrowth to complete
