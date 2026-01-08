@@ -269,10 +269,12 @@ private enum DandelionRenderer {
         if restoreProgress > 0 && detachment.progress > 0 {
             // Convert overall restore progress to elapsed time equivalent
             let restoreElapsed = restoreProgress * restoreDuration
+            // Scale the seed's normalized delay to actual time (tiny jitter)
+            let scaledDelay = seed.growthDelay * restoreDuration
             // Subtract this seed's delay to get its individual progress
-            let seedElapsed = max(0, restoreElapsed - seed.growthDelay)
-            // Each seed takes ~0.6s to fully grow (leaving time for staggered starts)
-            let perSeedDuration: CGFloat = 0.6
+            let seedElapsed = max(0, restoreElapsed - scaledDelay)
+            // Each seed takes 90% of total duration to fully grow (all grow together)
+            let perSeedDuration = restoreDuration * 0.9
             seedGrowthProgress = min(1, seedElapsed / perSeedDuration)
         } else {
             seedGrowthProgress = 0
@@ -577,9 +579,8 @@ private struct DandelionSeed: Identifiable {
             flightDuration: random(in: 16.0...20.0, using: &rng), // Tweak this to adjust the amount of time the seeds spend drifting away
             flightLift: random(in: 1.1...1.5, using: &rng),
             flightDrift: random(in: -0.35...0.35, using: &rng),
-            // Growth delay: bottom seeds (y ≈ -1) grow first, top seeds (y ≈ 1) grow last
-            // Maps y from [-1, 1] to [0, 0.8] with random jitter for organic feel
-            growthDelay: CGFloat((y + 1) * 0.4) + random(in: -0.05...0.05, using: &rng),
+            // Growth delay: all seeds grow together with slight random jitter for organic feel
+            growthDelay: random(in: 0...0.08, using: &rng),
             angle: 0,
             angularVelocity: 0
         )

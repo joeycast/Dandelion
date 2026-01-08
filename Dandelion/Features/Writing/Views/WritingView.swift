@@ -105,7 +105,7 @@ struct WritingView: View {
                 .lineLimit(isPrompt ? nil : 1)
                 .padding(.horizontal, isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge)
                 .opacity(isReleasing ? 0 : 1)
-                .animation(.easeInOut(duration: 0.2), value: isReleasing)
+                .animation(.easeInOut(duration: 1.0), value: isReleasing)
         }
         .padding(.top, isPrompt ? 0 : DandelionSpacing.sm)
     }
