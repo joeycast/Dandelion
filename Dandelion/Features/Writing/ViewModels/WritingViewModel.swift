@@ -105,7 +105,9 @@ final class WritingViewModel {
         }
         haptics.tap()
         isDandelionReturning = false
-        writingState = .writing
+        withAnimation(DandelionAnimation.slow) {
+            writingState = .writing
+        }
 
         // Check permission and start listening if granted
         Task {
