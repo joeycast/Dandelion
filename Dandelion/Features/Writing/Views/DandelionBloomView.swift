@@ -10,21 +10,27 @@ import SwiftUI
 struct DandelionBloomView: View {
     var seedCount: Int = 140
     var filamentsPerSeed: Int = 20
-    var windStrength: CGFloat = 0.8
+    var windStrength: CGFloat = 1.2
     var detachedSeedTimes: [Int: TimeInterval] = [:]
+    var seedRestoreStartTime: TimeInterval?
+    var seedRestoreDuration: TimeInterval = 1.8
 
     @State private var simulation: DandelionSimulation
 
     init(
         seedCount: Int = 140,
         filamentsPerSeed: Int = 20,
-        windStrength: CGFloat = 0.8,
-        detachedSeedTimes: [Int: TimeInterval] = [:]
+        windStrength: CGFloat = 1.2,
+        detachedSeedTimes: [Int: TimeInterval] = [:],
+        seedRestoreStartTime: TimeInterval? = nil,
+        seedRestoreDuration: TimeInterval = 1.8
     ) {
         self.seedCount = seedCount
         self.filamentsPerSeed = filamentsPerSeed
         self.windStrength = windStrength
         self.detachedSeedTimes = detachedSeedTimes
+        self.seedRestoreStartTime = seedRestoreStartTime
+        self.seedRestoreDuration = seedRestoreDuration
         _simulation = State(initialValue: DandelionSimulation(
             seedCount: seedCount,
             filamentsPerSeed: filamentsPerSeed
@@ -40,7 +46,9 @@ struct DandelionBloomView: View {
                     time: timeline.date.timeIntervalSinceReferenceDate,
                     simulation: simulation,
                     windStrength: windStrength,
-                    detachedSeedTimes: detachedSeedTimes
+                    detachedSeedTimes: detachedSeedTimes,
+                    seedRestoreStartTime: seedRestoreStartTime,
+                    seedRestoreDuration: seedRestoreDuration
                 )
             }
             .onChange(of: timeline.date) { _, newDate in
@@ -58,16 +66,24 @@ private enum DandelionRenderer {
         time: TimeInterval,
         simulation: DandelionSimulation,
         windStrength: CGFloat,
-        detachedSeedTimes: [Int: TimeInterval]
+        detachedSeedTimes: [Int: TimeInterval],
+        seedRestoreStartTime: TimeInterval?,
+        seedRestoreDuration: TimeInterval
     ) {
         var context = context
         let windField = DandelionWindField()
         let t = CGFloat(time)
+        let restoreProgress = restorationProgress(
+            time: time,
+            startTime: seedRestoreStartTime,
+            duration: seedRestoreDuration
+        )
+        let effectiveDetachedSeedTimes = restoreProgress >= 1 ? [:] : detachedSeedTimes
 
         let minSide = min(size.width, size.height)
         let headRadius = minSide * 0.2
         let stemBase = CGPoint(x: size.width * 0.5, y: size.height * 0.92)
-        let restHeadCenter = CGPoint(x: size.width * 0.5, y: size.height * 0.34)
+        let restHeadCenter = CGPoint(x: size.width * 0.5, y: size.height * 0.38)
         let stemVector = restHeadCenter - stemBase
         let stemAngle = simulation.stemAngle
         let stemBob = sin(t * 0.35 + 1.1) * headRadius * 0.03
@@ -76,8 +92,8 @@ private enum DandelionRenderer {
         drawStem(in: &context, base: stemBase, headCenter: headCenter, headRadius: headRadius)
 
         let seeds = simulation.seeds
-        let attachedSeeds = seeds.filter { detachedSeedTimes[$0.id] == nil }
-        let detachedSeeds = seeds.filter { detachedSeedTimes[$0.id] != nil }
+        let attachedSeeds = seeds.filter { effectiveDetachedSeedTimes[$0.id] == nil }
+        let detachedSeeds = seeds.filter { effectiveDetachedSeedTimes[$0.id] != nil }
         let backSeeds = attachedSeeds.filter { $0.depth < 0 }
         let frontSeeds = attachedSeeds.filter { $0.depth >= 0 }
 
@@ -92,7 +108,8 @@ private enum DandelionRenderer {
                 globalAngle: stemAngle * 0.4,
                 windStrength: windStrength,
                 windField: windField,
-                detachment: detachmentState(for: seed, time: time, detachedSeedTimes: detachedSeedTimes)
+                detachment: detachmentState(for: seed, time: time, detachedSeedTimes: effectiveDetachedSeedTimes),
+                restoreProgress: restoreProgress
             )
         }
 
@@ -109,7 +126,8 @@ private enum DandelionRenderer {
                 globalAngle: stemAngle * 0.4,
                 windStrength: windStrength,
                 windField: windField,
-                detachment: detachmentState(for: seed, time: time, detachedSeedTimes: detachedSeedTimes)
+                detachment: detachmentState(for: seed, time: time, detachedSeedTimes: effectiveDetachedSeedTimes),
+                restoreProgress: restoreProgress
             )
         }
 
@@ -124,9 +142,20 @@ private enum DandelionRenderer {
                 globalAngle: stemAngle * 0.4,
                 windStrength: windStrength,
                 windField: windField,
-                detachment: detachmentState(for: seed, time: time, detachedSeedTimes: detachedSeedTimes)
+                detachment: detachmentState(for: seed, time: time, detachedSeedTimes: effectiveDetachedSeedTimes),
+                restoreProgress: restoreProgress
             )
         }
+    }
+
+    private static func restorationProgress(
+        time: TimeInterval,
+        startTime: TimeInterval?,
+        duration: TimeInterval
+    ) -> CGFloat {
+        guard let startTime else { return 0 }
+        let elapsed = max(0, time - startTime)
+        return min(1, elapsed / max(duration, 0.01))
     }
 
     private static func detachmentState(
@@ -138,7 +167,7 @@ private enum DandelionRenderer {
             return DetachmentState(progress: 0, elapsed: 0)
         }
         let elapsed = max(0, time - startTime)
-        let progress = min(1.0, elapsed / 1.0)
+        let progress = min(1.0, elapsed / 2.4)
         return DetachmentState(progress: CGFloat(progress), elapsed: CGFloat(elapsed))
     }
 
@@ -214,14 +243,15 @@ private enum DandelionRenderer {
         globalAngle: CGFloat,
         windStrength: CGFloat,
         windField: DandelionWindField,
-        detachment: DetachmentState
+        detachment: DetachmentState,
+        restoreProgress: CGFloat
     ) {
         let depthFactor = (seed.depth + 1) * 0.5
         let depthScale = 0.78 + depthFactor * 0.32
         let seedOpacity = 0.35 + depthFactor * 0.65
 
         let baseDirection = seed.orientation.rotated(by: globalAngle)
-        let localSway = sin(time * seed.swayFrequency + seed.swayPhase) * 0.04
+        let localSway = sin(time * seed.swayFrequency + seed.swayPhase) * 0.07
         let deflection = seed.angle + localSway
         let direction = baseDirection.rotated(by: deflection)
 
@@ -237,7 +267,7 @@ private enum DandelionRenderer {
             time: TimeInterval(time),
             strength: windStrength
         )
-        let windBend = windVector * (headRadius * 0.08)
+        let windBend = windVector * (headRadius * 0.12)
         let detachmentEase = detachment.progress * detachment.progress * (3 - 2 * detachment.progress)
         let flightProgress = min(1, detachment.elapsed / seed.flightDuration)
         let flightInverse = 1 - flightProgress
@@ -247,15 +277,16 @@ private enum DandelionRenderer {
             x: size.width * seed.flightDrift * flightEase,
             y: -(size.height * seed.flightLift + offscreenPadding) * flightEase
         )
-        let windOffset = windVector * (size.height * 0.08 * flightProgress)
+        let windOffset = windVector * (size.height * 0.11 * flightProgress)
         let flutterOffset = direction.perpendicular * (
-            sin(time * 1.2 + seed.detachmentPhase) * size.width * 0.015 * flightProgress
+            sin(time * 1.2 + seed.detachmentPhase) * size.width * 0.022 * flightProgress
         )
-        let detachmentOffset = direction * (headRadius * seed.detachmentDistance * detachmentEase)
-            + direction.perpendicular * (sin(time * 1.1 + seed.detachmentPhase) * headRadius * 0.02 * detachmentEase)
+        let detachmentScale = max(0, 1 - restoreProgress)
+        let detachmentOffset = (direction * (headRadius * seed.detachmentDistance * detachmentEase)
+            + direction.perpendicular * (sin(time * 1.1 + seed.detachmentPhase) * headRadius * 0.03 * detachmentEase)
             + flightOffset
             + windOffset
-            + flutterOffset
+            + flutterOffset) * detachmentScale
         let anchor = baseAnchor + detachmentOffset
         let pappusCenter = anchor + direction * beakLength
 
@@ -303,7 +334,7 @@ private enum DandelionRenderer {
                 let phase = seed.filamentPhases[index]
                 let lengthScale = seed.filamentLengths[index]
 
-                let flutter = sin(time * 1.6 + phase) * 0.08
+                let flutter = sin(time * 1.6 + phase) * 0.12
                 let localAngle = angle + flutter
                 let directionVector = (axisA * cos(localAngle) + axisB * sin(localAngle)).normalized
                 let filamentLength = pappusRadius * lengthScale
@@ -368,6 +399,9 @@ private struct DandelionSimulation {
         let time = date.timeIntervalSinceReferenceDate
         guard let lastUpdate else {
             self.lastUpdate = time
+            return
+        }
+        guard time > lastUpdate else {
             return
         }
 
@@ -489,7 +523,7 @@ private struct DandelionSeed: Identifiable {
             swayPhase: random(in: 0...(.pi * 2), using: &rng),
             detachmentDistance: random(in: 0.18...0.32, using: &rng),
             detachmentPhase: random(in: 0...(.pi * 2), using: &rng),
-            flightDuration: random(in: 5.0...7.2, using: &rng),
+            flightDuration: random(in: 16.0...20.0, using: &rng), // Tweak this to adjust the amount of time the seeds spend drifting away
             flightLift: random(in: 1.1...1.5, using: &rng),
             flightDrift: random(in: -0.35...0.35, using: &rng),
             angle: 0,

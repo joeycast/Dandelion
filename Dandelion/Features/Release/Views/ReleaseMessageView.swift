@@ -37,8 +37,12 @@ struct ReleaseMessageView: View {
     }
 
     private func startSequence() {
-        // Show message after letters start floating
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        // Show message after letters are mostly gone
+        let showDelay: TimeInterval = 4.0
+        let fadeDelay: TimeInterval = 8.0
+        let completeDelay: TimeInterval = 9.0
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + showDelay) {
             showMessage = true
             withAnimation(.easeIn(duration: 0.8)) {
                 messageOpacity = 1.0
@@ -46,14 +50,14 @@ struct ReleaseMessageView: View {
         }
 
         // Fade out message
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + fadeDelay) {
             withAnimation(.easeOut(duration: 1.0)) {
                 messageOpacity = 0
             }
         }
 
         // Complete
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + completeDelay) {
             onComplete()
         }
     }

@@ -30,15 +30,18 @@ struct WritingView: View {
                     onComplete: {}
                 )
                 .onAppear {
-                    viewModel.beginReleaseDetachment()
-                    // Start letter animation immediately
+                    if WritingViewModel.debugReleaseFlow {
+                        debugLog("[ReleaseFlow] ReleaseMessageView onAppear")
+                    }
+                    // Start detachment + letter animation in sync
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        viewModel.beginReleaseDetachment()
                         animateLetters = true
                     }
-                    // Complete the release after animation finishes
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 5.5) {
-                        animateLetters = false
-                        viewModel.releaseComplete()
+                }
+                .onDisappear {
+                    if WritingViewModel.debugReleaseFlow {
+                        debugLog("[ReleaseFlow] ReleaseMessageView onDisappear")
                     }
                 }
                 .zIndex(1)
@@ -48,6 +51,9 @@ struct WritingView: View {
         .coordinateSpace(name: "writingSpace")
         .animation(DandelionAnimation.slow, value: viewModel.writingState)
         .onChange(of: viewModel.writingState) { _, newValue in
+            if WritingViewModel.debugReleaseFlow {
+                debugLog("[ReleaseFlow] writingState -> \(newValue)")
+            }
             isTextEditorFocused = newValue == .writing
             if newValue == .writing || newValue == .prompt || newValue == .complete {
                 animateLetters = false
@@ -90,7 +96,7 @@ struct WritingView: View {
 
     private var headerView: some View {
         VStack(spacing: isPrompt ? DandelionSpacing.lg : DandelionSpacing.xs) {
-            dandelionIllustration(height: isPrompt ? 200 : 140)
+            dandelionIllustration(height: isPrompt ? 220 : 160)
 
             Text(viewModel.currentPrompt.text)
                 .font(isPrompt ? .dandelionTitle : .dandelionCaption)
@@ -98,6 +104,8 @@ struct WritingView: View {
                 .multilineTextAlignment(.center)
                 .lineLimit(isPrompt ? nil : 1)
                 .padding(.horizontal, isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge)
+                .opacity(isReleasing ? 0 : 1)
+                .animation(.easeInOut(duration: 0.2), value: isReleasing)
         }
         .padding(.top, isPrompt ? 0 : DandelionSpacing.sm)
     }
@@ -120,6 +128,10 @@ struct WritingView: View {
     private var writingArea: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
+                let horizontalPadding = DandelionSpacing.screenEdge - 5
+                let contentWidth = geometry.size.width - (horizontalPadding * 2)
+                let lineWidth = contentWidth
+
                 ZStack(alignment: .topLeading) {
                     // The actual TextEditor (hidden when releasing)
                     TextEditor(text: $viewModel.writtenText)
@@ -136,13 +148,13 @@ struct WritingView: View {
                     AnimatableTextView(
                         text: viewModel.writtenText,
                         font: .dandelionWriting,
+                        uiFont: .dandelionWriting,
                         textColor: .dandelionText,
-                        lineWidth: geometry.size.width - 8,
+                        lineWidth: lineWidth,
                         isAnimating: animateLetters,
                         screenSize: geometry.size
                     )
-                    .padding(.top, 7)
-                    .padding(.horizontal, 4)
+                    .padding(.top, 8)
                     .opacity(isReleasing ? 1 : 0)
                     .animation(nil, value: isReleasing)
                 }
@@ -151,10 +163,12 @@ struct WritingView: View {
                 Spacer(minLength: 0)
 
                 bottomBar
-                    .opacity(isReleasing ? 0 : 1)
+                    .opacity(isWriting ? 1 : 0)
+                    .allowsHitTesting(isWriting)
             }
         }
         .padding(.top, DandelionSpacing.sm)
+        .opacity((isWriting || isReleasing) ? 1 : 0)
         .allowsHitTesting(isWriting)
     }
 
@@ -255,7 +269,9 @@ struct WritingView: View {
     private func dandelionIllustration(height: CGFloat) -> some View {
         DandelionBloomView(
             seedCount: viewModel.dandelionSeedCount,
-            detachedSeedTimes: viewModel.detachedSeedTimes
+            detachedSeedTimes: viewModel.detachedSeedTimes,
+            seedRestoreStartTime: viewModel.seedRestoreStartTime,
+            seedRestoreDuration: viewModel.seedRestoreDuration
         )
         .frame(height: height)
         .allowsHitTesting(false)

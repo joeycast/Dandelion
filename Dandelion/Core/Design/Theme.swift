@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 // MARK: - Colors
 
@@ -54,6 +55,14 @@ extension Font {
 
     /// Button text
     static let dandelionButton = Font.system(.headline, design: .serif)
+}
+
+extension UIFont {
+    static var dandelionWriting: UIFont {
+        let base = UIFont.systemFont(ofSize: 22, weight: .regular)
+        let descriptor = base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor
+        return UIFont(descriptor: descriptor, size: 22)
+    }
 }
 
 // MARK: - Spacing
