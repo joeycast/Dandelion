@@ -6,103 +6,122 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct AnimatableTextView: View {
     let text: String
     let font: Font
+    let uiFont: UIFont
     let textColor: Color
     let lineWidth: CGFloat
     let isAnimating: Bool
     let screenSize: CGSize
 
-    // Character metrics for 22pt serif font - slightly smaller to match TextEditor wrapping
-    private let charWidth: CGFloat = 10.5
-    private let lineHeight: CGFloat = 28
+    private var lineHeight: CGFloat {
+        uiFont.lineHeight
+    }
+    private let lineFragmentPadding: CGFloat = 5
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(lines.enumerated()), id: \.offset) { lineIndex, line in
-                HStack(spacing: 0) {
-                    ForEach(Array(line.enumerated()), id: \.offset) { charIndex, char in
-                        CharacterView(
-                            character: char,
-                            font: font,
-                            textColor: textColor,
-                            isAnimating: isAnimating,
-                            screenSize: screenSize,
-                            charIndex: charIndex,
-                            lineIndex: lineIndex
-                        )
-                    }
-                    Spacer(minLength: 0)
-                }
-                .frame(height: lineHeight)
+        let layout = glyphLayout
+        ZStack(alignment: .topLeading) {
+            ForEach(layout.glyphs) { glyph in
+                CharacterView(
+                    character: glyph.character,
+                    font: font,
+                    textColor: textColor,
+                    isAnimating: isAnimating,
+                    screenSize: screenSize,
+                    charIndex: glyph.charIndex,
+                    lineIndex: glyph.lineIndex
+                )
+                .position(x: glyph.rect.midX, y: glyph.rect.midY)
             }
         }
+        .frame(height: layout.totalHeight, alignment: .topLeading)
     }
 
-    // Break text into lines based on available width
-    private var lines: [[Character]] {
-        var result: [[Character]] = []
-        var currentLine: [Character] = []
-        var currentWidth: CGFloat = 0
-        var currentWord: [Character] = []
-        var wordWidth: CGFloat = 0
+    private struct GlyphLayout {
+        let glyphs: [Glyph]
+        let totalHeight: CGFloat
+    }
 
-        for char in text {
-            if char == "\n" {
-                // Explicit newline
-                currentLine.append(contentsOf: currentWord)
-                result.append(currentLine)
-                currentLine = []
-                currentWord = []
-                currentWidth = 0
-                wordWidth = 0
-            } else if char.isWhitespace {
-                // Space - commit current word to line
-                if currentWidth + wordWidth + charWidth <= lineWidth {
-                    currentLine.append(contentsOf: currentWord)
-                    currentLine.append(char)
-                    currentWidth += wordWidth + charWidth
-                } else if currentLine.isEmpty {
-                    // Word is too long for line, force it
-                    currentLine.append(contentsOf: currentWord)
-                    currentLine.append(char)
-                    result.append(currentLine)
-                    currentLine = []
-                    currentWidth = 0
-                } else {
-                    // Wrap to next line
-                    result.append(currentLine)
-                    currentLine = currentWord
-                    currentLine.append(char)
-                    currentWidth = wordWidth + charWidth
+    private struct Glyph: Identifiable {
+        let id: Int
+        let character: Character
+        let rect: CGRect
+        let lineIndex: Int
+        let charIndex: Int
+    }
+
+    private var glyphLayout: GlyphLayout {
+        guard !text.isEmpty else {
+            return GlyphLayout(glyphs: [], totalHeight: 0)
+        }
+
+        let attributedText = NSAttributedString(
+            string: text,
+            attributes: [.font: uiFont]
+        )
+        let textStorage = NSTextStorage(attributedString: attributedText)
+        let layoutManager = NSLayoutManager()
+        let textContainer = NSTextContainer(
+            size: CGSize(width: max(lineWidth, 0), height: .greatestFiniteMagnitude)
+        )
+        textContainer.lineFragmentPadding = lineFragmentPadding
+        textContainer.lineBreakMode = .byWordWrapping
+
+        layoutManager.addTextContainer(textContainer)
+        textStorage.addLayoutManager(layoutManager)
+        layoutManager.ensureLayout(for: textContainer)
+
+        let nsText = text as NSString
+        var glyphs: [Glyph] = []
+        var glyphIndex = 0
+        var lineIndex = 0
+
+        while glyphIndex < layoutManager.numberOfGlyphs {
+            var lineRange = NSRange(location: 0, length: 0)
+            layoutManager.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: &lineRange)
+
+            var charIndex = 0
+            for glyph in lineRange.location..<NSMaxRange(lineRange) {
+                let glyphRange = NSRange(location: glyph, length: 1)
+                let charRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+                if charRange.length == 0 {
+                    continue
                 }
-                currentWord = []
-                wordWidth = 0
-            } else {
-                // Regular character - add to current word
-                currentWord.append(char)
-                wordWidth += charWidth
+                let charString = nsText.substring(with: charRange)
+                if charString == "\n" || charString == "\r" {
+                    continue
+                }
+                guard let char = charString.first else {
+                    continue
+                }
+
+                let rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+                glyphs.append(
+                    Glyph(
+                        id: glyphs.count,
+                        character: char,
+                        rect: rect,
+                        lineIndex: lineIndex,
+                        charIndex: charIndex
+                    )
+                )
+                charIndex += 1
             }
+
+            glyphIndex = NSMaxRange(lineRange)
+            lineIndex += 1
         }
 
-        // Commit remaining word and line
-        if !currentWord.isEmpty {
-            if currentWidth + wordWidth <= lineWidth {
-                currentLine.append(contentsOf: currentWord)
-            } else if currentLine.isEmpty {
-                currentLine.append(contentsOf: currentWord)
-            } else {
-                result.append(currentLine)
-                currentLine = currentWord
-            }
-        }
-        if !currentLine.isEmpty {
-            result.append(currentLine)
+        var totalHeight = layoutManager.usedRect(for: textContainer).height
+        if text.hasSuffix("\n") {
+            totalHeight += lineHeight
         }
 
-        return result
+        return GlyphLayout(glyphs: glyphs, totalHeight: totalHeight)
     }
 }
 
@@ -128,9 +147,18 @@ struct CharacterView: View {
             .offset(offset)
             .onChange(of: isAnimating) { _, newValue in
                 if newValue {
+                    resetAnimationState()
                     startAnimation()
+                } else {
+                    resetAnimationState()
                 }
             }
+    }
+
+    private func resetAnimationState() {
+        offset = .zero
+        rotation = 0
+        opacity = 1
     }
 
     private func startAnimation() {
@@ -147,8 +175,10 @@ struct CharacterView: View {
             rotation = finalRotation
         }
 
-        // Fade out in the latter part of animation
-        withAnimation(.easeIn(duration: duration * 0.6).delay(delay + duration * 0.4)) {
+        // Hold visibility, then fade
+        let holdTime: Double = 3.0
+        let fadeDuration = max(0.8, duration * 0.35)
+        withAnimation(.easeIn(duration: fadeDuration).delay(delay + holdTime)) {
             opacity = 0
         }
     }
@@ -161,6 +191,7 @@ struct CharacterView: View {
         AnimatableTextView(
             text: "Hello World this is a test of the animation",
             font: .dandelionWriting,
+            uiFont: .dandelionWriting,
             textColor: .dandelionText,
             lineWidth: 300,
             isAnimating: false,

@@ -15,6 +15,7 @@ enum WritingState: Equatable {
     case complete        // Post-release, ready to restart
 }
 
+@MainActor
 @Observable
 final class WritingViewModel {
     // MARK: - State
@@ -47,6 +48,13 @@ final class WritingViewModel {
     private var detachmentOrder: [Int] = []
     private var detachmentCursor: Int = 0
     private var detachmentTask: Task<Void, Never>?
+    private var releaseTask: Task<Void, Never>?
+    private let releaseDuration: TimeInterval = 9.0
+    private var activeReleaseID: UUID?
+    private var seedRestoreTask: Task<Void, Never>?
+    private(set) var seedRestoreStartTime: TimeInterval?
+    let seedRestoreDuration: TimeInterval = 3.0
+    static let debugReleaseFlow = true
 
     // MARK: - Computed Properties
 
@@ -60,9 +68,16 @@ final class WritingViewModel {
 
     // MARK: - Initialization
 
+    convenience init() {
+        self.init(
+            promptsManager: PromptsManager(),
+            blowDetection: BlowDetectionService()
+        )
+    }
+
     init(
-        promptsManager: PromptsManager = PromptsManager(),
-        blowDetection: BlowDetectionService = BlowDetectionService()
+        promptsManager: PromptsManager,
+        blowDetection: BlowDetectionService
     ) {
         self.promptsManager = promptsManager
         self.blowDetection = blowDetection
@@ -77,9 +92,10 @@ final class WritingViewModel {
 
     /// Start writing (transition from prompt)
     func startWriting() {
-        withAnimation(DandelionAnimation.gentle) {
-            writingState = .writing
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] startWriting")
         }
+        writingState = .writing
 
         // Check permission and start listening if granted
         Task {
@@ -101,34 +117,49 @@ final class WritingViewModel {
     /// Trigger release via manual action
     func manualRelease() {
         guard canRelease else { return }
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] manualRelease")
+        }
         triggerRelease()
     }
 
     /// Called when release animation completes
     func releaseComplete() {
+        releaseTask?.cancel()
+        releaseTask = nil
+        activeReleaseID = nil
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] releaseComplete")
+        }
+
         // Clear the text (it's gone forever!)
         writtenText = ""
 
         // Get new prompt and message for next time
         currentPrompt = promptsManager.randomPrompt()
         currentReleaseMessage = promptsManager.randomReleaseMessage()
-        resetDandelionDetachment()
-
-        withAnimation(DandelionAnimation.slow) {
+        withAnimation(.easeInOut(duration: seedRestoreDuration)) {
             writingState = .prompt
         }
+        beginSeedRestore()
     }
 
     /// Start a new writing session
     func startNewSession() {
+        releaseTask?.cancel()
+        releaseTask = nil
+        activeReleaseID = nil
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] startNewSession")
+        }
+
         writtenText = ""
         currentPrompt = promptsManager.randomPrompt()
         currentReleaseMessage = promptsManager.randomReleaseMessage()
-        resetDandelionDetachment()
-
-        withAnimation(DandelionAnimation.gentle) {
+        withAnimation(.easeInOut(duration: seedRestoreDuration)) {
             writingState = .prompt
         }
+        beginSeedRestore()
     }
 
     // MARK: - Private Methods
@@ -166,9 +197,31 @@ final class WritingViewModel {
         blowDetection.stopListening()
         showBlowIndicator = false
         stopDetachingSeeds()
+        cancelSeedRestore()
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] triggerRelease")
+        }
 
-        withAnimation(DandelionAnimation.gentle) {
-            writingState = .releasing
+        writingState = .releasing
+
+        releaseTask?.cancel()
+        let releaseID = UUID()
+        activeReleaseID = releaseID
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] scheduleReleaseComplete id=\(releaseID)")
+        }
+        releaseTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: UInt64(self.releaseDuration * 1_000_000_000))
+            await MainActor.run {
+                guard self.activeReleaseID == releaseID else {
+                    if Self.debugReleaseFlow {
+                        debugLog("[ReleaseFlow] releaseComplete skipped id=\(releaseID)")
+                    }
+                    return
+                }
+                self.releaseComplete()
+            }
         }
     }
 
@@ -177,10 +230,33 @@ final class WritingViewModel {
         detachmentCursor = 0
     }
 
-    private func resetDandelionDetachment() {
-        detachedSeedTimes = [:]
-        prepareDetachmentOrder()
-        stopDetachingSeeds()
+    private func cancelSeedRestore() {
+        seedRestoreTask?.cancel()
+        seedRestoreTask = nil
+        seedRestoreStartTime = nil
+    }
+
+    private func beginSeedRestore() {
+        guard !detachedSeedTimes.isEmpty else {
+            prepareDetachmentOrder()
+            stopDetachingSeeds()
+            return
+        }
+
+        cancelSeedRestore()
+        seedRestoreStartTime = Date().timeIntervalSinceReferenceDate
+
+        let restoreDuration = seedRestoreDuration
+        seedRestoreTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(restoreDuration * 1_000_000_000))
+            await MainActor.run {
+                guard let self else { return }
+                self.detachedSeedTimes = [:]
+                self.seedRestoreStartTime = nil
+                self.prepareDetachmentOrder()
+                self.stopDetachingSeeds()
+            }
+        }
     }
 
     private func startDetachingSeeds() {
@@ -232,6 +308,9 @@ final class WritingViewModel {
     @MainActor
     func beginReleaseDetachment() {
         guard detachedSeedTimes.count < dandelionSeedCount else { return }
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] beginReleaseDetachment")
+        }
         detachAllSeeds()
     }
 }

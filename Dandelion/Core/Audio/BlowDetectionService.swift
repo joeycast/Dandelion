@@ -163,7 +163,7 @@ final class BlowDetectionService {
 
             // Ensure format is valid
             guard format.sampleRate > 0 else {
-                print("Invalid audio format")
+                debugLog("Invalid audio format")
                 return
             }
 
@@ -176,7 +176,7 @@ final class BlowDetectionService {
             isListening = true
 
         } catch {
-            print("Failed to start audio engine: \(error)")
+            debugLog("Failed to start audio engine: \(error)")
             isListening = false
         }
     }
