@@ -236,7 +236,7 @@ final class WritingViewModel {
         if Self.debugReleaseFlow {
             debugLog("[ReleaseFlow] scheduleReleaseComplete id=\(releaseID)")
         }
-        releaseHapticsTask = Task { [haptics] in
+        releaseHapticsTask = Task { [haptics = self.haptics] in
             await haptics.playReleasePattern()
         }
         releaseTask = Task { [weak self] in
@@ -286,7 +286,7 @@ final class WritingViewModel {
                 guard let self else { return }
                 self.seedRestoreStartTime = Date().timeIntervalSinceReferenceDate
                 self.regrowHapticsTask?.cancel()
-                self.regrowHapticsTask = Task { [haptics] in
+                self.regrowHapticsTask = Task { [haptics = self.haptics] in
                     await haptics.playRegrowthPattern()
                 }
             }
