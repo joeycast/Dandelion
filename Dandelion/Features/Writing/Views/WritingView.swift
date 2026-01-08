@@ -11,6 +11,8 @@ struct WritingView: View {
     @State private var viewModel = WritingViewModel()
     @FocusState private var isTextEditorFocused: Bool
     @State private var animateLetters: Bool = false
+    @State private var promptOpacity: Double = 1
+    @Namespace private var promptNamespace
 
     var body: some View {
         GeometryReader { geometry in
@@ -55,6 +57,11 @@ struct WritingView: View {
         }
         .coordinateSpace(name: "writingSpace")
         .animation(DandelionAnimation.slow, value: viewModel.writingState)
+        .onAppear {
+            if isPrompt {
+                fadeInPrompt()
+            }
+        }
         .onChange(of: viewModel.writingState) { _, newValue in
             if WritingViewModel.debugReleaseFlow {
                 debugLog("[ReleaseFlow] writingState -> \(newValue)")
@@ -62,6 +69,16 @@ struct WritingView: View {
             isTextEditorFocused = newValue == .writing
             if newValue == .writing || newValue == .prompt || newValue == .complete {
                 animateLetters = false
+            }
+            if newValue == .prompt || newValue == .complete {
+                fadeInPrompt()
+            } else if newValue == .writing {
+                promptOpacity = 1
+            }
+        }
+        .onChange(of: viewModel.currentPrompt.id) { _, _ in
+            if isPrompt {
+                fadeInPrompt()
             }
         }
     }
@@ -109,14 +126,25 @@ struct WritingView: View {
         VStack(spacing: isPrompt ? DandelionSpacing.lg : DandelionSpacing.xs) {
             dandelionIllustration(height: isPrompt ? 220 : 160)
 
-            Text(viewModel.currentPrompt.text)
-                .font(isPrompt ? .dandelionTitle : .dandelionCaption)
-                .foregroundColor(isPrompt ? .dandelionText : .dandelionSecondary)
-                .multilineTextAlignment(.center)
-                .lineLimit(isPrompt ? nil : 1)
-                .padding(.horizontal, isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge)
-                .opacity(isReleasing ? 0 : 1)
-                .animation(.easeInOut(duration: 1.0), value: isReleasing)
+            let promptMatchId = "promptText-\(viewModel.currentPrompt.id)"
+            WordAnimatedTextView(
+                text: viewModel.currentPrompt.text,
+                font: isPrompt ? .dandelionTitle : .dandelionCaption,
+                uiFont: isPrompt ? .dandelionTitle : .dandelionCaption,
+                textColor: isPrompt ? .dandelionText : .dandelionSecondary,
+                lineWidth: max(
+                    0,
+                    size.width - ((isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge) * 2)
+                ),
+                isAnimating: false,
+                maxLines: isPrompt ? nil : 1,
+                lineBreakMode: isPrompt ? .byWordWrapping : .byTruncatingTail,
+                layoutIDPrefix: viewModel.currentPrompt.id
+            )
+            .matchedGeometryEffect(id: promptMatchId, in: promptNamespace)
+            .padding(.horizontal, isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge)
+            .opacity(isReleasing ? 0 : (isPrompt ? promptOpacity : 1))
+            .animation(.easeInOut(duration: 1.0), value: isReleasing)
         }
         .offset(y: dandelionReturnOffset(in: size))
         .padding(.top, isPrompt ? 0 : DandelionSpacing.sm)
@@ -182,6 +210,13 @@ struct WritingView: View {
         .padding(.top, DandelionSpacing.sm)
         .opacity((isWriting || isReleasing) ? 1 : 0)
         .allowsHitTesting(isWriting)
+    }
+
+    private func fadeInPrompt() {
+        promptOpacity = 0
+        withAnimation(.easeIn(duration: 0.6)) {
+            promptOpacity = 1
+        }
     }
 
     // MARK: - Bottom Bar

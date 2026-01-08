@@ -63,6 +63,18 @@ extension UIFont {
         let descriptor = base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor
         return UIFont(descriptor: descriptor, size: 22)
     }
+
+    static var dandelionTitle: UIFont {
+        let base = UIFont.preferredFont(forTextStyle: .largeTitle)
+        let descriptor = base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor
+        return UIFont(descriptor: descriptor, size: base.pointSize)
+    }
+
+    static var dandelionCaption: UIFont {
+        let base = UIFont.preferredFont(forTextStyle: .caption1)
+        let descriptor = base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor
+        return UIFont(descriptor: descriptor, size: base.pointSize)
+    }
 }
 
 // MARK: - Spacing
