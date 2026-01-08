@@ -15,7 +15,7 @@ struct DandelionBloomView: View {
     var seedRestoreStartTime: TimeInterval?
     var seedRestoreDuration: TimeInterval = 1.8
 
-    @State private var simulation: DandelionSimulation
+    @State private var driver: DandelionSimulationDriver
 
     init(
         seedCount: Int = 140,
@@ -31,7 +31,7 @@ struct DandelionBloomView: View {
         self.detachedSeedTimes = detachedSeedTimes
         self.seedRestoreStartTime = seedRestoreStartTime
         self.seedRestoreDuration = seedRestoreDuration
-        _simulation = State(initialValue: DandelionSimulation(
+        _driver = State(initialValue: DandelionSimulationDriver(
             seedCount: seedCount,
             filamentsPerSeed: filamentsPerSeed
         ))
@@ -40,19 +40,17 @@ struct DandelionBloomView: View {
     var body: some View {
         TimelineView(.animation) { timeline in
             Canvas { context, size in
+                driver.step(to: timeline.date, windStrength: windStrength)
                 DandelionRenderer.draw(
                     in: context,
                     size: size,
                     time: timeline.date.timeIntervalSinceReferenceDate,
-                    simulation: simulation,
+                    simulation: driver.simulation,
                     windStrength: windStrength,
                     detachedSeedTimes: detachedSeedTimes,
                     seedRestoreStartTime: seedRestoreStartTime,
                     seedRestoreDuration: seedRestoreDuration
                 )
-            }
-            .onChange(of: timeline.date) { _, newDate in
-                simulation.step(to: newDate, windStrength: windStrength)
             }
         }
         .accessibilityHidden(true)
@@ -489,6 +487,27 @@ private struct DandelionSimulation {
 
             seeds[index] = seed
         }
+    }
+}
+
+private final class DandelionSimulationDriver {
+    private(set) var simulation: DandelionSimulation
+    private var lastStepTime: TimeInterval?
+
+    init(seedCount: Int, filamentsPerSeed: Int) {
+        self.simulation = DandelionSimulation(
+            seedCount: seedCount,
+            filamentsPerSeed: filamentsPerSeed
+        )
+    }
+
+    func step(to date: Date, windStrength: CGFloat) {
+        let currentTime = date.timeIntervalSinceReferenceDate
+        if let lastStepTime, currentTime - lastStepTime < (1.0 / 60.0) {
+            return
+        }
+        lastStepTime = currentTime
+        simulation.step(to: date, windStrength: windStrength)
     }
 }
 

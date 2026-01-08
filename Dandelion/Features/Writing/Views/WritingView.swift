@@ -13,39 +13,44 @@ struct WritingView: View {
     @State private var animateLetters: Bool = false
 
     var body: some View {
-        ZStack {
-            // Background
-            Color.dandelionBackground
-                .ignoresSafeArea()
-                .onTapGesture {
-                    isTextEditorFocused = false
-                }
+        GeometryReader { geometry in
+            ZStack {
+                // Background
+                Color.dandelionBackground
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        isTextEditorFocused = false
+                    }
 
-            contentView
+                contentView(in: geometry.size, safeAreaBottom: geometry.safeAreaInsets.bottom)
 
-            // Release message overlay
-            if isReleasing {
-                ReleaseMessageView(
-                    releaseMessage: viewModel.currentReleaseMessage.text,
-                    onComplete: {}
-                )
-                .onAppear {
-                    if WritingViewModel.debugReleaseFlow {
-                        debugLog("[ReleaseFlow] ReleaseMessageView onAppear")
+                // Release message overlay
+                if isReleasing {
+                    ReleaseMessageView(
+                        releaseMessage: viewModel.currentReleaseMessage.text,
+                        onMessageAppear: {
+                            viewModel.startDandelionReturn()
+                        },
+                        onComplete: {}
+                    )
+                    .onAppear {
+                        if WritingViewModel.debugReleaseFlow {
+                            debugLog("[ReleaseFlow] ReleaseMessageView onAppear")
+                        }
+                        // Start detachment + letter animation in sync
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            viewModel.beginReleaseDetachment()
+                            animateLetters = true
+                        }
                     }
-                    // Start detachment + letter animation in sync
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        viewModel.beginReleaseDetachment()
-                        animateLetters = true
+                    .onDisappear {
+                        if WritingViewModel.debugReleaseFlow {
+                            debugLog("[ReleaseFlow] ReleaseMessageView onDisappear")
+                        }
                     }
+                    .zIndex(1)
+                    .allowsHitTesting(false)
                 }
-                .onDisappear {
-                    if WritingViewModel.debugReleaseFlow {
-                        debugLog("[ReleaseFlow] ReleaseMessageView onDisappear")
-                    }
-                }
-                .zIndex(1)
-                .allowsHitTesting(false)
             }
         }
         .coordinateSpace(name: "writingSpace")
@@ -73,28 +78,34 @@ struct WritingView: View {
         viewModel.writingState == .releasing
     }
 
-    private var contentView: some View {
-        VStack(spacing: 0) {
-            if isPrompt {
-                Spacer()
+    private func contentView(in size: CGSize, safeAreaBottom: CGFloat) -> some View {
+        let topSpacerHeight = isPrompt ? max(0, size.height * 0.1) : 0
+        let promptBottomPadding = safeAreaBottom + DandelionSpacing.lg
+
+        return ZStack(alignment: .bottom) {
+            VStack(spacing: 0) {
+                Color.clear
+                    .frame(height: topSpacerHeight)
+
+                headerView(in: size)
+
+                if isPrompt {
+                    Spacer(minLength: 0)
+                } else {
+                    writingArea
+                        .transition(.opacity)
+                }
             }
 
-            headerView
-
             if isPrompt {
-                Spacer()
                 promptButtons
+                    .padding(.bottom, promptBottomPadding)
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
-                Spacer()
-                    .frame(height: DandelionSpacing.xl)
-            } else {
-                writingArea
-                    .transition(.opacity)
             }
         }
     }
 
-    private var headerView: some View {
+    private func headerView(in size: CGSize) -> some View {
         VStack(spacing: isPrompt ? DandelionSpacing.lg : DandelionSpacing.xs) {
             dandelionIllustration(height: isPrompt ? 220 : 160)
 
@@ -107,6 +118,7 @@ struct WritingView: View {
                 .opacity(isReleasing ? 0 : 1)
                 .animation(.easeInOut(duration: 1.0), value: isReleasing)
         }
+        .offset(y: dandelionReturnOffset(in: size))
         .padding(.top, isPrompt ? 0 : DandelionSpacing.sm)
     }
 
@@ -275,6 +287,11 @@ struct WritingView: View {
         )
         .frame(height: height)
         .allowsHitTesting(false)
+    }
+
+    private func dandelionReturnOffset(in size: CGSize) -> CGFloat {
+        guard viewModel.isDandelionReturning else { return 0 }
+        return min(size.height * 0.22, 180)
     }
 }
 

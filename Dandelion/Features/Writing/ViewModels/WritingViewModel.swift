@@ -24,6 +24,7 @@ final class WritingViewModel {
     var writtenText: String = ""
     var currentPrompt: WritingPrompt
     var currentReleaseMessage: ReleaseMessage
+    var isDandelionReturning: Bool = false
 
     /// Whether to show the blow indicator
     var showBlowIndicator: Bool = false
@@ -96,6 +97,7 @@ final class WritingViewModel {
         if Self.debugReleaseFlow {
             debugLog("[ReleaseFlow] startWriting")
         }
+        isDandelionReturning = false
         writingState = .writing
 
         // Check permission and start listening if granted
@@ -135,9 +137,9 @@ final class WritingViewModel {
 
         // Clear the text (it's gone forever!)
         writtenText = ""
-
         // Change state first so ReleaseMessageView disappears
         withAnimation(.easeInOut(duration: dandelionReturnDuration)) {
+            isDandelionReturning = false
             writingState = .prompt
         }
 
@@ -157,9 +159,9 @@ final class WritingViewModel {
         }
 
         writtenText = ""
-
         // Change state first so ReleaseMessageView disappears
         withAnimation(.easeInOut(duration: dandelionReturnDuration)) {
+            isDandelionReturning = false
             writingState = .prompt
         }
 
@@ -209,6 +211,7 @@ final class WritingViewModel {
             debugLog("[ReleaseFlow] triggerRelease")
         }
 
+        isDandelionReturning = false
         writingState = .releasing
 
         releaseTask?.cancel()
@@ -330,5 +333,15 @@ final class WritingViewModel {
             debugLog("[ReleaseFlow] beginReleaseDetachment")
         }
         detachAllSeeds()
+    }
+
+    func startDandelionReturn() {
+        guard !isDandelionReturning else { return }
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] startDandelionReturn")
+        }
+        withAnimation(.easeInOut(duration: dandelionReturnDuration)) {
+            isDandelionReturning = true
+        }
     }
 }
