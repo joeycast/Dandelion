@@ -109,7 +109,8 @@ private enum DandelionRenderer {
                 windStrength: windStrength,
                 windField: windField,
                 detachment: detachmentState(for: seed, time: time, detachedSeedTimes: effectiveDetachedSeedTimes),
-                restoreProgress: restoreProgress
+                restoreProgress: restoreProgress,
+                restoreDuration: CGFloat(seedRestoreDuration)
             )
         }
 
@@ -127,7 +128,8 @@ private enum DandelionRenderer {
                 windStrength: windStrength,
                 windField: windField,
                 detachment: detachmentState(for: seed, time: time, detachedSeedTimes: effectiveDetachedSeedTimes),
-                restoreProgress: restoreProgress
+                restoreProgress: restoreProgress,
+                restoreDuration: CGFloat(seedRestoreDuration)
             )
         }
 
@@ -143,7 +145,8 @@ private enum DandelionRenderer {
                 windStrength: windStrength,
                 windField: windField,
                 detachment: detachmentState(for: seed, time: time, detachedSeedTimes: effectiveDetachedSeedTimes),
-                restoreProgress: restoreProgress
+                restoreProgress: restoreProgress,
+                restoreDuration: CGFloat(seedRestoreDuration)
             )
         }
     }
@@ -244,11 +247,12 @@ private enum DandelionRenderer {
         windStrength: CGFloat,
         windField: DandelionWindField,
         detachment: DetachmentState,
-        restoreProgress: CGFloat
+        restoreProgress: CGFloat,
+        restoreDuration: CGFloat
     ) {
         let depthFactor = (seed.depth + 1) * 0.5
         let depthScale = 0.78 + depthFactor * 0.32
-        let seedOpacity = 0.35 + depthFactor * 0.65
+        let baseSeedOpacity = 0.35 + depthFactor * 0.65
 
         let baseDirection = seed.orientation.rotated(by: globalAngle)
         let localSway = sin(time * seed.swayFrequency + seed.swayPhase) * 0.07
@@ -259,8 +263,45 @@ private enum DandelionRenderer {
             + seed.projection * (headRadius * (1 - seed.anchorInset))
             + seed.anchorJitter * headRadius
 
-        let beakLength = headRadius * seed.beakLength * depthScale
-        let pappusRadius = headRadius * seed.pappusRadius * depthScale
+        // Calculate per-seed growth progress for regrowth animation
+        // Each seed has a staggered start time based on its growthDelay
+        let seedGrowthProgress: CGFloat
+        if restoreProgress > 0 && detachment.progress > 0 {
+            // Convert overall restore progress to elapsed time equivalent
+            let restoreElapsed = restoreProgress * restoreDuration
+            // Subtract this seed's delay to get its individual progress
+            let seedElapsed = max(0, restoreElapsed - seed.growthDelay)
+            // Each seed takes ~0.6s to fully grow (leaving time for staggered starts)
+            let perSeedDuration: CGFloat = 0.6
+            seedGrowthProgress = min(1, seedElapsed / perSeedDuration)
+        } else {
+            seedGrowthProgress = 0
+        }
+
+        // Growth factors with easing
+        // Beak grows first (0% to 100% in first half of seed's growth)
+        let beakGrowth = seedGrowthProgress > 0 ? easeOutCubic(min(1, seedGrowthProgress * 2)) : 1.0
+        // Pappus blooms second with spring overshoot (starts at 30%, finishes with overshoot)
+        let pappusGrowthRaw = max(0, (seedGrowthProgress - 0.3) / 0.7)
+        let pappusGrowth = seedGrowthProgress > 0 ? easeOutBack(min(1, pappusGrowthRaw)) : 1.0
+
+        // During regrowth, scale down from detached state
+        let isRegrowing = restoreProgress > 0 && detachment.progress > 0
+        let growthScale = isRegrowing ? beakGrowth : 1.0
+        let pappusScale = isRegrowing ? pappusGrowth : 1.0
+
+        // Apply growth scaling to beak and pappus
+        let beakLength = headRadius * seed.beakLength * depthScale * growthScale
+        let pappusRadius = headRadius * seed.pappusRadius * depthScale * pappusScale
+
+        // Opacity fades in during regrowth
+        let growthOpacity = isRegrowing ? easeOutCubic(min(1, seedGrowthProgress * 3)) : 1.0
+        let seedOpacity = baseSeedOpacity * growthOpacity
+
+        // Skip drawing if seed hasn't started growing yet during regrowth
+        if isRegrowing && seedGrowthProgress <= 0 {
+            return
+        }
 
         let windVector = windField.vector(
             at: seed.projection,
@@ -281,7 +322,10 @@ private enum DandelionRenderer {
         let flutterOffset = direction.perpendicular * (
             sin(time * 1.2 + seed.detachmentPhase) * size.width * 0.022 * flightProgress
         )
-        let detachmentScale = max(0, 1 - restoreProgress)
+
+        // During regrowth, seeds grow from their anchor point (no detachment offset)
+        // Otherwise, apply full detachment offset when flying away
+        let detachmentScale = isRegrowing ? 0.0 : 1.0
         let detachmentOffset = (direction * (headRadius * seed.detachmentDistance * detachmentEase)
             + direction.perpendicular * (sin(time * 1.1 + seed.detachmentPhase) * headRadius * 0.03 * detachmentEase)
             + flightOffset
@@ -293,75 +337,81 @@ private enum DandelionRenderer {
         context.drawLayer { layer in
             layer.opacity = seedOpacity
 
-            let beakPath = Path { path in
-                path.move(to: anchor)
-                path.addLine(to: pappusCenter)
-            }
-            layer.stroke(
-                beakPath,
-                with: .color(Color.dandelionAccent.opacity(0.55)),
-                style: StrokeStyle(lineWidth: max(0.6, headRadius * 0.025), lineCap: .round)
-            )
+            // Only draw beak if it has grown enough
+            if beakLength > 0.1 {
+                let beakPath = Path { path in
+                    path.move(to: anchor)
+                    path.addLine(to: pappusCenter)
+                }
+                layer.stroke(
+                    beakPath,
+                    with: .color(Color.dandelionAccent.opacity(0.55)),
+                    style: StrokeStyle(lineWidth: max(0.6, headRadius * 0.025), lineCap: .round)
+                )
 
-            let acheneLength = headRadius * 0.14 * depthScale
-            let acheneWidth = headRadius * 0.055 * depthScale
-            let acheneCenter = anchor + direction * (headRadius * 0.04)
-            let achenePath = Path(
-                roundedRect: CGRect(
-                    x: -acheneLength * 0.5,
-                    y: -acheneWidth * 0.5,
-                    width: acheneLength,
-                    height: acheneWidth
-                ),
-                cornerRadius: acheneWidth * 0.5
-            )
-            let acheneAngle = atan2(direction.y, direction.x)
-            let acheneTransform = CGAffineTransform(translationX: acheneCenter.x, y: acheneCenter.y)
-                .rotated(by: acheneAngle)
-            layer.fill(
-                achenePath.applying(acheneTransform),
-                with: .color(Color.dandelionAccent.opacity(0.75))
-            )
-
-            let axisA = direction.perpendicular
-            let axisB = direction * (0.25 + abs(seed.depth) * 0.75)
-            let filamentColor = Color.dandelionPappus.opacity(0.65 + depthFactor * 0.3)
-            let filamentWidth = max(0.4, headRadius * 0.012)
-
-            var filaments = Path()
-            for index in 0..<seed.filamentAngles.count {
-                let angle = seed.filamentAngles[index]
-                let phase = seed.filamentPhases[index]
-                let lengthScale = seed.filamentLengths[index]
-
-                let flutter = sin(time * 1.6 + phase) * 0.12
-                let localAngle = angle + flutter
-                let directionVector = (axisA * cos(localAngle) + axisB * sin(localAngle)).normalized
-                let filamentLength = pappusRadius * lengthScale
-                let endPoint = pappusCenter + directionVector * filamentLength
-                let controlPoint = pappusCenter
-                    + directionVector * (filamentLength * 0.6)
-                    + windBend
-
-                filaments.move(to: pappusCenter)
-                filaments.addQuadCurve(to: endPoint, control: controlPoint)
+                let acheneLength = headRadius * 0.14 * depthScale * growthScale
+                let acheneWidth = headRadius * 0.055 * depthScale * growthScale
+                let acheneCenter = anchor + direction * (headRadius * 0.04 * growthScale)
+                let achenePath = Path(
+                    roundedRect: CGRect(
+                        x: -acheneLength * 0.5,
+                        y: -acheneWidth * 0.5,
+                        width: acheneLength,
+                        height: acheneWidth
+                    ),
+                    cornerRadius: acheneWidth * 0.5
+                )
+                let acheneAngle = atan2(direction.y, direction.x)
+                let acheneTransform = CGAffineTransform(translationX: acheneCenter.x, y: acheneCenter.y)
+                    .rotated(by: acheneAngle)
+                layer.fill(
+                    achenePath.applying(acheneTransform),
+                    with: .color(Color.dandelionAccent.opacity(0.75))
+                )
             }
 
-            layer.stroke(
-                filaments,
-                with: .color(filamentColor),
-                style: StrokeStyle(lineWidth: filamentWidth, lineCap: .round)
-            )
+            // Only draw pappus if it has started blooming
+            if pappusRadius > 0.1 {
+                let axisA = direction.perpendicular
+                let axisB = direction * (0.25 + abs(seed.depth) * 0.75)
+                let filamentColor = Color.dandelionPappus.opacity(0.65 + depthFactor * 0.3)
+                let filamentWidth = max(0.4, headRadius * 0.012)
 
-            let crownSize = pappusRadius * 0.16
-            let crownRect = CGRect(
-                x: pappusCenter.x - crownSize * 0.5,
-                y: pappusCenter.y - crownSize * 0.5,
-                width: crownSize,
-                height: crownSize
-            )
-            let crownPath = Path(ellipseIn: crownRect)
-            layer.fill(crownPath, with: .color(Color.dandelionPappus.opacity(0.85)))
+                var filaments = Path()
+                for index in 0..<seed.filamentAngles.count {
+                    let angle = seed.filamentAngles[index]
+                    let phase = seed.filamentPhases[index]
+                    let lengthScale = seed.filamentLengths[index]
+
+                    let flutter = sin(time * 1.6 + phase) * 0.12
+                    let localAngle = angle + flutter
+                    let directionVector = (axisA * cos(localAngle) + axisB * sin(localAngle)).normalized
+                    let filamentLength = pappusRadius * lengthScale
+                    let endPoint = pappusCenter + directionVector * filamentLength
+                    let controlPoint = pappusCenter
+                        + directionVector * (filamentLength * 0.6)
+                        + windBend * pappusScale
+
+                    filaments.move(to: pappusCenter)
+                    filaments.addQuadCurve(to: endPoint, control: controlPoint)
+                }
+
+                layer.stroke(
+                    filaments,
+                    with: .color(filamentColor),
+                    style: StrokeStyle(lineWidth: filamentWidth, lineCap: .round)
+                )
+
+                let crownSize = pappusRadius * 0.16
+                let crownRect = CGRect(
+                    x: pappusCenter.x - crownSize * 0.5,
+                    y: pappusCenter.y - crownSize * 0.5,
+                    width: crownSize,
+                    height: crownSize
+                )
+                let crownPath = Path(ellipseIn: crownRect)
+                layer.fill(crownPath, with: .color(Color.dandelionPappus.opacity(0.85)))
+            }
         }
     }
 }
@@ -463,6 +513,7 @@ private struct DandelionSeed: Identifiable {
     let flightDuration: CGFloat
     let flightLift: CGFloat
     let flightDrift: CGFloat
+    let growthDelay: CGFloat  // Staggered delay for regrowth animation (0 to ~0.8)
     var angle: CGFloat
     var angularVelocity: CGFloat
 
@@ -526,6 +577,9 @@ private struct DandelionSeed: Identifiable {
             flightDuration: random(in: 16.0...20.0, using: &rng), // Tweak this to adjust the amount of time the seeds spend drifting away
             flightLift: random(in: 1.1...1.5, using: &rng),
             flightDrift: random(in: -0.35...0.35, using: &rng),
+            // Growth delay: bottom seeds (y ≈ -1) grow first, top seeds (y ≈ 1) grow last
+            // Maps y from [-1, 1] to [0, 0.8] with random jitter for organic feel
+            growthDelay: CGFloat((y + 1) * 0.4) + random(in: -0.05...0.05, using: &rng),
             angle: 0,
             angularVelocity: 0
         )
@@ -581,6 +635,21 @@ private func wrappedAngle(_ angle: CGFloat) -> CGFloat {
     while value > .pi { value -= .pi * 2 }
     while value < -.pi { value += .pi * 2 }
     return value
+}
+
+// MARK: - Easing Functions for Regrowth Animation
+
+private func easeOutCubic(_ t: CGFloat) -> CGFloat {
+    let t1 = t - 1
+    return t1 * t1 * t1 + 1
+}
+
+private func easeOutBack(_ t: CGFloat) -> CGFloat {
+    // Slight overshoot for organic spring feel
+    let c1: CGFloat = 1.70158
+    let c3 = c1 + 1
+    let t1 = t - 1
+    return 1 + c3 * t1 * t1 * t1 + c1 * t1 * t1
 }
 
 private extension CGPoint {
