@@ -49,11 +49,12 @@ final class WritingViewModel {
     private var detachmentCursor: Int = 0
     private var detachmentTask: Task<Void, Never>?
     private var releaseTask: Task<Void, Never>?
-    private let releaseDuration: TimeInterval = 9.0
+    private let releaseDuration: TimeInterval = 9.0  // After message fully fades
     private var activeReleaseID: UUID?
     private var seedRestoreTask: Task<Void, Never>?
     private(set) var seedRestoreStartTime: TimeInterval?
-    let seedRestoreDuration: TimeInterval = 3.0
+    let seedRestoreDuration: TimeInterval = 5.0
+    private let dandelionReturnDuration: TimeInterval = 1.5  // Position animation before regrowth begins
     static let debugReleaseFlow = true
 
     // MARK: - Computed Properties
@@ -135,12 +136,14 @@ final class WritingViewModel {
         // Clear the text (it's gone forever!)
         writtenText = ""
 
-        // Get new prompt and message for next time
-        currentPrompt = promptsManager.randomPrompt()
-        currentReleaseMessage = promptsManager.randomReleaseMessage()
-        withAnimation(.easeInOut(duration: seedRestoreDuration)) {
+        // Change state first so ReleaseMessageView disappears
+        withAnimation(.easeInOut(duration: dandelionReturnDuration)) {
             writingState = .prompt
         }
+
+        // Then get new prompt and message for next time
+        currentPrompt = promptsManager.randomPrompt()
+        currentReleaseMessage = promptsManager.randomReleaseMessage()
         beginSeedRestore()
     }
 
@@ -154,11 +157,15 @@ final class WritingViewModel {
         }
 
         writtenText = ""
-        currentPrompt = promptsManager.randomPrompt()
-        currentReleaseMessage = promptsManager.randomReleaseMessage()
-        withAnimation(.easeInOut(duration: seedRestoreDuration)) {
+
+        // Change state first so ReleaseMessageView disappears
+        withAnimation(.easeInOut(duration: dandelionReturnDuration)) {
             writingState = .prompt
         }
+
+        // Then get new prompt and message for next time
+        currentPrompt = promptsManager.randomPrompt()
+        currentReleaseMessage = promptsManager.randomReleaseMessage()
         beginSeedRestore()
     }
 
@@ -244,10 +251,21 @@ final class WritingViewModel {
         }
 
         cancelSeedRestore()
-        seedRestoreStartTime = Date().timeIntervalSinceReferenceDate
 
+        // Delay regrowth until after dandelion returns to default position
+        let returnDelay = dandelionReturnDuration
         let restoreDuration = seedRestoreDuration
         seedRestoreTask = Task { [weak self] in
+            // Wait for position animation to complete
+            try? await Task.sleep(nanoseconds: UInt64(returnDelay * 1_000_000_000))
+
+            // Now start the regrowth animation
+            await MainActor.run {
+                guard let self else { return }
+                self.seedRestoreStartTime = Date().timeIntervalSinceReferenceDate
+            }
+
+            // Wait for regrowth to complete
             try? await Task.sleep(nanoseconds: UInt64(restoreDuration * 1_000_000_000))
             await MainActor.run {
                 guard let self else { return }
