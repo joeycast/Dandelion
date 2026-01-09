@@ -14,6 +14,7 @@ struct DandelionBloomView: View {
     var detachedSeedTimes: [Int: TimeInterval] = [:]
     var seedRestoreStartTime: TimeInterval?
     var seedRestoreDuration: TimeInterval = 1.8
+    var topOverflow: CGFloat = 0  // Extra space above for seeds to fly into
 
     @State private var driver: DandelionSimulationDriver
 
@@ -23,7 +24,8 @@ struct DandelionBloomView: View {
         windStrength: CGFloat = 1.2,
         detachedSeedTimes: [Int: TimeInterval] = [:],
         seedRestoreStartTime: TimeInterval? = nil,
-        seedRestoreDuration: TimeInterval = 1.8
+        seedRestoreDuration: TimeInterval = 1.8,
+        topOverflow: CGFloat = 0
     ) {
         self.seedCount = seedCount
         self.filamentsPerSeed = filamentsPerSeed
@@ -31,6 +33,7 @@ struct DandelionBloomView: View {
         self.detachedSeedTimes = detachedSeedTimes
         self.seedRestoreStartTime = seedRestoreStartTime
         self.seedRestoreDuration = seedRestoreDuration
+        self.topOverflow = topOverflow
         _driver = State(initialValue: DandelionSimulationDriver(
             seedCount: seedCount,
             filamentsPerSeed: filamentsPerSeed
@@ -44,6 +47,7 @@ struct DandelionBloomView: View {
                 DandelionRenderer.draw(
                     in: context,
                     size: size,
+                    topOverflow: topOverflow,
                     time: timeline.date.timeIntervalSinceReferenceDate,
                     simulation: driver.simulation,
                     windStrength: windStrength,
@@ -61,6 +65,7 @@ private enum DandelionRenderer {
     static func draw(
         in context: GraphicsContext,
         size: CGSize,
+        topOverflow: CGFloat = 0,
         time: TimeInterval,
         simulation: DandelionSimulation,
         windStrength: CGFloat,
@@ -78,10 +83,13 @@ private enum DandelionRenderer {
         )
         let effectiveDetachedSeedTimes = restoreProgress >= 1 ? [:] : detachedSeedTimes
 
-        let minSide = min(size.width, size.height)
+        // Calculate visible height (total minus overflow) for positioning the dandelion
+        let visibleHeight = size.height - topOverflow
+        let minSide = min(size.width, visibleHeight)
         let headRadius = minSide * 0.2
-        let stemBase = CGPoint(x: size.width * 0.5, y: size.height * 0.92)
-        let restHeadCenter = CGPoint(x: size.width * 0.5, y: size.height * 0.38)
+        // Position dandelion relative to visible area, offset down by topOverflow
+        let stemBase = CGPoint(x: size.width * 0.5, y: topOverflow + visibleHeight * 0.92)
+        let restHeadCenter = CGPoint(x: size.width * 0.5, y: topOverflow + visibleHeight * 0.38)
         let stemVector = restHeadCenter - stemBase
         let stemAngle = simulation.stemAngle
         let stemBob = sin(t * 0.35 + 1.1) * headRadius * 0.03
@@ -95,11 +103,15 @@ private enum DandelionRenderer {
         let backSeeds = attachedSeeds.filter { $0.depth < 0 }
         let frontSeeds = attachedSeeds.filter { $0.depth >= 0 }
 
+        // Calculate visible size for flight animations (excludes overflow area)
+        let visibleSize = CGSize(width: size.width, height: visibleHeight)
+
         for seed in backSeeds {
             drawSeed(
                 seed,
                 in: &context,
                 size: size,
+                visibleSize: visibleSize,
                 headCenter: headCenter,
                 headRadius: headRadius,
                 time: t,
@@ -119,6 +131,7 @@ private enum DandelionRenderer {
                 seed,
                 in: &context,
                 size: size,
+                visibleSize: visibleSize,
                 headCenter: headCenter,
                 headRadius: headRadius,
                 time: t,
@@ -136,6 +149,7 @@ private enum DandelionRenderer {
                 seed,
                 in: &context,
                 size: size,
+                visibleSize: visibleSize,
                 headCenter: headCenter,
                 headRadius: headRadius,
                 time: t,
@@ -238,6 +252,7 @@ private enum DandelionRenderer {
         _ seed: DandelionSeed,
         in context: inout GraphicsContext,
         size: CGSize,
+        visibleSize: CGSize,
         headCenter: CGPoint,
         headRadius: CGFloat,
         time: CGFloat,
@@ -296,10 +311,27 @@ private enum DandelionRenderer {
 
         // Opacity fades in during regrowth
         let growthOpacity = isRegrowing ? easeOutCubic(min(1, seedGrowthProgress * 3)) : 1.0
-        let seedOpacity = baseSeedOpacity * growthOpacity
+
+        // Fade out after 3 seconds of flight (matching the text animation)
+        let flightFadeStart: CGFloat = 3.0
+        let flightFadeDuration: CGFloat = 1.0
+        let flightFadeOpacity: CGFloat
+        if detachment.elapsed > flightFadeStart && !isRegrowing {
+            let fadeProgress = min(1.0, (detachment.elapsed - flightFadeStart) / flightFadeDuration)
+            flightFadeOpacity = 1.0 - easeInCubic(fadeProgress)
+        } else {
+            flightFadeOpacity = 1.0
+        }
+
+        let seedOpacity = baseSeedOpacity * growthOpacity * flightFadeOpacity
 
         // Skip drawing if seed hasn't started growing yet during regrowth
         if isRegrowing && seedGrowthProgress <= 0 {
+            return
+        }
+
+        // Skip drawing if fully faded out
+        if flightFadeOpacity <= 0 {
             return
         }
 
@@ -313,14 +345,15 @@ private enum DandelionRenderer {
         let flightProgress = min(1, detachment.elapsed / seed.flightDuration)
         let flightInverse = 1 - flightProgress
         let flightEase = 1 - (flightInverse * flightInverse * flightInverse)
-        let offscreenPadding = size.height * 0.15
+        // Use visibleSize for flight calculations to maintain consistent animation speed
+        let offscreenPadding = visibleSize.height * 0.15
         let flightOffset = CGPoint(
-            x: size.width * seed.flightDrift * flightEase,
-            y: -(size.height * seed.flightLift + offscreenPadding) * flightEase
+            x: visibleSize.width * seed.flightDrift * flightEase,
+            y: -(visibleSize.height * seed.flightLift + offscreenPadding) * flightEase
         )
-        let windOffset = windVector * (size.height * 0.11 * flightProgress)
+        let windOffset = windVector * (visibleSize.height * 0.11 * flightProgress)
         let flutterOffset = direction.perpendicular * (
-            sin(time * 1.2 + seed.detachmentPhase) * size.width * 0.022 * flightProgress
+            sin(time * 1.2 + seed.detachmentPhase) * visibleSize.width * 0.022 * flightProgress
         )
 
         // During regrowth, seeds grow from their anchor point (no detachment offset)
@@ -657,7 +690,11 @@ private func wrappedAngle(_ angle: CGFloat) -> CGFloat {
     return value
 }
 
-// MARK: - Easing Functions for Regrowth Animation
+// MARK: - Easing Functions for Animations
+
+private func easeInCubic(_ t: CGFloat) -> CGFloat {
+    return t * t * t
+}
 
 private func easeOutCubic(_ t: CGFloat) -> CGFloat {
     let t1 = t - 1

@@ -314,14 +314,22 @@ struct WritingView: View {
     // MARK: - Dandelion Illustration
 
     private func dandelionIllustration(height: CGFloat) -> some View {
-        DandelionBloomView(
-            seedCount: viewModel.dandelionSeedCount,
-            detachedSeedTimes: viewModel.detachedSeedTimes,
-            seedRestoreStartTime: viewModel.seedRestoreStartTime,
-            seedRestoreDuration: viewModel.seedRestoreDuration
-        )
-        .frame(height: height)
-        .allowsHitTesting(false)
+        // Use Color.clear as layout placeholder, with DandelionBloomView overlaid
+        // This allows seeds to fly upward beyond the layout bounds without clipping
+        let overflowHeight: CGFloat = 500
+        return Color.clear
+            .frame(height: height)
+            .overlay(alignment: .bottom) {
+                DandelionBloomView(
+                    seedCount: viewModel.dandelionSeedCount,
+                    detachedSeedTimes: viewModel.detachedSeedTimes,
+                    seedRestoreStartTime: viewModel.seedRestoreStartTime,
+                    seedRestoreDuration: viewModel.seedRestoreDuration,
+                    topOverflow: overflowHeight
+                )
+                .frame(height: height + overflowHeight)
+            }
+            .allowsHitTesting(false)
     }
 
     private func dandelionReturnOffset(in size: CGSize) -> CGFloat {
