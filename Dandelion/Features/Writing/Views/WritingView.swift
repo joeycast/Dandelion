@@ -33,6 +33,9 @@ struct WritingView: View {
                         onMessageAppear: {
                             viewModel.startDandelionReturn()
                         },
+                        onMessageFadeStart: {
+                            viewModel.startSeedRestoreNow()
+                        },
                         onComplete: {}
                     )
                     .onAppear {

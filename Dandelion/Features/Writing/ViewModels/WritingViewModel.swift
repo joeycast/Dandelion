@@ -57,7 +57,7 @@ final class WritingViewModel {
     private var seedRestoreTask: Task<Void, Never>?
     private var regrowHapticsTask: Task<Void, Never>?
     private(set) var seedRestoreStartTime: TimeInterval?
-    let seedRestoreDuration: TimeInterval = 5.0
+    let seedRestoreDuration: TimeInterval = 8.0
     private let dandelionReturnDuration: TimeInterval = 1.5  // Position animation before regrowth begins
     static let debugReleaseFlow = true
 
@@ -268,6 +268,9 @@ final class WritingViewModel {
     }
 
     private func beginSeedRestore() {
+        // Skip if restore is already in progress (started by startSeedRestoreNow)
+        guard seedRestoreStartTime == nil else { return }
+
         guard !detachedSeedTimes.isEmpty else {
             prepareDetachmentOrder()
             stopDetachingSeeds()
@@ -367,6 +370,36 @@ final class WritingViewModel {
         }
         withAnimation(.easeInOut(duration: dandelionReturnDuration)) {
             isDandelionReturning = true
+        }
+    }
+
+    /// Start the seed restore animation immediately (called when release message starts fading)
+    func startSeedRestoreNow() {
+        guard seedRestoreStartTime == nil else { return }
+        guard !detachedSeedTimes.isEmpty else { return }
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] startSeedRestoreNow")
+        }
+
+        cancelSeedRestore()
+
+        let restoreDuration = seedRestoreDuration
+        seedRestoreStartTime = Date().timeIntervalSinceReferenceDate
+        regrowHapticsTask?.cancel()
+        regrowHapticsTask = Task { [haptics] in
+            await haptics.playRegrowthPattern()
+        }
+
+        seedRestoreTask = Task { [weak self] in
+            // Wait for regrowth animation to complete
+            try? await Task.sleep(nanoseconds: UInt64(restoreDuration * 1_000_000_000))
+            await MainActor.run {
+                guard let self else { return }
+                self.detachedSeedTimes = [:]
+                self.seedRestoreStartTime = nil
+                self.prepareDetachmentOrder()
+                self.stopDetachingSeeds()
+            }
         }
     }
 }
