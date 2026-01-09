@@ -10,6 +10,7 @@ import SwiftUI
 struct ReleaseMessageView: View {
     let releaseMessage: String
     let onMessageAppear: () -> Void
+    let onMessageFadeStart: () -> Void
     let onComplete: () -> Void
 
     @State private var showMessage = false
@@ -51,8 +52,9 @@ struct ReleaseMessageView: View {
             }
         }
 
-        // Fade out message
+        // Fade out message and notify
         DispatchQueue.main.asyncAfter(deadline: .now() + fadeDelay) {
+            onMessageFadeStart()
             withAnimation(.easeOut(duration: 1.0)) {
                 messageOpacity = 0
             }
@@ -71,6 +73,7 @@ struct ReleaseMessageView: View {
         ReleaseMessageView(
             releaseMessage: "Let it drift away.",
             onMessageAppear: {},
+            onMessageFadeStart: {},
             onComplete: {}
         )
     }
