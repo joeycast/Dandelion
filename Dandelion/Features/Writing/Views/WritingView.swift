@@ -128,7 +128,7 @@ struct WritingView: View {
 
     private func headerView(in size: CGSize) -> some View {
         VStack(spacing: isPrompt ? DandelionSpacing.lg : DandelionSpacing.xs) {
-            dandelionIllustration(height: isPrompt ? 220 : 160)
+            dandelionIllustration(height: (isWriting || (isReleasing && !viewModel.isDandelionReturning)) ? 80 : 220)
 
             let promptMatchId = "promptText-\(viewModel.currentPrompt.id)"
             WordAnimatedTextView(
@@ -340,7 +340,8 @@ struct WritingView: View {
 
     private func dandelionReturnOffset(in size: CGSize) -> CGFloat {
         guard viewModel.isDandelionReturning else { return 0 }
-        return min(size.height * 0.22, 180)
+        // Position dandelion above the centered release message
+        return min(size.height * 0.12, 100)
     }
 }
 
