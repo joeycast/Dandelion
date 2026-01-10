@@ -6,10 +6,11 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct WritingView: View {
     @State private var viewModel = WritingViewModel()
-    @FocusState private var isTextEditorFocused: Bool
+    @State private var isTextEditorFocused: Bool = false
     @State private var animateLetters: Bool = false
     @State private var promptOpacity: Double = 1
     @Namespace private var promptNamespace
@@ -169,23 +170,25 @@ struct WritingView: View {
     }
 
     private var writingArea: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
+            // Text editor fills available space
+            GeometryReader { geometry in
                 let horizontalPadding = DandelionSpacing.screenEdge - 5
-                let contentWidth = geometry.size.width - (horizontalPadding * 2)
-                let lineWidth = contentWidth
+                let lineWidth = geometry.size.width - (horizontalPadding * 2)
 
                 ZStack(alignment: .topLeading) {
-                    // The actual TextEditor (hidden when releasing)
-                    TextEditor(text: $viewModel.writtenText)
-                        .font(.dandelionWriting)
-                        .foregroundColor(.dandelionText)
-                        .scrollContentBackground(.hidden)
-                        .background(Color.clear)
-                        .focused($isTextEditorFocused)
-                        .disabled(!isWriting)
-                        .opacity(isReleasing ? 0 : 1)
-                        .animation(nil, value: isReleasing)
+                    // Auto-scrolling text editor (hidden when releasing)
+                    AutoScrollingTextEditor(
+                        text: $viewModel.writtenText,
+                        font: .dandelionWriting,
+                        textColor: UIColor(Color.dandelionText),
+                        isEditable: isWriting,
+                        shouldBeFocused: $isTextEditorFocused
+                    )
+                    .frame(width: geometry.size.width - (horizontalPadding * 2),
+                           height: geometry.size.height)
+                    .opacity(isReleasing ? 0 : 1)
+                    .animation(nil, value: isReleasing)
 
                     // Animatable text overlay - visible when releasing
                     AnimatableTextView(
@@ -200,15 +203,15 @@ struct WritingView: View {
                     .padding(.top, 8)
                     .opacity(isReleasing ? 1 : 0)
                     .animation(nil, value: isReleasing)
+                    .allowsHitTesting(false)
                 }
-                .padding(.horizontal, DandelionSpacing.screenEdge - 5)
-
-                Spacer(minLength: 0)
-
-                bottomBar
-                    .opacity(isWriting ? 1 : 0)
-                    .allowsHitTesting(isWriting)
+                .padding(.horizontal, horizontalPadding)
             }
+
+            // Bottom bar at the bottom
+            bottomBar
+                .opacity(isWriting ? 1 : 0)
+                .allowsHitTesting(isWriting)
         }
         .padding(.top, DandelionSpacing.sm)
         .opacity((isWriting || isReleasing) ? 1 : 0)
