@@ -157,12 +157,14 @@ struct WritingView: View {
     private var promptButtons: some View {
         VStack(spacing: DandelionSpacing.md) {
             Button("New Prompt") {
+                HapticsService.shared.tap()
                 viewModel.currentPrompt = PromptsManager().randomPrompt()
             }
             .font(.dandelionCaption)
             .foregroundColor(.dandelionSecondary)
 
             Button("Begin Writing") {
+                HapticsService.shared.tap()
                 viewModel.startWriting()
             }
             .buttonStyle(.dandelion)
