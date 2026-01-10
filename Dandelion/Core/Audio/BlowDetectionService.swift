@@ -7,12 +7,17 @@
 //
 
 import AVFoundation
+import Accelerate
 
 #if os(macOS)
 import AVFAudio
 #endif
 
-/// Service that detects blowing into the microphone
+/// Service that detects blowing into the microphone using frequency analysis
+/// Blowing has distinct acoustic characteristics:
+/// - Dominated by low frequencies (wind noise below 500Hz)
+/// - Flat, noise-like spectrum (unlike speech with harmonic peaks)
+/// - High zero-crossing rate (characteristic of noise)
 @Observable
 final class BlowDetectionService {
     // MARK: - Public State
@@ -52,12 +57,28 @@ final class BlowDetectionService {
 
     private var audioEngine: AVAudioEngine?
     private var inputNode: AVAudioInputNode?
+    private var sampleRate: Double = 44100
 
-    /// Threshold for detecting blow vs ambient noise
-    private let blowThreshold: Float = 0.15
+    // FFT setup
+    private var fftSetup: vDSP_DFT_Setup?
+    private let fftSize: Int = 1024
+
+    /// Minimum overall level to consider (filters out silence)
+    private let minimumLevel: Float = 0.05
+
+    /// How much low-frequency energy must dominate for it to be a blow
+    /// Higher = more strict (fewer false positives from speech)
+    private let lowFrequencyDominanceRatio: Float = 3.5
 
     /// How long (in seconds) the blow must be sustained
     private let requiredBlowDuration: TimeInterval = 0.5
+
+    /// Number of consecutive "blow-like" frames required before triggering
+    /// This prevents single words from flashing the indicator
+    private let requiredConsecutiveFrames: Int = 4
+
+    /// Counter for consecutive blow-like frames
+    private var consecutiveBlowFrames: Int = 0
 
     /// Timer tracking blow duration
     private var blowStartTime: Date?
@@ -67,10 +88,20 @@ final class BlowDetectionService {
 
     // MARK: - Initialization
 
-    init() {}
+    init() {
+        // Create FFT setup for frequency analysis
+        fftSetup = vDSP_DFT_zop_CreateSetup(
+            nil,
+            vDSP_Length(fftSize),
+            .FORWARD
+        )
+    }
 
     deinit {
         stopListening()
+        if let setup = fftSetup {
+            vDSP_DFT_DestroySetup(setup)
+        }
     }
 
     // MARK: - Permission
@@ -167,8 +198,10 @@ final class BlowDetectionService {
                 return
             }
 
+            sampleRate = format.sampleRate
+
             // Install tap to monitor audio levels
-            inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            inputNode.installTap(onBus: 0, bufferSize: UInt32(fftSize), format: format) { [weak self] buffer, _ in
                 self?.processAudioBuffer(buffer)
             }
 
@@ -193,41 +226,107 @@ final class BlowDetectionService {
         currentLevel = 0
         blowStartTime = nil
         blowThresholdMet = false
+        consecutiveBlowFrames = 0
     }
 
     // MARK: - Audio Processing
 
     private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
         guard let channelData = buffer.floatChannelData?[0] else { return }
+        guard let fftSetup = fftSetup else { return }
 
         let frameLength = Int(buffer.frameLength)
-        guard frameLength > 0 else { return }
+        guard frameLength >= fftSize else { return }
 
-        // Calculate RMS (root mean square) for audio level
-        var sum: Float = 0
-        for i in 0..<frameLength {
-            let sample = channelData[i]
-            sum += sample * sample
-        }
-        let rms = sqrt(sum / Float(frameLength))
-
-        // Normalize to 0-1 range (with some headroom)
+        // Calculate overall RMS level
+        var rms: Float = 0
+        vDSP_rmsqv(channelData, 1, &rms, vDSP_Length(fftSize))
         let normalizedLevel = min(rms * 5, 1.0)
 
+        // Skip frequency analysis if too quiet
+        guard rms > minimumLevel else {
+            DispatchQueue.main.async { [weak self] in
+                self?.updateBlowState(isBlowDetected: false, level: normalizedLevel)
+            }
+            return
+        }
+
+        // Prepare data for FFT
+        var realInput = [Float](repeating: 0, count: fftSize)
+        var imagInput = [Float](repeating: 0, count: fftSize)
+        var realOutput = [Float](repeating: 0, count: fftSize)
+        var imagOutput = [Float](repeating: 0, count: fftSize)
+
+        // Copy audio data to real input
+        for i in 0..<fftSize {
+            realInput[i] = channelData[i]
+        }
+
+        // Perform FFT
+        vDSP_DFT_Execute(fftSetup, &realInput, &imagInput, &realOutput, &imagOutput)
+
+        // Calculate magnitude spectrum
+        var magnitudes = [Float](repeating: 0, count: fftSize / 2)
+        for i in 0..<(fftSize / 2) {
+            let real = realOutput[i]
+            let imag = imagOutput[i]
+            magnitudes[i] = sqrt(real * real + imag * imag)
+        }
+
+        // Calculate frequency resolution
+        let frequencyResolution = Float(sampleRate) / Float(fftSize)
+
+        // Define frequency bands
+        // Low band: 50-500 Hz (where blow noise dominates)
+        // High band: 1000-4000 Hz (where speech formants live)
+        let lowBandStart = Int(50 / frequencyResolution)
+        let lowBandEnd = Int(500 / frequencyResolution)
+        let highBandStart = Int(1000 / frequencyResolution)
+        let highBandEnd = min(Int(4000 / frequencyResolution), fftSize / 2 - 1)
+
+        // Calculate energy in each band
+        var lowBandEnergy: Float = 0
+        var highBandEnergy: Float = 0
+
+        for i in lowBandStart..<lowBandEnd {
+            lowBandEnergy += magnitudes[i] * magnitudes[i]
+        }
+        lowBandEnergy /= Float(lowBandEnd - lowBandStart)
+
+        for i in highBandStart..<highBandEnd {
+            highBandEnergy += magnitudes[i] * magnitudes[i]
+        }
+        highBandEnergy /= Float(highBandEnd - highBandStart)
+
+        // Blow detection: low frequencies must strongly dominate
+        // Add small epsilon to avoid division by zero
+        let ratio = lowBandEnergy / (highBandEnergy + 0.0001)
+        let isBlowLike = ratio > lowFrequencyDominanceRatio
+
         DispatchQueue.main.async { [weak self] in
-            self?.updateLevel(normalizedLevel)
+            self?.updateBlowState(isBlowDetected: isBlowLike, level: normalizedLevel)
         }
     }
 
-    private func updateLevel(_ level: Float) {
+    private func updateBlowState(isBlowDetected: Bool, level: Float) {
         currentLevel = level
 
+        // Track consecutive blow-like frames to filter out spurious detections
+        if isBlowDetected {
+            consecutiveBlowFrames += 1
+        } else {
+            consecutiveBlowFrames = 0
+        }
+
+        // Only consider it a real blow after enough consecutive frames
+        let isConfirmedBlow = consecutiveBlowFrames >= requiredConsecutiveFrames
+
         let wasBlowing = isBlowing
-        isBlowing = level > blowThreshold
+        isBlowing = isConfirmedBlow
 
         if isBlowing {
             if !wasBlowing {
-                // Blow just started
+                // Blow just started (confirmed)
                 blowStartTime = Date()
                 blowThresholdMet = false
                 onBlowStarted?()
