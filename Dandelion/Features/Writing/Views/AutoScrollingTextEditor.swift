@@ -14,6 +14,7 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
     var textColor: UIColor
     var isEditable: Bool
     @Binding var shouldBeFocused: Bool
+    @Binding var scrollOffset: CGFloat
 
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView(usingTextLayoutManager: false)
@@ -36,6 +37,11 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
 
         textView.text = text
         context.coordinator.textView = textView
+
+        // Report initial scroll offset
+        DispatchQueue.main.async {
+            context.coordinator.parent.scrollOffset = textView.contentOffset.y
+        }
 
         return textView
     }
@@ -106,6 +112,7 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
             }
         }
 
+
         private func ensureCursorVisible(_ textView: UITextView) {
             guard let selectedRange = textView.selectedTextRange else { return }
 
@@ -139,6 +146,12 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
                     self?.isProcessingFocusChange = false
                 }
             }
+        }
+
+        func scrollViewDidScroll(_ scrollView: UIScrollView) {
+            // Only update scroll offset when editing is enabled (writing mode)
+            guard parent.isEditable else { return }
+            parent.scrollOffset = scrollView.contentOffset.y
         }
     }
 }

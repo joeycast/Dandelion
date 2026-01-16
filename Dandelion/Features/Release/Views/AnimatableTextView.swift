@@ -16,6 +16,8 @@ struct AnimatableTextView: View {
     let lineWidth: CGFloat
     let isAnimating: Bool
     let screenSize: CGSize
+    let visibleHeight: CGFloat
+    let scrollOffset: CGFloat
 
     private var lineHeight: CGFloat {
         uiFont.lineHeight
@@ -55,7 +57,7 @@ struct AnimatableTextView: View {
     }
 
     private var glyphLayout: GlyphLayout {
-        guard !text.isEmpty else {
+        guard !text.isEmpty, visibleHeight > 0 else {
             return GlyphLayout(glyphs: [], totalHeight: 0)
         }
 
@@ -73,16 +75,43 @@ struct AnimatableTextView: View {
 
         layoutManager.addTextContainer(textContainer)
         textStorage.addLayoutManager(layoutManager)
-        layoutManager.ensureLayout(for: textContainer)
 
         let nsText = text as NSString
         var glyphs: [Glyph] = []
         var glyphIndex = 0
         var lineIndex = 0
 
+        var totalHeight = layoutManager.usedRect(for: textContainer).height
+        if text.hasSuffix("\n") {
+            totalHeight += lineHeight
+        }
+
+        // Account for text container insets (8pt top and bottom padding in AutoScrollingTextEditor)
+        let textContainerTopInset: CGFloat = 8
+        let textContainerBottomInset: CGFloat = 8
+        let adjustedScrollOffset = max(0, scrollOffset - textContainerTopInset)
+        // Actual visible text height is smaller than container due to insets
+        let actualVisibleHeight = visibleHeight - textContainerTopInset - textContainerBottomInset
+
+        let clampedVisibleHeight = max(0, min(actualVisibleHeight, totalHeight))
+        let isCropped = clampedVisibleHeight > 0 && clampedVisibleHeight < totalHeight
+
+        // The visible region based on scroll position
+        let visibleMinY = isCropped ? adjustedScrollOffset : 0
+        let visibleMaxY = isCropped ? min(adjustedScrollOffset + clampedVisibleHeight, totalHeight) : max(clampedVisibleHeight, totalHeight)
+
         while glyphIndex < layoutManager.numberOfGlyphs {
             var lineRange = NSRange(location: 0, length: 0)
-            layoutManager.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: &lineRange)
+            let lineRect = layoutManager.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: &lineRange)
+
+            if lineRect.maxY < visibleMinY {
+                glyphIndex = NSMaxRange(lineRange)
+                lineIndex += 1
+                continue
+            }
+            if lineRect.minY > visibleMaxY {
+                break
+            }
 
             var charIndex = 0
             for glyph in lineRange.location..<NSMaxRange(lineRange) {
@@ -100,11 +129,14 @@ struct AnimatableTextView: View {
                 }
 
                 let rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+                if rect.maxY < visibleMinY || rect.minY > visibleMaxY {
+                    continue
+                }
                 glyphs.append(
                     Glyph(
                         id: glyphs.count,
                         character: char,
-                        rect: rect,
+                        rect: rect.offsetBy(dx: 0, dy: -visibleMinY),
                         lineIndex: lineIndex,
                         charIndex: charIndex
                     )
@@ -116,12 +148,8 @@ struct AnimatableTextView: View {
             lineIndex += 1
         }
 
-        var totalHeight = layoutManager.usedRect(for: textContainer).height
-        if text.hasSuffix("\n") {
-            totalHeight += lineHeight
-        }
-
-        return GlyphLayout(glyphs: glyphs, totalHeight: totalHeight)
+        let layoutHeight = isCropped ? clampedVisibleHeight : totalHeight
+        return GlyphLayout(glyphs: glyphs, totalHeight: layoutHeight)
     }
 }
 
@@ -167,7 +195,7 @@ struct CharacterView: View {
 
         // Random drift direction
         let horizontalDrift = CGFloat.random(in: -200...200)
-        let verticalDrift = CGFloat.random(in: -screenSize.height * 0.8 ... -screenSize.height * 0.3)
+        let verticalDrift = CGFloat.random(in: -screenSize.height * 1.2 ... -screenSize.height * 0.6)
         let finalRotation = Double.random(in: -60...60)
 
         withAnimation(.easeInOut(duration: duration).delay(delay)) {
@@ -195,7 +223,9 @@ struct CharacterView: View {
             textColor: .dandelionText,
             lineWidth: 300,
             isAnimating: false,
-            screenSize: CGSize(width: 393, height: 852)
+            screenSize: CGSize(width: 393, height: 852),
+            visibleHeight: 300,
+            scrollOffset: 0
         )
         .padding()
     }

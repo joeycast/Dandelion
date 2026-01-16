@@ -46,6 +46,10 @@ final class WritingViewModel {
     private let promptsManager: PromptsManager
     let blowDetection: BlowDetectionService
     private let haptics: HapticsService
+
+    /// Callback invoked when a release is triggered, passing word count
+    /// Set this from the view to record releases to history
+    var onReleaseTriggered: ((Int) -> Void)?
     let dandelionSeedCount: Int = 140
     private var detachmentOrder: [Int] = []
     private var detachmentCursor: Int = 0
@@ -227,6 +231,10 @@ final class WritingViewModel {
         if Self.debugReleaseFlow {
             debugLog("[ReleaseFlow] triggerRelease")
         }
+
+        // Record the release BEFORE clearing text (captures word count)
+        let wordCount = WordCounter.count(writtenText)
+        onReleaseTriggered?(wordCount)
 
         isDandelionReturning = false
         writingState = .releasing
