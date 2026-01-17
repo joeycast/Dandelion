@@ -6,7 +6,11 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 // MARK: - Colors
 
@@ -57,6 +61,7 @@ extension Font {
     static let dandelionButton = Font.system(.headline, design: .serif)
 }
 
+#if canImport(UIKit)
 extension UIFont {
     static var dandelionWriting: UIFont {
         let base = UIFont.systemFont(ofSize: 22, weight: .regular)
@@ -76,6 +81,27 @@ extension UIFont {
         return UIFont(descriptor: descriptor, size: base.pointSize)
     }
 }
+#elseif canImport(AppKit)
+extension NSFont {
+    static var dandelionWriting: NSFont {
+        let base = NSFont.systemFont(ofSize: 22, weight: .regular)
+        let descriptor = base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor
+        return NSFont(descriptor: descriptor, size: 22) ?? base
+    }
+
+    static var dandelionTitle: NSFont {
+        let base = NSFont.preferredFont(forTextStyle: .largeTitle)
+        let descriptor = base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor
+        return NSFont(descriptor: descriptor, size: base.pointSize) ?? base
+    }
+
+    static var dandelionCaption: NSFont {
+        let base = NSFont.preferredFont(forTextStyle: .caption1)
+        let descriptor = base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor
+        return NSFont(descriptor: descriptor, size: base.pointSize) ?? base
+    }
+}
+#endif
 
 // MARK: - Spacing
 

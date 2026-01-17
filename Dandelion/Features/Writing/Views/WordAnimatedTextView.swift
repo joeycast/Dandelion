@@ -6,12 +6,16 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 struct WordAnimatedTextView: View {
     let text: String
     let font: Font
-    let uiFont: UIFont
+    let uiFont: PlatformFont
     let textColor: Color
     let lineWidth: CGFloat
     let isAnimating: Bool
@@ -24,7 +28,7 @@ struct WordAnimatedTextView: View {
     init(
         text: String,
         font: Font,
-        uiFont: UIFont,
+        uiFont: PlatformFont,
         textColor: Color,
         lineWidth: CGFloat,
         isAnimating: Bool,
