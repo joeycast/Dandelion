@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import UIKit
 
 struct WritingView: View {
     @State private var viewModel = WritingViewModel()
@@ -183,7 +182,7 @@ struct WritingView: View {
                     AutoScrollingTextEditor(
                         text: $viewModel.writtenText,
                         font: .dandelionWriting,
-                        textColor: UIColor(Color.dandelionText),
+                        textColor: PlatformColor(Color.dandelionText),
                         isEditable: isWriting,
                         shouldBeFocused: $isTextEditorFocused
                     )

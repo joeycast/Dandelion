@@ -5,18 +5,32 @@
 //  Simple haptics patterns for key interactions
 //
 
+import Foundation
+
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 @MainActor
 final class HapticsService {
     static let shared = HapticsService()
 
+#if canImport(UIKit)
     private let light = UIImpactFeedbackGenerator(style: .light)
     private let soft = UIImpactFeedbackGenerator(style: .soft)
+#elseif canImport(AppKit)
+    private let performer = NSHapticFeedbackManager.defaultPerformer
+#endif
 
     func tap() {
+#if canImport(UIKit)
         light.prepare()
         light.impactOccurred(intensity: 0.7)
+#elseif canImport(AppKit)
+        performer.perform(.generic, performanceTime: .now)
+#endif
     }
 
     func playReleasePattern() async {
@@ -45,8 +59,13 @@ final class HapticsService {
 
         for index in intensities.indices {
             if Task.isCancelled { return }
+#if canImport(UIKit)
             soft.prepare()
             soft.impactOccurred(intensity: intensities[index])
+#elseif canImport(AppKit)
+            _ = intensities[index]
+            performer.perform(.generic, performanceTime: .now)
+#endif
             let delay = delays[index]
             if delay > 0 {
                 try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
@@ -84,8 +103,13 @@ final class HapticsService {
 
         for index in intensities.indices {
             if Task.isCancelled { return }
+#if canImport(UIKit)
             light.prepare()
             light.impactOccurred(intensity: intensities[index])
+#elseif canImport(AppKit)
+            _ = intensities[index]
+            performer.perform(.generic, performanceTime: .now)
+#endif
             let delay = delays[index]
             if delay > 0 {
                 try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))

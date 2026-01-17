@@ -6,12 +6,16 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 struct AnimatableTextView: View {
     let text: String
     let font: Font
-    let uiFont: UIFont
+    let uiFont: PlatformFont
     let textColor: Color
     let lineWidth: CGFloat
     let isAnimating: Bool
