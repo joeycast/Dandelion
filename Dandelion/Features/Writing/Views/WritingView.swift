@@ -297,18 +297,38 @@ struct WritingView: View {
             GeometryReader { geometry in
                 let horizontalPadding = DandelionSpacing.screenEdge - 5
                 let size = geometry.size
+                let lineWidth = geometry.size.width - (horizontalPadding * 2)
 
-                // Auto-scrolling text editor (hidden when releasing)
-                AutoScrollingTextEditor(
-                    text: $viewModel.writtenText,
-                    font: .dandelionWriting,
-                    textColor: UIColor(Color.dandelionText),
-                    isEditable: isWriting,
-                    shouldBeFocused: $isTextEditorFocused,
-                    scrollOffset: $textScrollOffset
-                )
-                .frame(width: geometry.size.width - (horizontalPadding * 2),
-                       height: geometry.size.height)
+                ZStack(alignment: .topLeading) {
+                    // Auto-scrolling text editor (hidden when releasing)
+                    AutoScrollingTextEditor(
+                        text: $viewModel.writtenText,
+                        font: .dandelionWriting,
+                        textColor: PlatformColor(Color.dandelionText),
+                        isEditable: isWriting,
+                        shouldBeFocused: $isTextEditorFocused,
+                        scrollOffset: $textScrollOffset
+                    )
+                    .frame(width: lineWidth,
+                           height: geometry.size.height)
+                    .opacity(isReleasing ? 0 : 1)
+                    .animation(nil, value: isReleasing)
+
+                    // Animatable text overlay - visible when releasing
+                    AnimatableTextView(
+                        text: viewModel.writtenText,
+                        font: .dandelionWriting,
+                        uiFont: .dandelionWriting,
+                        textColor: .dandelionText,
+                        lineWidth: lineWidth,
+                        isAnimating: animateLetters,
+                        screenSize: geometry.size
+                    )
+                    .padding(.top, 8)
+                    .opacity(isReleasing ? 1 : 0)
+                    .animation(nil, value: isReleasing)
+                    .allowsHitTesting(false)
+                }
                 .padding(.horizontal, horizontalPadding)
                 .opacity(isWriting ? 1 : 0)
                 .animation(nil, value: isWriting)
