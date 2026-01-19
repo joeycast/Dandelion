@@ -6,12 +6,14 @@
 //
 
 import SwiftUI
+
+#if canImport(UIKit)
 import UIKit
 
 struct AutoScrollingTextEditor: UIViewRepresentable {
     @Binding var text: String
-    var font: UIFont
-    var textColor: UIColor
+    var font: PlatformFont
+    var textColor: PlatformColor
     var isEditable: Bool
     @Binding var shouldBeFocused: Bool
     @Binding var scrollOffset: CGFloat
@@ -100,7 +102,7 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
 
             DispatchQueue.main.async { [weak self] in
                 self?.parent.text = newText
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [weak self] in
                     self?.isProcessingTextChange = false
                 }
             }
@@ -132,7 +134,7 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
             isProcessingFocusChange = true
             DispatchQueue.main.async { [weak self] in
                 self?.parent.shouldBeFocused = true
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [weak self] in
                     self?.isProcessingFocusChange = false
                 }
             }
@@ -142,7 +144,7 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
             isProcessingFocusChange = true
             DispatchQueue.main.async { [weak self] in
                 self?.parent.shouldBeFocused = false
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [weak self] in
                     self?.isProcessingFocusChange = false
                 }
             }
@@ -155,3 +157,141 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
         }
     }
 }
+
+#elseif canImport(AppKit)
+import AppKit
+
+struct AutoScrollingTextEditor: NSViewRepresentable {
+    @Binding var text: String
+    var font: PlatformFont
+    var textColor: PlatformColor
+    var isEditable: Bool
+    @Binding var shouldBeFocused: Bool
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let textView = NSTextView()
+        textView.delegate = context.coordinator
+        textView.font = font
+        textView.textColor = textColor
+        textView.drawsBackground = false
+        textView.isEditable = isEditable
+        textView.isSelectable = true
+        textView.isRichText = false
+        textView.textContainerInset = CGSize(width: 0, height: 8)
+        textView.textContainer?.lineFragmentPadding = 5
+        textView.string = text
+
+        textView.minSize = NSSize(width: 0, height: 0)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainer?.widthTracksTextView = true
+
+        let scrollView = NSScrollView()
+        scrollView.documentView = textView
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+
+        context.coordinator.textView = textView
+        return scrollView
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSScrollView, context: Context) -> CGSize? {
+        let width = proposal.width ?? 400
+        let height = proposal.height ?? 400
+        return CGSize(width: width, height: height)
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        let coordinator = context.coordinator
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+
+        if !coordinator.isProcessingTextChange && textView.string != text {
+            textView.string = text
+        }
+
+        textView.isEditable = isEditable
+        textView.font = font
+        textView.textColor = textColor
+
+        if !coordinator.isProcessingFocusChange {
+            if shouldBeFocused && isEditable {
+                let isFirstResponder = textView.window?.firstResponder === textView
+                if !isFirstResponder {
+                    DispatchQueue.main.async {
+                        textView.window?.makeFirstResponder(textView)
+                    }
+                }
+            } else if !shouldBeFocused {
+                let isFirstResponder = textView.window?.firstResponder === textView
+                if isFirstResponder {
+                    textView.window?.makeFirstResponder(nil)
+                }
+            }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: AutoScrollingTextEditor
+        weak var textView: NSTextView?
+        var isProcessingTextChange = false
+        var isProcessingFocusChange = false
+
+        init(_ parent: AutoScrollingTextEditor) {
+            self.parent = parent
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            isProcessingTextChange = true
+            let newText = textView.string
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.ensureCursorVisible(textView)
+            }
+
+            DispatchQueue.main.async { [weak self] in
+                self?.parent.text = newText
+                DispatchQueue.main.async { [weak self] in
+                    self?.isProcessingTextChange = false
+                }
+            }
+        }
+
+        func textDidBeginEditing(_ notification: Notification) {
+            isProcessingFocusChange = true
+            DispatchQueue.main.async { [weak self] in
+                self?.parent.shouldBeFocused = true
+                DispatchQueue.main.async { [weak self] in
+                    self?.isProcessingFocusChange = false
+                }
+            }
+        }
+
+        func textDidEndEditing(_ notification: Notification) {
+            isProcessingFocusChange = true
+            DispatchQueue.main.async { [weak self] in
+                self?.parent.shouldBeFocused = false
+                DispatchQueue.main.async { [weak self] in
+                    self?.isProcessingFocusChange = false
+                }
+            }
+        }
+
+        private func ensureCursorVisible(_ textView: NSTextView) {
+            let selectedRange = textView.selectedRange()
+            textView.scrollRangeToVisible(selectedRange)
+        }
+    }
+}
+
+#endif
