@@ -7,48 +7,35 @@
 
 import SwiftUI
 
-private enum RootPage: Hashable {
-    case history
-    case writing
-}
-
 struct ContentView: View {
-    @State private var selectedPage: RootPage = .writing
-    @State private var canSwipeFromWriting: Bool = true
+    @State private var isHistoryPresented: Bool = false
 
     var body: some View {
         GeometryReader { geometry in
             let topSafeArea = geometry.safeAreaInsets.top
             let bottomSafeArea = geometry.safeAreaInsets.bottom
 
-            TabView(selection: $selectedPage) {
+            WritingView(
+                topSafeArea: topSafeArea,
+                bottomSafeArea: bottomSafeArea,
+                onShowHistory: {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        isHistoryPresented = true
+                    }
+                },
+                onSwipeEligibilityChange: { _ in }
+            )
+            .fullScreenCover(isPresented: $isHistoryPresented) {
                 ReleaseHistoryView(
                     topSafeArea: topSafeArea,
                     onNavigateToWriting: {
                         withAnimation(.easeInOut(duration: 0.25)) {
-                            selectedPage = .writing
+                            isHistoryPresented = false
                         }
                     }
                 )
-                .tag(RootPage.history)
-
-                WritingView(
-                    topSafeArea: topSafeArea,
-                    bottomSafeArea: bottomSafeArea,
-                    onShowHistory: {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            selectedPage = .history
-                        }
-                    },
-                    onSwipeEligibilityChange: { canSwipeFromWriting = $0 }
-                )
-                .tag(RootPage.writing)
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .scrollDisabled(selectedPage == .writing ? !canSwipeFromWriting : false)
-            .ignoresSafeArea()
         }
-        .ignoresSafeArea()
         .background(Color.dandelionBackground.ignoresSafeArea())
     }
 }

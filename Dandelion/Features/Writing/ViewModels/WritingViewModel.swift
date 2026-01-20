@@ -56,6 +56,7 @@ final class WritingViewModel {
     private var detachmentTask: Task<Void, Never>?
     private var releaseTask: Task<Void, Never>?
     private var releaseHapticsTask: Task<Void, Never>?
+    private var promptResetTask: Task<Void, Never>?
     private let releaseDuration: TimeInterval = 9.0  // After message fully fades
     private var activeReleaseID: UUID?
     private var seedRestoreTask: Task<Void, Never>?
@@ -145,23 +146,14 @@ final class WritingViewModel {
         releaseTask = nil
         releaseHapticsTask?.cancel()
         releaseHapticsTask = nil
-        activeReleaseID = nil
         if Self.debugReleaseFlow {
             debugLog("[ReleaseFlow] releaseComplete")
         }
 
         // Clear the text (it's gone forever!)
         writtenText = ""
-        // Change state first so ReleaseMessageView disappears
-        withAnimation(.easeInOut(duration: dandelionReturnDuration)) {
-            isDandelionReturning = false
-            writingState = .prompt
-        }
-
-        // Then get new prompt and message for next time
-        currentPrompt = promptsManager.randomPrompt()
-        currentReleaseMessage = promptsManager.randomReleaseMessage()
         beginSeedRestore()
+        schedulePromptReset()
     }
 
     /// Start a new writing session
@@ -172,22 +164,54 @@ final class WritingViewModel {
         releaseHapticsTask = nil
         regrowHapticsTask?.cancel()
         regrowHapticsTask = nil
-        activeReleaseID = nil
+        promptResetTask?.cancel()
+        promptResetTask = nil
         if Self.debugReleaseFlow {
             debugLog("[ReleaseFlow] startNewSession")
         }
 
         writtenText = ""
-        // Change state first so ReleaseMessageView disappears
-        withAnimation(.easeInOut(duration: dandelionReturnDuration)) {
-            isDandelionReturning = false
-            writingState = .prompt
+        beginSeedRestore()
+        schedulePromptReset()
+    }
+
+    private func schedulePromptReset() {
+        guard promptResetTask == nil else { return }
+        guard let releaseID = activeReleaseID else {
+            withAnimation(.easeInOut(duration: dandelionReturnDuration)) {
+                isDandelionReturning = false
+                writingState = .prompt
+            }
+            currentPrompt = promptsManager.randomPrompt()
+            currentReleaseMessage = promptsManager.randomReleaseMessage()
+            return
+        }
+        let promptDelay: TimeInterval
+
+        if seedRestoreStartTime != nil {
+            promptDelay = 0
+        } else {
+            promptDelay = dandelionReturnDuration
         }
 
-        // Then get new prompt and message for next time
-        currentPrompt = promptsManager.randomPrompt()
-        currentReleaseMessage = promptsManager.randomReleaseMessage()
-        beginSeedRestore()
+        promptResetTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: UInt64(promptDelay * 1_000_000_000))
+            await MainActor.run {
+                guard self.activeReleaseID == releaseID else {
+                    self.promptResetTask = nil
+                    return
+                }
+                withAnimation(.easeInOut(duration: self.dandelionReturnDuration)) {
+                    self.isDandelionReturning = false
+                    self.writingState = .prompt
+                }
+                self.currentPrompt = self.promptsManager.randomPrompt()
+                self.currentReleaseMessage = self.promptsManager.randomReleaseMessage()
+                self.activeReleaseID = nil
+                self.promptResetTask = nil
+            }
+        }
     }
 
     // MARK: - Private Methods
@@ -228,6 +252,8 @@ final class WritingViewModel {
         cancelSeedRestore()
         regrowHapticsTask?.cancel()
         regrowHapticsTask = nil
+        promptResetTask?.cancel()
+        promptResetTask = nil
         if Self.debugReleaseFlow {
             debugLog("[ReleaseFlow] triggerRelease")
         }
@@ -390,6 +416,8 @@ final class WritingViewModel {
         }
 
         cancelSeedRestore()
+
+        schedulePromptReset()
 
         let restoreDuration = seedRestoreDuration
         seedRestoreStartTime = Date().timeIntervalSinceReferenceDate
