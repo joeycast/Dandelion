@@ -156,10 +156,12 @@ struct WritingView: View {
                 if WritingViewModel.debugReleaseFlow {
                     debugLog("[ReleaseFlow] writingState -> \(newValue)")
                 }
-                isTextEditorFocused = newValue == .writing
                 if newValue == .releasing {
-                    // Capture scroll offset and freeze dandelion position at release start.
-                    capturedScrollOffset = textScrollOffset
+                    // Capture scroll offset only if keyboard is still up (blow-triggered release).
+                    // For manual release, the button action already captured it before dismissing keyboard.
+                    if isTextEditorFocused {
+                        capturedScrollOffset = textScrollOffset
+                    }
                     releaseDandelionTopPadding = lastWritingDandelionTopPadding
                     releaseTextSnapshot = viewModel.writtenText
                     showAnimatedText = true
@@ -173,6 +175,8 @@ struct WritingView: View {
                     viewModel.beginReleaseDetachment()
                     animateLetters = true
                 }
+                // Update focus state after releasing check (so we can detect if keyboard was up)
+                isTextEditorFocused = newValue == .writing
                 if newValue == .writing {
                     lastWritingDandelionTopPadding = dandelionTopPadding
                 }
@@ -343,6 +347,8 @@ struct WritingView: View {
                     }
 
                     // Animatable text overlay - starts at the same position as the text editor
+                    // Top padding matches UITextView's textContainerInset when unscrolled,
+                    // but reduces to 0 when scrolled (since scrolled text appears at y=0)
                     AnimatableTextView(
                         text: showAnimatedText ? releaseTextSnapshot : viewModel.writtenText,
                         font: .dandelionWriting,
@@ -354,7 +360,7 @@ struct WritingView: View {
                         visibleHeight: overlayVisibleHeight,
                         scrollOffset: capturedScrollOffset
                     )
-                    .padding(.top, 8)
+                    .padding(.top, max(0, 8 - capturedScrollOffset))
                     .opacity(showAnimatedText ? 1 : 0)
                     .allowsHitTesting(false)
                 }
@@ -436,6 +442,8 @@ struct WritingView: View {
 
                     // Manual release button
                     Button {
+                        // Capture scroll offset BEFORE dismissing keyboard to prevent text shift
+                        capturedScrollOffset = textScrollOffset
                         isTextEditorFocused = false
                         viewModel.manualRelease()
                     } label: {
