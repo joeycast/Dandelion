@@ -103,6 +103,12 @@ struct WritingView: View {
                     .safeAreaInset(edge: .bottom, spacing: 0) {
                         if isWriting || isReleasing {
                             bottomBar(bottomInset: safeAreaBottom)
+                                // Animate in normally, but disappear instantly to avoid
+                                // clipping through the appearing prompt buttons
+                                .transition(.asymmetric(
+                                    insertion: .opacity,
+                                    removal: .identity
+                                ))
                         }
                     }
 
