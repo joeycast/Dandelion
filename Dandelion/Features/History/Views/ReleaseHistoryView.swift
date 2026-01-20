@@ -28,40 +28,50 @@ struct ReleaseHistoryView: View {
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            let headerHeight: CGFloat = 32
-            let spacing: CGFloat = DandelionSpacing.xs
-            let bottomPadding: CGFloat = DandelionSpacing.xs
-            let topInset = topSafeArea + DandelionSpacing.md
-            let gridHeight = max(
-                0,
-                proxy.size.height - topInset - headerHeight - spacing - bottomPadding
-            )
-
-            ZStack(alignment: .top) {
-                YearGridView(
-                    year: selectedYear,
-                    releaseDates: releaseDates
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Calendar grid
+                GeometryReader { proxy in
+                    YearGridView(
+                        year: selectedYear,
+                        releaseDates: releaseDates
+                    )
+                    .padding(.horizontal, DandelionSpacing.md)
+                    .padding(.top, DandelionSpacing.md)
+                }
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 24)
+                        .onEnded { value in
+                            handleYearSwipe(translation: value.translation)
+                        }
                 )
-                .frame(height: gridHeight)
-                .padding(.top, topInset + headerHeight + spacing)
-                .padding(.horizontal, DandelionSpacing.md)
 
-                headerView
-                    .frame(height: headerHeight)
+                // Year navigation at bottom for reachability
+                yearNavigationBar
                     .padding(.horizontal, DandelionSpacing.lg)
-                    .padding(.top, topInset)
+                    .padding(.vertical, DandelionSpacing.md)
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
-            .padding(.bottom, bottomPadding)
             .background(Color.dandelionBackground.ignoresSafeArea())
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 24)
-                    .onEnded { value in
-                        handleYearSwipe(translation: value.translation)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("History")
+                        .font(.dandelionWriting)
+                        .foregroundColor(.dandelionPrimary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        onNavigateToWriting()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.dandelionSecondary)
                     }
-            )
+                }
+            }
+            .toolbarBackground(Color.dandelionBackground, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
         }
         .onAppear {
             releaseHistoryService = ReleaseHistoryService(modelContext: modelContext)
@@ -72,51 +82,37 @@ struct ReleaseHistoryView: View {
         }
     }
 
-    private var headerView: some View {
-        HStack {
-            HStack(spacing: DandelionSpacing.md) {
-                Button {
-                    withAnimation(DandelionAnimation.gentle) {
-                        selectedYear -= 1
-                        loadData()
-                    }
-                } label: {
-                    Image(systemName: "chevron.left")
-                }
-                .foregroundColor(.dandelionPrimary)
-
-                Text(verbatim: String(selectedYear))
-                    .font(.system(size: 18, weight: .semibold, design: .serif))
-                    .foregroundColor(.dandelionPrimary)
-
-                Button {
-                    withAnimation(DandelionAnimation.gentle) {
-                        selectedYear += 1
-                        loadData()
-                    }
-                } label: {
-                    Image(systemName: "chevron.right")
-                }
-                .foregroundColor(.dandelionPrimary)
-                .disabled(selectedYear >= currentYear)
-                .opacity(selectedYear >= currentYear ? 0.3 : 1)
-            }
-
-            Spacer(minLength: 0)
-
+    private var yearNavigationBar: some View {
+        HStack(spacing: DandelionSpacing.lg) {
             Button {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    onNavigateToWriting()
+                withAnimation(DandelionAnimation.gentle) {
+                    selectedYear -= 1
+                    loadData()
                 }
             } label: {
-                Image("Dandelion")
-                    .renderingMode(Image.TemplateRenderingMode.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 20, height: 20)
-                    .foregroundColor(Color.dandelionSecondary)
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 18, weight: .semibold))
             }
+            .foregroundColor(.dandelionPrimary)
+
+            Text(verbatim: String(selectedYear))
+                .font(.system(size: 20, weight: .semibold, design: .serif))
+                .foregroundColor(.dandelionPrimary)
+
+            Button {
+                withAnimation(DandelionAnimation.gentle) {
+                    selectedYear += 1
+                    loadData()
+                }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            .foregroundColor(.dandelionPrimary)
+            .disabled(selectedYear >= currentYear)
+            .opacity(selectedYear >= currentYear ? 0.3 : 1)
         }
+        .padding(.vertical, DandelionSpacing.sm)
     }
 
     private func loadData() {
