@@ -6,6 +6,11 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 struct ReleaseMessageView: View {
     let releaseMessage: String
@@ -21,14 +26,14 @@ struct ReleaseMessageView: View {
             if showMessage {
                 VStack {
                     Spacer()
-
                     Text(releaseMessage)
                         .font(.dandelionTitle)
                         .foregroundColor(.dandelionText)
                         .opacity(messageOpacity)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, DandelionSpacing.xl)
-
+                        .offset(y: -DandelionSpacing.sm)
+                        .frame(height: messageAreaHeight, alignment: .top)
                     Spacer()
                 }
             }
@@ -36,6 +41,18 @@ struct ReleaseMessageView: View {
         .onAppear {
             startSequence()
         }
+    }
+
+    private var messageAreaHeight: CGFloat {
+        let lineHeight: CGFloat
+        #if canImport(UIKit)
+        lineHeight = UIFont.dandelionTitle.lineHeight
+        #elseif canImport(AppKit)
+        lineHeight = NSFont.dandelionTitle.lineHeight
+        #else
+        lineHeight = 24
+        #endif
+        return lineHeight * 2.2
     }
 
     private func startSequence() {

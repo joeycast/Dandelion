@@ -20,8 +20,10 @@ struct WritingView: View {
     @State private var animateLetters: Bool = false
     @State private var promptOpacity: Double = 1
     @State private var writingAreaSize: CGSize = .zero
+    @State private var writingAreaTop: CGFloat = 0
     @State private var textScrollOffset: CGFloat = 0
     @State private var capturedScrollOffset: CGFloat = 0
+    @State private var capturedWritingAreaTop: CGFloat = 0
     @Namespace private var promptNamespace
 
     init(
@@ -38,11 +40,32 @@ struct WritingView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let topInset = topSafeArea + DandelionSpacing.md
+            let safeAreaTop = topSafeArea
+            let safeAreaBottom = max(bottomSafeArea, geometry.safeAreaInsets.bottom)
             let fullScreenSize = CGSize(
                 width: geometry.size.width,
-                height: geometry.size.height + topSafeArea + bottomSafeArea
+                height: geometry.size.height + safeAreaTop + safeAreaBottom
             )
+
+            // Dandelion sizing
+            let dandelionSmallHeight: CGFloat = 80
+            let dandelionLargeHeight: CGFloat = 220
+            // Size: large on prompt, small during writing, grows back when returning
+            let dandelionHeight: CGFloat = (isPrompt || viewModel.isDandelionReturning) ? dandelionLargeHeight : dandelionSmallHeight
+
+            // Dandelion positioning - base position below safe area
+            let dandelionBaseTop = safeAreaTop + DandelionSpacing.md
+            // Extra offset to center dandelion on prompt/return states
+            let dandelionPromptOffset: CGFloat = (isPrompt || viewModel.isDandelionReturning) ? max(0, geometry.size.height * 0.08) : 0
+            let dandelionTopPadding = dandelionBaseTop + dandelionPromptOffset
+
+            // Content header space - writing prompt sits just below the dandelion
+            let contentHeaderSpace = dandelionBaseTop + dandelionSmallHeight - DandelionSpacing.xxxl
+            let promptLift = DandelionSpacing.xxl
+            let headerSpaceHeight = isPrompt
+                ? max(0, dandelionBaseTop + dandelionLargeHeight - promptLift)
+                : max(0, contentHeaderSpace)
+
             ZStack {
                 // Background
                 Color.dandelionBackground
@@ -51,66 +74,68 @@ struct WritingView: View {
                         isTextEditorFocused = false
                     }
 
-                contentView(
-                    in: geometry.size,
-                    safeAreaBottom: bottomSafeArea,
-                    safeAreaTop: topInset
+                // Content (prompt text, writing area, buttons) - fades in/out
+                contentView(in: geometry.size, safeAreaBottom: safeAreaBottom, safeAreaTop: safeAreaTop, headerSpaceHeight: headerSpaceHeight)
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        if isWriting || isReleasing {
+                            bottomBar(bottomInset: safeAreaBottom)
+                        }
+                    }
+
+                // Animatable text overlay - positioned to match writing area exactly
+                let textEditorHorizontalPadding = DandelionSpacing.screenEdge - 5
+                let textContainerInset: CGFloat = 8
+                let visibleInset = max(0, textContainerInset - capturedScrollOffset)
+                let fineTuning: CGFloat = 2.25
+                let footerHeight: CGFloat = 56 + safeAreaBottom
+
+                // Calculate writing area top position directly from layout values:
+                // contentHeaderSpace (includes safeArea + dandelion)
+                // + DandelionSpacing.xs (headerView top padding in writing mode)
+                // + prompt text height
+                // + DandelionSpacing.sm (writingArea top padding)
+                let promptTextHeight = UIFont.dandelionCaption.lineHeight
+                let calculatedWritingAreaTop = contentHeaderSpace + DandelionSpacing.xs + promptTextHeight + DandelionSpacing.sm
+
+                AnimatableTextView(
+                    text: viewModel.writtenText,
+                    font: .dandelionWriting,
+                    uiFont: .dandelionWriting,
+                    textColor: .dandelionText,
+                    lineWidth: geometry.size.width - (textEditorHorizontalPadding * 2),
+                    isAnimating: animateLetters,
+                    screenSize: fullScreenSize,
+                    visibleHeight: writingAreaSize.height,
+                    scrollOffset: capturedScrollOffset
                 )
-
-                // Animatable text overlay
-                if isReleasing {
-                    let textEditorHorizontalPadding = DandelionSpacing.screenEdge - 5
-                    // Calculate how much of the textContainerInset is still visible (not scrolled off)
-                    let textContainerInset: CGFloat = 8
-                    let visibleInset = max(0, textContainerInset - capturedScrollOffset)
-                    let fineTuning: CGFloat = 2.25
-                    // Height of header area (dandelion + prompt)
-                    let headerHeight = topInset + DandelionSpacing.sm + 80 + DandelionSpacing.xs + UIFont.dandelionCaption.lineHeight + DandelionSpacing.sm
-                    // Footer height (matches bottomBar fixed height)
-                    let footerHeight: CGFloat = 56
-
-                    // Layer 1: The animating text (underneath the masks)
-                    AnimatableTextView(
-                        text: viewModel.writtenText,
-                        font: .dandelionWriting,
-                        uiFont: .dandelionWriting,
-                        textColor: .dandelionText,
-                        lineWidth: geometry.size.width - (textEditorHorizontalPadding * 2),
-                        isAnimating: animateLetters,
-                        screenSize: fullScreenSize,
-                        visibleHeight: writingAreaSize.height,
-                        scrollOffset: capturedScrollOffset
-                    )
-                    .padding(.horizontal, textEditorHorizontalPadding)
-                    .padding(.top, headerHeight + visibleInset + fineTuning)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .allowsHitTesting(false)
-
-                    // Layer 2: Header mask - covers text that extends into header area
-                    VStack {
-                        Color.dandelionBackground
-                            .frame(height: headerHeight)
-                        Spacer()
-                    }
-                    .allowsHitTesting(false)
-
-                    // Layer 3: Footer mask - covers text that extends into footer area
-                    VStack {
-                        Spacer()
-                        Color.dandelionBackground
-                            .frame(height: footerHeight + bottomSafeArea)
-                    }
-                    .allowsHitTesting(false)
-
-                    // Layer 4: Dandelion on top of masks (so seeds can animate over everything)
-                    VStack {
+                .padding(.horizontal, textEditorHorizontalPadding)
+                .padding(.top, calculatedWritingAreaTop + visibleInset + fineTuning)
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+                .mask {
+                    VStack(spacing: 0) {
+                        Color.white
                         Color.clear
-                            .frame(height: topInset + DandelionSpacing.sm)
-                        dandelionIllustration(height: 80)
-                        Spacer()
+                            .frame(height: footerHeight)
                     }
-                    .allowsHitTesting(false)
+                    .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
                 }
+                .opacity(isReleasing ? 1 : 0)
+                .animation(.easeInOut(duration: 0.25), value: isReleasing)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+
+                // Single persistent dandelion - lives above all content, animates size and position
+                VStack {
+                    dandelionIllustration(height: dandelionHeight)
+                    Spacer()
+                }
+                .padding(.top, dandelionTopPadding)
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+                .animation(.easeInOut(duration: 1.2), value: isPrompt)
+                .animation(.easeInOut(duration: 1.2), value: dandelionHeight)
+                .animation(.easeInOut(duration: 1.2), value: viewModel.isDandelionReturning)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
 
                 // Release message overlay
                 if isReleasing {
@@ -125,15 +150,9 @@ struct WritingView: View {
                         onComplete: {}
                     )
                     .ignoresSafeArea()
-                    .offset(y: -topSafeArea)
                     .onAppear {
                         if WritingViewModel.debugReleaseFlow {
                             debugLog("[ReleaseFlow] ReleaseMessageView onAppear")
-                        }
-                        // Start detachment + letter animation in sync
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                            viewModel.beginReleaseDetachment()
-                            animateLetters = true
                         }
                     }
                     .onDisappear {
@@ -148,6 +167,7 @@ struct WritingView: View {
             }
         }
         .coordinateSpace(name: "writingSpace")
+        .onPreferenceChange(WritingAreaTopKey.self) { writingAreaTop = $0 }
         .animation(DandelionAnimation.slow, value: viewModel.writingState)
         .onAppear {
             if isPrompt {
@@ -168,8 +188,12 @@ struct WritingView: View {
             }
             isTextEditorFocused = newValue == .writing
             if newValue == .releasing {
-                // Capture scroll offset at the moment of release
+                // Capture positions at the moment of release
                 capturedScrollOffset = textScrollOffset
+                capturedWritingAreaTop = writingAreaTop
+                debugLog("[ReleaseFlow] capturedWritingAreaTop = \(writingAreaTop)")
+                viewModel.beginReleaseDetachment()
+                animateLetters = true
             }
             if newValue == .writing || newValue == .prompt || newValue == .complete {
                 animateLetters = false
@@ -200,16 +224,19 @@ struct WritingView: View {
         viewModel.writingState == .releasing
     }
 
-    private func contentView(in size: CGSize, safeAreaBottom: CGFloat, safeAreaTop: CGFloat) -> some View {
-        let topSpacerHeight = safeAreaTop + (isPrompt ? max(0, size.height * 0.1) : 0)
+    private func contentView(in size: CGSize, safeAreaBottom: CGFloat, safeAreaTop: CGFloat, headerSpaceHeight: CGFloat) -> some View {
         let promptBottomPadding = safeAreaBottom + DandelionSpacing.lg
+        _ = safeAreaTop
 
         return ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
+                // Space for dandelion (rendered separately as overlay)
                 Color.clear
-                    .frame(height: topSpacerHeight)
+                    .frame(height: headerSpaceHeight)
+                    .animation(.easeInOut(duration: 1.6), value: isPrompt)
 
                 headerView(in: size)
+                    .animation(.easeInOut(duration: 1.6), value: isPrompt)
 
                 if isPrompt {
                     Spacer(minLength: 0)
@@ -225,11 +252,13 @@ struct WritingView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
             }
         }
-        .overlay(alignment: .topLeading) {
-            historyButton
-                .frame(height: 32)
-                .padding(.top, safeAreaTop)
-                .padding(.leading, DandelionSpacing.screenEdge)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack {
+                historyButton
+                Spacer()
+            }
+            .padding(.horizontal, DandelionSpacing.screenEdge)
+            .frame(height: 32)
         }
     }
 
@@ -247,31 +276,27 @@ struct WritingView: View {
     }
 
     private func headerView(in size: CGSize) -> some View {
-        VStack(spacing: isPrompt ? DandelionSpacing.lg : DandelionSpacing.xs) {
-            dandelionIllustration(height: (isWriting || (isReleasing && !viewModel.isDandelionReturning)) ? 80 : 220)
-
-            let promptMatchId = "promptText-\(viewModel.currentPrompt.id)"
-            WordAnimatedTextView(
-                text: viewModel.currentPrompt.text,
-                font: isPrompt ? .dandelionTitle : .dandelionCaption,
-                uiFont: isPrompt ? .dandelionTitle : .dandelionCaption,
-                textColor: isPrompt ? .dandelionText : .dandelionSecondary,
-                lineWidth: max(
-                    0,
-                    size.width - ((isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge) * 2)
-                ),
-                isAnimating: false,
-                maxLines: isPrompt ? nil : 1,
-                lineBreakMode: isPrompt ? .byWordWrapping : .byTruncatingTail,
-                layoutIDPrefix: viewModel.currentPrompt.id
-            )
-            .matchedGeometryEffect(id: promptMatchId, in: promptNamespace)
-            .padding(.horizontal, isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge)
-            .opacity(isReleasing ? 0 : (isPrompt ? promptOpacity : 1))
-            .animation(.easeInOut(duration: 1.0), value: isReleasing)
-        }
-        .offset(y: dandelionReturnOffset(in: size))
-        .padding(.top, isPrompt ? 0 : DandelionSpacing.sm)
+        // Just the prompt text - dandelion is rendered separately as a persistent element
+        let promptMatchId = "promptText-\(viewModel.currentPrompt.id)"
+        return WordAnimatedTextView(
+            text: viewModel.currentPrompt.text,
+            font: isPrompt ? .dandelionTitle : .dandelionCaption,
+            uiFont: isPrompt ? .dandelionTitle : .dandelionCaption,
+            textColor: isPrompt ? .dandelionText : .dandelionSecondary,
+            lineWidth: max(
+                0,
+                size.width - ((isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge) * 2)
+            ),
+            isAnimating: false,
+            maxLines: isPrompt ? nil : 1,
+            lineBreakMode: isPrompt ? .byWordWrapping : .byTruncatingTail,
+            layoutIDPrefix: viewModel.currentPrompt.id
+        )
+        .matchedGeometryEffect(id: promptMatchId, in: promptNamespace)
+        .padding(.horizontal, isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge)
+        .padding(.top, isPrompt ? DandelionSpacing.lg : DandelionSpacing.xs)
+        .opacity(isReleasing ? 0 : (isPrompt ? promptOpacity : 1))
+        .animation(.easeInOut(duration: 1.0), value: isReleasing)
     }
 
     private var promptButtons: some View {
@@ -312,22 +337,8 @@ struct WritingView: View {
                     .frame(width: lineWidth,
                            height: geometry.size.height)
                     .opacity(isReleasing ? 0 : 1)
-                    .animation(nil, value: isReleasing)
+                    .animation(.easeInOut(duration: 0.25), value: isReleasing)
 
-                    // Animatable text overlay - visible when releasing
-                    AnimatableTextView(
-                        text: viewModel.writtenText,
-                        font: .dandelionWriting,
-                        uiFont: .dandelionWriting,
-                        textColor: .dandelionText,
-                        lineWidth: lineWidth,
-                        isAnimating: animateLetters,
-                        screenSize: geometry.size
-                    )
-                    .padding(.top, 8)
-                    .opacity(isReleasing ? 1 : 0)
-                    .animation(nil, value: isReleasing)
-                    .allowsHitTesting(false)
                 }
                 .padding(.horizontal, horizontalPadding)
                 .opacity(isWriting ? 1 : 0)
@@ -339,10 +350,16 @@ struct WritingView: View {
                     writingAreaSize = newValue
                 }
             }
+            .background(
+                GeometryReader { proxy in
+                    Color.clear
+                        .preference(
+                            key: WritingAreaTopKey.self,
+                            value: proxy.frame(in: .named("writingSpace")).minY
+                        )
+                }
+            )
 
-            // Bottom bar at the bottom (background stays visible during release)
-            bottomBar
-                .allowsHitTesting(isWriting)
         }
         .padding(.top, DandelionSpacing.sm)
         .opacity((isWriting || isReleasing) ? 1 : 0)
@@ -365,7 +382,7 @@ struct WritingView: View {
 
     // MARK: - Bottom Bar
 
-    private var bottomBar: some View {
+    private func bottomBar(bottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
             // Blow indicator - appears above the bar (only when writing)
             if viewModel.showBlowIndicator && isWriting {
@@ -405,7 +422,10 @@ struct WritingView: View {
                 .opacity(isWriting ? 1 : 0)
             }
             .frame(height: 56) // Fixed height for consistent layout
+            .padding(.bottom, isTextEditorFocused ? DandelionSpacing.sm : bottomInset)
         }
+        .opacity((isWriting || isReleasing) ? 1 : 0)
+        .allowsHitTesting(isWriting)
     }
 
     // MARK: - Microphone Status
@@ -480,10 +500,13 @@ struct WritingView: View {
             .allowsHitTesting(false)
     }
 
-    private func dandelionReturnOffset(in size: CGSize) -> CGFloat {
-        guard viewModel.isDandelionReturning else { return 0 }
-        // Position dandelion above the centered release message
-        return min(size.height * 0.12, 100)
+}
+
+private struct WritingAreaTopKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 

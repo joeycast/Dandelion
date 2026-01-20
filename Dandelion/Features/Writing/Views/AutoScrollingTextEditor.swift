@@ -26,10 +26,12 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
         textView.textColor = textColor
         textView.backgroundColor = .clear
         textView.isEditable = isEditable
+        textView.isSelectable = true
         textView.isScrollEnabled = true
         textView.showsVerticalScrollIndicator = true
         textView.alwaysBounceVertical = true
         textView.keyboardDismissMode = .interactive
+        textView.tintColor = textColor
 
         // Disable automatic content inset adjustment
         textView.contentInsetAdjustmentBehavior = .never
@@ -63,8 +65,10 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
         }
 
         textView.isEditable = isEditable
+        textView.isSelectable = true
         textView.font = font
         textView.textColor = textColor
+        textView.tintColor = textColor
 
         if !coordinator.isProcessingFocusChange {
             if shouldBeFocused && !textView.isFirstResponder && isEditable {

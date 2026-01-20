@@ -123,6 +123,9 @@ enum DandelionSpacing {
 
     /// Extra extra large: 48pt
     static let xxl: CGFloat = 48
+    
+    /// extra extra extra large: 96pt
+    static let xxxl: CGFloat = 96
 
     /// Screen edge padding
     static let screenEdge: CGFloat = 24
