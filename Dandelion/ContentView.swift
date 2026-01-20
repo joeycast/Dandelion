@@ -25,15 +25,15 @@ struct ContentView: View {
                 },
                 onSwipeEligibilityChange: { _ in }
             )
-            .fullScreenCover(isPresented: $isHistoryPresented) {
+            .sheet(isPresented: $isHistoryPresented) {
                 ReleaseHistoryView(
-                    topSafeArea: topSafeArea,
+                    topSafeArea: 0,
                     onNavigateToWriting: {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            isHistoryPresented = false
-                        }
+                        isHistoryPresented = false
                     }
                 )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
             }
         }
         .background(Color.dandelionBackground.ignoresSafeArea())
