@@ -59,6 +59,8 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
 
     func updateUIView(_ textView: UITextView, context: Context) {
         let coordinator = context.coordinator
+        coordinator.isUpdatingFromSwiftUI = true
+        defer { coordinator.isUpdatingFromSwiftUI = false }
 
         if !coordinator.isProcessingTextChange && textView.text != text {
             textView.text = text
@@ -90,6 +92,9 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
         weak var textView: UITextView?
         var isProcessingTextChange = false
         var isProcessingFocusChange = false
+        var isUpdatingFromSwiftUI = false
+        private var pendingScrollUpdate = false
+        private var latestScrollOffset: CGFloat = 0
 
         init(_ parent: AutoScrollingTextEditor) {
             self.parent = parent
@@ -157,7 +162,23 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
         func scrollViewDidScroll(_ scrollView: UIScrollView) {
             // Only update scroll offset when editing is enabled (writing mode)
             guard parent.isEditable else { return }
-            parent.scrollOffset = scrollView.contentOffset.y
+            latestScrollOffset = scrollView.contentOffset.y
+            guard !isUpdatingFromSwiftUI else {
+                if !pendingScrollUpdate {
+                    pendingScrollUpdate = true
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else { return }
+                        self.pendingScrollUpdate = false
+                        if self.parent.scrollOffset != self.latestScrollOffset {
+                            self.parent.scrollOffset = self.latestScrollOffset
+                        }
+                    }
+                }
+                return
+            }
+            if parent.scrollOffset != latestScrollOffset {
+                parent.scrollOffset = latestScrollOffset
+            }
         }
     }
 }

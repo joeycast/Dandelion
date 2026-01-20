@@ -185,6 +185,12 @@ struct CharacterView: View {
                     resetAnimationState()
                 }
             }
+            .onAppear {
+                if isAnimating {
+                    resetAnimationState()
+                    startAnimation()
+                }
+            }
     }
 
     private func resetAnimationState() {

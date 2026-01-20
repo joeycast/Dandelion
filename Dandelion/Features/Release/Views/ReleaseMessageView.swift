@@ -14,6 +14,7 @@ import AppKit
 
 struct ReleaseMessageView: View {
     let releaseMessage: String
+    let messageTopPadding: CGFloat
     let onMessageAppear: () -> Void
     let onMessageFadeStart: () -> Void
     let onComplete: () -> Void
@@ -25,17 +26,17 @@ struct ReleaseMessageView: View {
         ZStack {
             if showMessage {
                 VStack {
-                    Spacer()
                     Text(releaseMessage)
                         .font(.dandelionTitle)
                         .foregroundColor(.dandelionText)
                         .opacity(messageOpacity)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, DandelionSpacing.xl)
-                        .offset(y: -DandelionSpacing.sm)
                         .frame(height: messageAreaHeight, alignment: .top)
                     Spacer()
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.top, messageTopPadding)
             }
         }
         .onAppear {
@@ -89,6 +90,7 @@ struct ReleaseMessageView: View {
         Color.dandelionBackground.ignoresSafeArea()
         ReleaseMessageView(
             releaseMessage: "Let it drift away.",
+            messageTopPadding: 200,
             onMessageAppear: {},
             onMessageFadeStart: {},
             onComplete: {}
