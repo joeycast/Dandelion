@@ -28,6 +28,7 @@ struct WritingView: View {
     @State private var showAnimatedText: Bool = false
     @State private var releaseVisibleHeight: CGFloat = 0
     @State private var lastWritingAreaHeight: CGFloat = 0
+    @State private var releaseClipOffset: CGFloat = 0
     @Namespace private var promptNamespace
 
     init(
@@ -174,6 +175,11 @@ struct WritingView: View {
                     showWrittenText = false
                     viewModel.beginReleaseDetachment()
                     animateLetters = true
+                    // Start with clip at bounds, then animate it open to release characters upward
+                    releaseClipOffset = 0
+                    withAnimation(.easeInOut(duration: 2.0)) {
+                        releaseClipOffset = 200
+                    }
                 }
                 // Update focus state after releasing check (so we can detect if keyboard was up)
                 isTextEditorFocused = newValue == .writing
@@ -186,6 +192,7 @@ struct WritingView: View {
                     showWrittenText = true
                     showAnimatedText = false
                     releaseVisibleHeight = 0
+                    releaseClipOffset = 0
                 }
                 if newValue == .prompt || newValue == .complete {
                     fadeInPrompt()
@@ -361,6 +368,25 @@ struct WritingView: View {
                         scrollOffset: capturedScrollOffset
                     )
                     .padding(.top, max(0, 8 - capturedScrollOffset))
+                    // Clip mask that starts at view bounds, then expands upward to release characters
+                    // Uses gradient at top edge for smooth fade-in rather than hard clip
+                    .mask(
+                        GeometryReader { geo in
+                            VStack(spacing: 0) {
+                                // Soft gradient edge at top
+                                LinearGradient(
+                                    colors: [.clear, .black],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                                .frame(height: 0.3)
+                                // Solid visible area below
+                                Rectangle()
+                            }
+                            .frame(height: geo.size.height + releaseClipOffset)
+                            .offset(y: -releaseClipOffset)
+                        }
+                    )
                     .opacity(showAnimatedText ? 1 : 0)
                     .allowsHitTesting(false)
                 }
