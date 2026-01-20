@@ -8,11 +8,17 @@
 import SwiftUI
 import SwiftData
 
+enum HistoryTab: String, CaseIterable {
+    case history = "History"
+    case stats = "Stats"
+}
+
 struct ReleaseHistoryView: View {
     let topSafeArea: CGFloat
     let onNavigateToWriting: () -> Void
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Release.timestamp) private var allReleases: [Release]
+    @State private var selectedTab: HistoryTab = .history
     @State private var selectedYear: Int
     @State private var releaseHistoryService: ReleaseHistoryService?
     @State private var releaseDates: Set<Date> = []
@@ -38,37 +44,24 @@ struct ReleaseHistoryView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Calendar grid
-                GeometryReader { proxy in
-                    YearGridView(
-                        year: selectedYear,
-                        releaseDates: releaseDates
-                    )
-                    .padding(.horizontal, DandelionSpacing.md)
-                    .padding(.top, DandelionSpacing.md)
-                    .id(selectedYear)
-                    .transition(yearTransition)
+                switch selectedTab {
+                case .history:
+                    historyContent
+                case .stats:
+                    statsPlaceholder
                 }
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 24)
-                        .onEnded { value in
-                            handleYearSwipe(translation: value.translation)
-                        }
-                )
-
-                // Year navigation at bottom for reachability
-                yearNavigationBar
-                    .padding(.horizontal, DandelionSpacing.lg)
-                    .padding(.vertical, DandelionSpacing.md)
             }
             .background(Color.dandelionBackground.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("History")
-                        .font(.dandelionWriting)
-                        .foregroundColor(.dandelionPrimary)
+                    Picker("Tab", selection: $selectedTab) {
+                        ForEach(HistoryTab.allCases, id: \.self) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 180)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -89,6 +82,44 @@ struct ReleaseHistoryView: View {
         }
         .onChange(of: allReleases) { _, _ in
             loadData()
+        }
+    }
+
+    private var historyContent: some View {
+        VStack(spacing: 0) {
+            // Calendar grid
+            GeometryReader { proxy in
+                YearGridView(
+                    year: selectedYear,
+                    releaseDates: releaseDates
+                )
+                .padding(.horizontal, DandelionSpacing.md)
+                .padding(.top, DandelionSpacing.md)
+                .id(selectedYear)
+                .transition(yearTransition)
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 24)
+                    .onEnded { value in
+                        handleYearSwipe(translation: value.translation)
+                    }
+            )
+
+            // Year navigation at bottom for reachability
+            yearNavigationBar
+                .padding(.horizontal, DandelionSpacing.lg)
+                .padding(.vertical, DandelionSpacing.md)
+        }
+    }
+
+    private var statsPlaceholder: some View {
+        VStack {
+            Spacer()
+            Text("Stats coming soon")
+                .font(.dandelionCaption)
+                .foregroundColor(.dandelionSecondary)
+            Spacer()
         }
     }
 
