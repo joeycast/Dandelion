@@ -18,6 +18,7 @@ struct ReleaseMessageView: View {
     let onMessageAppear: () -> Void
     let onMessageFadeStart: () -> Void
     let onComplete: () -> Void
+    @Environment(AppearanceManager.self) private var appearance
 
     @State private var showMessage = false
     @State private var messageOpacity: Double = 0
@@ -28,7 +29,7 @@ struct ReleaseMessageView: View {
                 VStack {
                     Text(releaseMessage)
                         .font(.dandelionTitle)
-                        .foregroundColor(.dandelionText)
+                        .foregroundColor(appearance.theme.text)
                         .opacity(messageOpacity)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, DandelionSpacing.xl)
@@ -87,7 +88,7 @@ struct ReleaseMessageView: View {
 
 #Preview {
     ZStack {
-        Color.dandelionBackground.ignoresSafeArea()
+        AppearanceManager().theme.background.ignoresSafeArea()
         ReleaseMessageView(
             releaseMessage: "Let it drift away.",
             messageTopPadding: 200,
@@ -96,4 +97,5 @@ struct ReleaseMessageView: View {
             onComplete: {}
         )
     }
+    .environment(AppearanceManager())
 }

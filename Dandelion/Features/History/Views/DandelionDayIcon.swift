@@ -10,20 +10,22 @@ import SwiftUI
 struct DandelionDayIcon: View {
     let isFullBloom: Bool
     let size: CGFloat
+    @Environment(AppearanceManager.self) private var appearance
 
     var body: some View {
         Canvas { context, canvasSize in
+            let theme = appearance.theme
             let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height * 0.35)
 
             if isFullBloom {
                 let stemBase = CGPoint(x: canvasSize.width / 2, y: canvasSize.height * 0.95)
                 // Draw stem
-                drawStem(in: &context, from: stemBase, to: center, size: canvasSize)
+                drawStem(in: &context, from: stemBase, to: center, size: canvasSize, theme: theme)
                 // Draw full dandelion bloom
-                drawBloom(in: &context, center: center, size: canvasSize)
+                drawBloom(in: &context, center: center, size: canvasSize, theme: theme)
             } else {
                 // Draw a simple dot for empty/future days
-                drawEmptyDayDot(in: &context, center: center, size: canvasSize)
+                drawEmptyDayDot(in: &context, center: center, size: canvasSize, theme: theme)
             }
         }
         .frame(width: size, height: size)
@@ -33,7 +35,8 @@ struct DandelionDayIcon: View {
         in context: inout GraphicsContext,
         from base: CGPoint,
         to top: CGPoint,
-        size: CGSize
+        size: CGSize,
+        theme: DandelionTheme
     ) {
         var path = Path()
         path.move(to: base)
@@ -41,7 +44,7 @@ struct DandelionDayIcon: View {
 
         context.stroke(
             path,
-            with: .color(Color.dandelionAccent.opacity(0.6)),
+            with: .color(theme.accent.opacity(0.6)),
             style: StrokeStyle(lineWidth: size.width * 0.04, lineCap: .round)
         )
     }
@@ -49,7 +52,8 @@ struct DandelionDayIcon: View {
     private func drawBloom(
         in context: inout GraphicsContext,
         center: CGPoint,
-        size: CGSize
+        size: CGSize,
+        theme: DandelionTheme
     ) {
         let bloomRadius = size.width * 0.32
         let seedCount = 8
@@ -68,7 +72,7 @@ struct DandelionDayIcon: View {
 
             context.stroke(
                 path,
-                with: .color(Color.dandelionPappus.opacity(0.85)),
+                with: .color(theme.pappus.opacity(0.85)),
                 style: StrokeStyle(lineWidth: size.width * 0.025, lineCap: .round)
             )
 
@@ -80,7 +84,7 @@ struct DandelionDayIcon: View {
                 width: dotSize,
                 height: dotSize
             )
-            context.fill(Path(ellipseIn: dotRect), with: .color(Color.dandelionPappus))
+            context.fill(Path(ellipseIn: dotRect), with: .color(theme.pappus))
         }
 
         // Center core
@@ -91,13 +95,14 @@ struct DandelionDayIcon: View {
             width: coreSize,
             height: coreSize
         )
-        context.fill(Path(ellipseIn: coreRect), with: .color(Color.dandelionAccent))
+        context.fill(Path(ellipseIn: coreRect), with: .color(theme.accent))
     }
 
     private func drawEmptyDayDot(
         in context: inout GraphicsContext,
         center: CGPoint,
-        size: CGSize
+        size: CGSize,
+        theme: DandelionTheme
     ) {
         // Small dot for empty day
         let dotSize = size.width * 0.18
@@ -107,7 +112,7 @@ struct DandelionDayIcon: View {
             width: dotSize,
             height: dotSize
         )
-        context.fill(Path(ellipseIn: dotRect), with: .color(Color.dandelionSecondary.opacity(0.4)))
+        context.fill(Path(ellipseIn: dotRect), with: .color(theme.secondary.opacity(0.4)))
     }
 }
 
@@ -119,5 +124,5 @@ struct DandelionDayIcon: View {
         DandelionDayIcon(isFullBloom: false, size: 40)
     }
     .padding()
-    .background(Color.dandelionBackground)
+    .background(AppearanceManager().theme.background)
 }

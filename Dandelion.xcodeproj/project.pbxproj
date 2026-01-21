@@ -6,11 +6,32 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		341E07E77040C1138D57830C /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 167879A904D429898A59586E /* XCTest.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		67F15B5764789BBF25E26F07 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F6B3D6D62F0AB7F0007A5235 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F6B3D6DD2F0AB7F0007A5235;
+			remoteInfo = Dandelion;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		167879A904D429898A59586E /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
+		BDFA397584F34DF20DC898A4 /* DandelionTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DandelionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6B3D6DE2F0AB7F0007A5235 /* Dandelion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dandelion.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		42CEEFCE3A8191578CBCF087 /* DandelionTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = DandelionTests;
+			sourceTree = "<group>";
+		};
 		F6B3D6E02F0AB7F0007A5235 /* Dandelion */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Dandelion;
@@ -19,6 +40,14 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		215B8D4D7D2F4411960AE2A9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				341E07E77040C1138D57830C /* XCTest.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F6B3D6DB2F0AB7F0007A5235 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -29,11 +58,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		F61B3C8B2F206DDB0021D387 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				167879A904D429898A59586E /* XCTest.framework */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		F6B3D6D52F0AB7F0007A5235 = {
 			isa = PBXGroup;
 			children = (
 				F6B3D6E02F0AB7F0007A5235 /* Dandelion */,
+				42CEEFCE3A8191578CBCF087 /* DandelionTests */,
 				F6B3D6DF2F0AB7F0007A5235 /* Products */,
+				F61B3C8B2F206DDB0021D387 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -41,6 +80,7 @@
 			isa = PBXGroup;
 			children = (
 				F6B3D6DE2F0AB7F0007A5235 /* Dandelion.app */,
+				BDFA397584F34DF20DC898A4 /* DandelionTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,6 +88,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		C518D6C435FEAFBF5DAAEEE0 /* DandelionTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4157C0C676821B787C76E44C /* Build configuration list for PBXNativeTarget "DandelionTests" */;
+			buildPhases = (
+				7F36E251E1A8B4A741E793B0 /* Sources */,
+				215B8D4D7D2F4411960AE2A9 /* Frameworks */,
+				9C98ACF685377F90110ED847 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5D3FB444EFE7315EE06BF5AF /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				42CEEFCE3A8191578CBCF087 /* DandelionTests */,
+			);
+			name = DandelionTests;
+			packageProductDependencies = (
+			);
+			productName = DandelionTests;
+			productReference = BDFA397584F34DF20DC898A4 /* DandelionTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		F6B3D6DD2F0AB7F0007A5235 /* Dandelion */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = F6B3D6E92F0AB7F1007A5235 /* Build configuration list for PBXNativeTarget "Dandelion" */;
@@ -80,6 +143,9 @@
 				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
+					C518D6C435FEAFBF5DAAEEE0 = {
+						CreatedOnToolsVersion = 26.2;
+					};
 					F6B3D6DD2F0AB7F0007A5235 = {
 						CreatedOnToolsVersion = 26.2;
 					};
@@ -100,11 +166,19 @@
 			projectRoot = "";
 			targets = (
 				F6B3D6DD2F0AB7F0007A5235 /* Dandelion */,
+				C518D6C435FEAFBF5DAAEEE0 /* DandelionTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		9C98ACF685377F90110ED847 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F6B3D6DC2F0AB7F0007A5235 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -115,6 +189,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		7F36E251E1A8B4A741E793B0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F6B3D6DA2F0AB7F0007A5235 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -124,7 +205,59 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		5D3FB444EFE7315EE06BF5AF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F6B3D6DD2F0AB7F0007A5235 /* Dandelion */;
+			targetProxy = 67F15B5764789BBF25E26F07 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		0826194231BFA43B05C10F09 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = $(TEAM_ID);
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = $(TESTS_BUNDLE_ID);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Dandelion.app/Dandelion";
+			};
+			name = Release;
+		};
+		C9A6CFFB0A9A960A38181729 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = $(TEAM_ID);
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = $(TESTS_BUNDLE_ID);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Dandelion.app/Dandelion";
+			};
+			name = Debug;
+		};
 		F6B3D6E72F0AB7F1007A5235 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -244,8 +377,10 @@
 		F6B3D6EA2F0AB7F1007A5235 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Watercolor AppIcon-LineArt AppIcon-Dawn AppIcon-Twilight AppIcon-Forest";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = Dandelion/Dandelion.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
@@ -297,8 +432,10 @@
 		F6B3D6EB2F0AB7F1007A5235 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Watercolor AppIcon-LineArt AppIcon-Dawn AppIcon-Twilight AppIcon-Forest";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = Dandelion/Dandelion.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 4;
@@ -350,6 +487,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		4157C0C676821B787C76E44C /* Build configuration list for PBXNativeTarget "DandelionTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C9A6CFFB0A9A960A38181729 /* Debug */,
+				0826194231BFA43B05C10F09 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		F6B3D6D92F0AB7F0007A5235 /* Build configuration list for PBXProject "Dandelion" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

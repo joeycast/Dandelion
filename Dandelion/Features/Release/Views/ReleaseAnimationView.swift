@@ -14,17 +14,19 @@ struct ReleaseAnimationView: View {
     var showsBackground: Bool = true
     var textRect: CGRect = .zero
 
+    @Environment(AppearanceManager.self) private var appearance
     @State private var pappuses: [Pappus] = []
     @State private var isAnimating = false
     @State private var showMessage = false
     @State private var messageOpacity: Double = 0
 
     var body: some View {
+        let theme = appearance.theme
         GeometryReader { geometry in
             ZStack {
                 // Background
                 if showsBackground {
-                    Color.dandelionBackground
+                    theme.background
                         .ignoresSafeArea()
                 }
 
@@ -40,7 +42,7 @@ struct ReleaseAnimationView: View {
 
                         Text(releaseMessage)
                             .font(.dandelionTitle)
-                            .foregroundColor(.dandelionText)
+                            .foregroundColor(theme.text)
                             .opacity(messageOpacity)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, DandelionSpacing.xl)
@@ -106,4 +108,5 @@ struct ReleaseAnimationView: View {
         releaseMessage: "Let it drift away.",
         onComplete: {}
     )
+    .environment(AppearanceManager())
 }

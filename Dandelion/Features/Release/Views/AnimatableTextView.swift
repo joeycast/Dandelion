@@ -230,7 +230,7 @@ struct CharacterView: View {
             text: "Hello World this is a test of the animation",
             font: .dandelionWriting,
             uiFont: .dandelionWriting,
-            textColor: .dandelionText,
+            textColor: AppearanceManager().theme.text,
             lineWidth: 300,
             isAnimating: false,
             screenSize: CGSize(width: 393, height: 852),

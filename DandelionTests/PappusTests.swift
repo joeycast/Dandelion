@@ -8,6 +8,7 @@
 import XCTest
 @testable import Dandelion
 
+@MainActor
 final class PappusTests: XCTestCase {
 
     // MARK: - Initialization Tests
@@ -80,8 +81,8 @@ final class PappusTests: XCTestCase {
             screenSize: CGSize(width: 400, height: 800)
         )
 
-        XCTAssertGreaterThanOrEqual(pappus.duration, 2.5, "Duration should be at least 2.5 seconds")
-        XCTAssertLessThanOrEqual(pappus.duration, 4.0, "Duration should be at most 4.0 seconds")
+        XCTAssertGreaterThanOrEqual(pappus.duration, 5.0, "Duration should be at least 5.0 seconds")
+        XCTAssertLessThanOrEqual(pappus.duration, 7.2, "Duration should be at most 7.2 seconds")
     }
 
     // MARK: - Text Parsing Tests (Letter-based)

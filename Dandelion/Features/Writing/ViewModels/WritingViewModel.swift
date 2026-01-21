@@ -22,7 +22,7 @@ final class WritingViewModel {
 
     var writingState: WritingState = .prompt
     var writtenText: String = ""
-    var currentPrompt: WritingPrompt
+    var currentPrompt: WritingPrompt?
     var currentReleaseMessage: ReleaseMessage
     var isDandelionReturning: Bool = false
 
@@ -76,6 +76,16 @@ final class WritingViewModel {
         !writtenText.isEmpty
     }
 
+    /// Number of available prompts - used to determine if shuffle button should show
+    var availablePromptCount: Int {
+        promptsManager.availablePromptCount
+    }
+
+    /// Whether there's a prompt to display
+    var hasPrompt: Bool {
+        currentPrompt != nil
+    }
+
     // MARK: - Initialization
 
     convenience init() {
@@ -99,6 +109,23 @@ final class WritingViewModel {
 
         prepareDetachmentOrder()
         setupBlowDetection()
+    }
+
+    func refreshPrompts(
+        customPrompts: [WritingPrompt],
+        disabledDefaultIds: Set<String>,
+        isPremiumUnlocked: Bool
+    ) {
+        promptsManager.updatePrompts(
+            customPrompts: customPrompts,
+            disabledDefaultIds: disabledDefaultIds,
+            isPremiumUnlocked: isPremiumUnlocked
+        )
+        currentPrompt = promptsManager.randomPrompt()
+    }
+
+    func newPrompt() {
+        currentPrompt = promptsManager.randomPrompt()
     }
 
     // MARK: - Actions

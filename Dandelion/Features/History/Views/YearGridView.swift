@@ -6,17 +6,18 @@
 //
 
 import SwiftUI
-import UIKit
 
 struct YearGridView: View {
     let year: Int
     let releaseDates: Set<Date>
 
+    @Environment(AppearanceManager.self) private var appearance
     private let calendar = Calendar.current
     private let monthLabels = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]
     var body: some View {
         GeometryReader { proxy in
-            let labelHeight = UIFont.dandelionCaption.lineHeight
+            let theme = appearance.theme
+            let labelHeight = PlatformFont.dandelionCaption.lineHeight
             let rowSpacing: CGFloat = 0
             let availableHeight = max(0, proxy.size.height - labelHeight - DandelionSpacing.xs)
             let cellWidth = proxy.size.width / 12
@@ -29,7 +30,7 @@ struct YearGridView: View {
                     ForEach(0..<12, id: \.self) { month in
                         Text(monthLabels[month])
                             .font(.dandelionCaption)
-                            .foregroundColor(.dandelionSecondary)
+                            .foregroundColor(theme.secondary)
                             .frame(width: cellWidth, height: labelHeight)
                     }
                 }
@@ -99,5 +100,6 @@ private struct DayCell: View {
         )
         .padding()
     }
-    .background(Color.dandelionBackground)
+    .background(AppearanceManager().theme.background)
+    .environment(AppearanceManager())
 }

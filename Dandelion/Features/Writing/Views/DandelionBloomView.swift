@@ -11,36 +11,49 @@ struct DandelionBloomView: View {
     var seedCount: Int = 140
     var filamentsPerSeed: Int = 20
     var windStrength: CGFloat = 1.2
+    var style: DandelionStyle = .procedural
     var detachedSeedTimes: [Int: TimeInterval] = [:]
     var seedRestoreStartTime: TimeInterval?
     var seedRestoreDuration: TimeInterval = 1.8
     var topOverflow: CGFloat = 0  // Extra space above for seeds to fly into
 
+    @Environment(AppearanceManager.self) private var appearance
     @State private var driver: DandelionSimulationDriver
 
     init(
         seedCount: Int = 140,
         filamentsPerSeed: Int = 20,
         windStrength: CGFloat = 1.2,
+        style: DandelionStyle = .procedural,
         detachedSeedTimes: [Int: TimeInterval] = [:],
         seedRestoreStartTime: TimeInterval? = nil,
         seedRestoreDuration: TimeInterval = 1.8,
         topOverflow: CGFloat = 0
     ) {
-        self.seedCount = seedCount
-        self.filamentsPerSeed = filamentsPerSeed
-        self.windStrength = windStrength
+        let profile = DandelionStyleProfile(
+            style: style,
+            seedCount: seedCount,
+            filamentsPerSeed: filamentsPerSeed,
+            windStrength: windStrength,
+            seedRestoreDuration: seedRestoreDuration
+        )
+
+        self.seedCount = profile.seedCount
+        self.filamentsPerSeed = profile.filamentsPerSeed
+        self.windStrength = profile.windStrength
+        self.style = style
         self.detachedSeedTimes = detachedSeedTimes
         self.seedRestoreStartTime = seedRestoreStartTime
-        self.seedRestoreDuration = seedRestoreDuration
+        self.seedRestoreDuration = profile.seedRestoreDuration
         self.topOverflow = topOverflow
         _driver = State(initialValue: DandelionSimulationDriver(
-            seedCount: seedCount,
-            filamentsPerSeed: filamentsPerSeed
+            seedCount: profile.seedCount,
+            filamentsPerSeed: profile.filamentsPerSeed
         ))
     }
 
     var body: some View {
+        let theme = appearance.theme
         TimelineView(.animation) { timeline in
             Canvas { context, size in
                 driver.step(to: timeline.date, windStrength: windStrength)
@@ -51,6 +64,8 @@ struct DandelionBloomView: View {
                     time: timeline.date.timeIntervalSinceReferenceDate,
                     simulation: driver.simulation,
                     windStrength: windStrength,
+                    style: style,
+                    theme: theme,
                     detachedSeedTimes: detachedSeedTimes,
                     seedRestoreStartTime: seedRestoreStartTime,
                     seedRestoreDuration: seedRestoreDuration
@@ -58,6 +73,39 @@ struct DandelionBloomView: View {
             }
         }
         .accessibilityHidden(true)
+    }
+}
+
+private struct DandelionStyleProfile {
+    let seedCount: Int
+    let filamentsPerSeed: Int
+    let windStrength: CGFloat
+    let seedRestoreDuration: TimeInterval
+
+    init(
+        style: DandelionStyle,
+        seedCount: Int,
+        filamentsPerSeed: Int,
+        windStrength: CGFloat,
+        seedRestoreDuration: TimeInterval
+    ) {
+        switch style {
+        case .procedural:
+            self.seedCount = seedCount
+            self.filamentsPerSeed = filamentsPerSeed
+            self.windStrength = windStrength
+            self.seedRestoreDuration = seedRestoreDuration
+        case .watercolor:
+            self.seedCount = min(seedCount, 90)
+            self.filamentsPerSeed = max(10, filamentsPerSeed - 6)
+            self.windStrength = windStrength * 0.6
+            self.seedRestoreDuration = seedRestoreDuration * 1.2
+        case .pencil:
+            self.seedCount = min(seedCount, 110)
+            self.filamentsPerSeed = max(12, filamentsPerSeed - 4)
+            self.windStrength = windStrength * 0.8
+            self.seedRestoreDuration = seedRestoreDuration
+        }
     }
 }
 
@@ -69,6 +117,8 @@ private enum DandelionRenderer {
         time: TimeInterval,
         simulation: DandelionSimulation,
         windStrength: CGFloat,
+        style: DandelionStyle,
+        theme: DandelionTheme,
         detachedSeedTimes: [Int: TimeInterval],
         seedRestoreStartTime: TimeInterval?,
         seedRestoreDuration: TimeInterval
@@ -95,7 +145,15 @@ private enum DandelionRenderer {
         let stemBob = sin(t * 0.35 + 1.1) * headRadius * 0.03
         let headCenter = stemBase + stemVector.rotated(by: stemAngle) + CGPoint(x: 0, y: stemBob)
 
-        drawStem(in: &context, base: stemBase, headCenter: headCenter, headRadius: headRadius)
+        drawStem(
+            in: &context,
+            base: stemBase,
+            headCenter: headCenter,
+            headRadius: headRadius,
+            style: style,
+            theme: theme,
+            time: t
+        )
 
         let seeds = simulation.seeds
         let attachedSeeds = seeds.filter { effectiveDetachedSeedTimes[$0.id] == nil }
@@ -118,13 +176,15 @@ private enum DandelionRenderer {
                 globalAngle: stemAngle * 0.4,
                 windStrength: windStrength,
                 windField: windField,
+                style: style,
+                theme: theme,
                 detachment: detachmentState(for: seed, time: time, detachedSeedTimes: effectiveDetachedSeedTimes),
                 restoreProgress: restoreProgress,
                 restoreDuration: CGFloat(seedRestoreDuration)
             )
         }
 
-        drawCore(in: &context, center: headCenter, radius: headRadius)
+        drawCore(in: &context, center: headCenter, radius: headRadius, style: style, theme: theme, time: t)
 
         for seed in frontSeeds {
             drawSeed(
@@ -138,6 +198,8 @@ private enum DandelionRenderer {
                 globalAngle: stemAngle * 0.4,
                 windStrength: windStrength,
                 windField: windField,
+                style: style,
+                theme: theme,
                 detachment: detachmentState(for: seed, time: time, detachedSeedTimes: effectiveDetachedSeedTimes),
                 restoreProgress: restoreProgress,
                 restoreDuration: CGFloat(seedRestoreDuration)
@@ -156,6 +218,8 @@ private enum DandelionRenderer {
                 globalAngle: stemAngle * 0.4,
                 windStrength: windStrength,
                 windField: windField,
+                style: style,
+                theme: theme,
                 detachment: detachmentState(for: seed, time: time, detachedSeedTimes: effectiveDetachedSeedTimes),
                 restoreProgress: restoreProgress,
                 restoreDuration: CGFloat(seedRestoreDuration)
@@ -190,7 +254,10 @@ private enum DandelionRenderer {
         in context: inout GraphicsContext,
         base: CGPoint,
         headCenter: CGPoint,
-        headRadius: CGFloat
+        headRadius: CGFloat,
+        style: DandelionStyle,
+        theme: DandelionTheme,
+        time: CGFloat
     ) {
         let stemWidth = max(1.2, headRadius * 0.08)
         let stemVector = headCenter - base
@@ -204,9 +271,17 @@ private enum DandelionRenderer {
         )
 
         let stemGradient = Gradient(stops: [
-            .init(color: Color(red: 0.64, green: 0.74, blue: 0.36), location: 0),
-            .init(color: Color(red: 0.76, green: 0.83, blue: 0.42), location: 1)
+            .init(color: theme.accent.opacity(0.6), location: 0),
+            .init(color: theme.primary.opacity(0.8), location: 1)
         ])
+
+        let strokeStyle: StrokeStyle
+        switch style {
+        case .procedural, .watercolor:
+            strokeStyle = StrokeStyle(lineWidth: stemWidth, lineCap: .round)
+        case .pencil:
+            strokeStyle = StrokeStyle(lineWidth: stemWidth * 0.9, lineCap: .round, dash: [3, 2])
+        }
 
         context.stroke(
             stemPath,
@@ -215,14 +290,26 @@ private enum DandelionRenderer {
                 startPoint: base,
                 endPoint: headCenter
             ),
-            style: StrokeStyle(lineWidth: stemWidth, lineCap: .round)
+            style: strokeStyle
         )
+
+        if style == .watercolor {
+            let pulse = (sin(time * 0.5) + 1) * 0.5
+            context.stroke(
+                stemPath,
+                with: .color(theme.primary.opacity(0.2 + pulse * 0.15)),
+                style: StrokeStyle(lineWidth: stemWidth * 1.4, lineCap: .round)
+            )
+        }
     }
 
     private static func drawCore(
         in context: inout GraphicsContext,
         center: CGPoint,
-        radius: CGFloat
+        radius: CGFloat,
+        style: DandelionStyle,
+        theme: DandelionTheme,
+        time: CGFloat
     ) {
         let coreRect = CGRect(
             x: center.x - radius * 0.58,
@@ -232,9 +319,9 @@ private enum DandelionRenderer {
         )
         let corePath = Path(ellipseIn: coreRect)
         let coreGradient = Gradient(stops: [
-            .init(color: Color.dandelionAccent.opacity(0.95), location: 0),
-            .init(color: Color.dandelionPrimary.opacity(0.75), location: 0.55),
-            .init(color: Color.dandelionSubtle.opacity(0.9), location: 1)
+            .init(color: theme.accent.opacity(style == .pencil ? 0.6 : 0.95), location: 0),
+            .init(color: theme.primary.opacity(0.75), location: 0.55),
+            .init(color: theme.subtle.opacity(0.9), location: 1)
         ])
 
         context.fill(
@@ -246,6 +333,14 @@ private enum DandelionRenderer {
                 endRadius: radius * 0.9
             )
         )
+
+        if style == .watercolor {
+            let pulse = (sin(time * 0.6) + 1) * 0.5
+            context.fill(
+                corePath,
+                with: .color(theme.primary.opacity(0.18 + pulse * 0.2))
+            )
+        }
     }
 
     private static func drawSeed(
@@ -259,6 +354,8 @@ private enum DandelionRenderer {
         globalAngle: CGFloat,
         windStrength: CGFloat,
         windField: DandelionWindField,
+        style: DandelionStyle,
+        theme: DandelionTheme,
         detachment: DetachmentState,
         restoreProgress: CGFloat,
         restoreDuration: CGFloat
@@ -378,8 +475,12 @@ private enum DandelionRenderer {
                 }
                 layer.stroke(
                     beakPath,
-                    with: .color(Color.dandelionAccent.opacity(0.55)),
-                    style: StrokeStyle(lineWidth: max(0.6, headRadius * 0.025), lineCap: .round)
+                    with: .color(theme.accent.opacity(style == .pencil ? 0.4 : 0.55)),
+                    style: StrokeStyle(
+                        lineWidth: max(0.6, headRadius * 0.025),
+                        lineCap: .round,
+                        dash: style == .pencil ? [2, 2] : []
+                    )
                 )
 
                 let acheneLength = headRadius * 0.14 * depthScale * growthScale
@@ -399,7 +500,7 @@ private enum DandelionRenderer {
                     .rotated(by: acheneAngle)
                 layer.fill(
                     achenePath.applying(acheneTransform),
-                    with: .color(Color.dandelionAccent.opacity(0.75))
+                    with: .color(theme.accent.opacity(style == .pencil ? 0.6 : 0.75))
                 )
             }
 
@@ -407,8 +508,8 @@ private enum DandelionRenderer {
             if pappusRadius > 0.1 {
                 let axisA = direction.perpendicular
                 let axisB = direction * (0.25 + abs(seed.depth) * 0.75)
-                let filamentColor = Color.dandelionPappus.opacity(0.65 + depthFactor * 0.3)
-                let filamentWidth = max(0.4, headRadius * 0.012)
+                let filamentColor = theme.pappus.opacity(0.55 + depthFactor * 0.35)
+                let filamentWidth = max(0.4, headRadius * (style == .watercolor ? 0.009 : 0.012))
 
                 var filaments = Path()
                 for index in 0..<seed.filamentAngles.count {
@@ -432,7 +533,11 @@ private enum DandelionRenderer {
                 layer.stroke(
                     filaments,
                     with: .color(filamentColor),
-                    style: StrokeStyle(lineWidth: filamentWidth, lineCap: .round)
+                    style: StrokeStyle(
+                        lineWidth: filamentWidth,
+                        lineCap: .round,
+                        dash: style == .pencil ? [1.5, 2.5] : []
+                    )
                 )
 
                 let crownSize = pappusRadius * 0.16
@@ -443,7 +548,7 @@ private enum DandelionRenderer {
                     height: crownSize
                 )
                 let crownPath = Path(ellipseIn: crownRect)
-                layer.fill(crownPath, with: .color(Color.dandelionPappus.opacity(0.85)))
+                layer.fill(crownPath, with: .color(theme.pappus.opacity(style == .watercolor ? 0.7 : 0.85)))
             }
         }
     }
@@ -763,10 +868,11 @@ private extension CGFloat {
 
 #Preview {
     ZStack {
-        Color.dandelionBackground
+        AppearanceManager().theme.background
             .ignoresSafeArea()
 
         DandelionBloomView()
             .frame(width: 240, height: 260)
     }
+    .environment(AppearanceManager())
 }

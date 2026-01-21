@@ -80,28 +80,72 @@ extension ReleaseMessage {
 
 @Observable
 final class PromptsManager {
-    private(set) var writingPrompts: [WritingPrompt]
+    private(set) var customPrompts: [WritingPrompt]
+    private(set) var disabledDefaultIds: Set<String>
+    private(set) var isPremiumUnlocked: Bool
     private(set) var releaseMessages: [ReleaseMessage]
     private var usedPromptIds: Set<String> = []
     private var usedMessageIds: Set<String> = []
+    private var lastPromptId: String?
 
-    init() {
-        self.writingPrompts = WritingPrompt.defaults
+    /// Active default prompts (excluding disabled ones)
+    private var activeDefaultPrompts: [WritingPrompt] {
+        WritingPrompt.defaults.filter { !disabledDefaultIds.contains($0.id) }
+    }
+
+    /// All available prompts based on current configuration
+    var availablePrompts: [WritingPrompt] {
+        if isPremiumUnlocked {
+            return activeDefaultPrompts + customPrompts
+        } else {
+            return WritingPrompt.defaults  // Non-premium users see all defaults
+        }
+    }
+
+    /// Number of available prompts for the current configuration
+    var availablePromptCount: Int {
+        availablePrompts.count
+    }
+
+    init(isPremiumUnlocked: Bool = false) {
+        self.customPrompts = []
+        self.disabledDefaultIds = []
+        self.isPremiumUnlocked = isPremiumUnlocked
         self.releaseMessages = ReleaseMessage.defaults
     }
 
     /// Get a random writing prompt, avoiding recent repeats
-    func randomPrompt() -> WritingPrompt {
-        let availablePrompts = writingPrompts.filter { !usedPromptIds.contains($0.id) }
-
-        // Reset if we've used them all
-        if availablePrompts.isEmpty {
-            usedPromptIds.removeAll()
-            return writingPrompts.randomElement() ?? WritingPrompt(text: "What's on your mind?")
+    /// Returns nil if no prompts are available
+    /// Never returns the same prompt twice in a row (unless it's the only option)
+    func randomPrompt() -> WritingPrompt? {
+        let prompts = availablePrompts
+        guard !prompts.isEmpty else {
+            lastPromptId = nil
+            return nil
         }
 
-        let prompt = availablePrompts.randomElement() ?? writingPrompts[0]
+        // If only one prompt, return it (even if same as last)
+        if prompts.count == 1 {
+            let prompt = prompts[0]
+            lastPromptId = prompt.id
+            return prompt
+        }
+
+        // Exclude the last shown prompt to ensure variety
+        let eligiblePrompts = prompts.filter { $0.id != lastPromptId }
+        let unusedPrompts = eligiblePrompts.filter { !usedPromptIds.contains($0.id) }
+
+        let prompt: WritingPrompt
+        if unusedPrompts.isEmpty {
+            // Reset tracking if we've used all eligible prompts
+            usedPromptIds.removeAll()
+            prompt = eligiblePrompts.randomElement() ?? prompts[0]
+        } else {
+            prompt = unusedPrompts.randomElement() ?? eligiblePrompts[0]
+        }
+
         usedPromptIds.insert(prompt.id)
+        lastPromptId = prompt.id
 
         // Keep only last 5 to allow some variety
         if usedPromptIds.count > 5 {
@@ -130,5 +174,17 @@ final class PromptsManager {
         }
 
         return message
+    }
+
+    /// Update the prompts configuration
+    func updatePrompts(
+        customPrompts: [WritingPrompt],
+        disabledDefaultIds: Set<String>,
+        isPremiumUnlocked: Bool
+    ) {
+        self.customPrompts = customPrompts
+        self.disabledDefaultIds = disabledDefaultIds
+        self.isPremiumUnlocked = isPremiumUnlocked
+        usedPromptIds.removeAll()
     }
 }

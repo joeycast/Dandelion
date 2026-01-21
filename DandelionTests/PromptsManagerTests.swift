@@ -26,7 +26,8 @@ final class PromptsManagerTests: XCTestCase {
 
     func testRandomPromptReturnsPrompt() {
         let prompt = sut.randomPrompt()
-        XCTAssertFalse(prompt.text.isEmpty, "Prompt text should not be empty")
+        XCTAssertNotNil(prompt, "Should return a prompt")
+        XCTAssertFalse(prompt?.text.isEmpty ?? true, "Prompt text should not be empty")
     }
 
     func testRandomPromptReturnsVariedPrompts() {
@@ -34,8 +35,9 @@ final class PromptsManagerTests: XCTestCase {
 
         // Get 10 prompts and check for variety
         for _ in 0..<10 {
-            let prompt = sut.randomPrompt()
-            prompts.insert(prompt.text)
+            if let prompt = sut.randomPrompt() {
+                prompts.insert(prompt.text)
+            }
         }
 
         // Should have at least 3 different prompts out of 10 calls
@@ -71,5 +73,76 @@ final class PromptsManagerTests: XCTestCase {
             XCTAssertFalse(message.text.isEmpty, "Message '\(message.id)' should have text")
             XCTAssertFalse(message.id.isEmpty, "Message should have an ID")
         }
+    }
+
+    // MARK: - Custom Prompts Tests
+
+    func testCustomPromptsIgnoredWhenNotPremium() {
+        let custom = [WritingPrompt(text: "Custom prompt")]
+        sut.updatePrompts(customPrompts: custom, disabledDefaultIds: [], isPremiumUnlocked: false)
+
+        let prompt = sut.randomPrompt()
+        XCTAssertNotEqual(prompt?.text, "Custom prompt", "Custom prompt should be locked without premium")
+    }
+
+    func testCustomPromptsAvailableWithPremium() {
+        let custom = [WritingPrompt(text: "Custom prompt")]
+        sut.updatePrompts(customPrompts: custom, disabledDefaultIds: [], isPremiumUnlocked: true)
+
+        var found = false
+        for _ in 0..<20 {
+            if let prompt = sut.randomPrompt(), prompt.text == "Custom prompt" {
+                found = true
+                break
+            }
+        }
+        XCTAssertTrue(found, "Custom prompt should be available with premium")
+    }
+
+    func testDisabledDefaultPromptsAreSkipped() {
+        // Disable all default prompts except one
+        let allDefaultIds = Set(WritingPrompt.defaults.map { $0.id })
+        let keepId = WritingPrompt.defaults.first!.id
+        let disabledIds = allDefaultIds.subtracting([keepId])
+
+        sut.updatePrompts(customPrompts: [], disabledDefaultIds: disabledIds, isPremiumUnlocked: true)
+
+        // All prompts should now be the one we kept
+        for _ in 0..<10 {
+            let prompt = sut.randomPrompt()
+            XCTAssertEqual(prompt?.id, keepId, "Only the non-disabled prompt should be returned")
+        }
+    }
+
+    func testAllPromptsDisabledReturnsNil() {
+        // Disable all default prompts
+        let allDefaultIds = Set(WritingPrompt.defaults.map { $0.id })
+        sut.updatePrompts(customPrompts: [], disabledDefaultIds: allDefaultIds, isPremiumUnlocked: true)
+
+        let prompt = sut.randomPrompt()
+        XCTAssertNil(prompt, "Should return nil when all prompts are disabled")
+    }
+
+    func testNeverReturnsSamePromptTwiceInARow() {
+        // With multiple prompts available, tapping "Another Prompt" should never show the same one
+        for _ in 0..<20 {
+            let first = sut.randomPrompt()
+            let second = sut.randomPrompt()
+            XCTAssertNotEqual(first?.id, second?.id, "Should never return the same prompt twice in a row")
+        }
+    }
+
+    func testSamePromptAllowedWhenOnlyOneAvailable() {
+        // Disable all but one default prompt
+        let allDefaultIds = Set(WritingPrompt.defaults.map { $0.id })
+        let keepId = WritingPrompt.defaults.first!.id
+        let disabledIds = allDefaultIds.subtracting([keepId])
+
+        sut.updatePrompts(customPrompts: [], disabledDefaultIds: disabledIds, isPremiumUnlocked: true)
+
+        // With only one prompt, it should return the same one
+        let first = sut.randomPrompt()
+        let second = sut.randomPrompt()
+        XCTAssertEqual(first?.id, second?.id, "Should return the same prompt when it's the only option")
     }
 }

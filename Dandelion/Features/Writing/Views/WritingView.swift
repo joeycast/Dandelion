@@ -7,7 +7,9 @@
 
 import SwiftUI
 import SwiftData
+#if canImport(UIKit)
 import UIKit
+#endif
 
 struct WritingView: View {
     let topSafeArea: CGFloat
@@ -15,6 +17,11 @@ struct WritingView: View {
     let onShowHistory: () -> Void
     let onSwipeEligibilityChange: (Bool) -> Void
     @Environment(\.modelContext) private var modelContext
+    @Environment(AppearanceManager.self) private var appearance
+    @Environment(PremiumManager.self) private var premium
+    @Environment(AmbientSoundService.self) private var ambientSound
+    @Query(sort: \CustomPrompt.createdAt) private var customPrompts: [CustomPrompt]
+    @Query private var defaultPromptSettings: [DefaultPromptSetting]
     @State private var viewModel = WritingViewModel()
     @State private var isTextEditorFocused: Bool = false
     @State private var animateLetters: Bool = false
@@ -29,6 +36,8 @@ struct WritingView: View {
     @State private var releaseVisibleHeight: CGFloat = 0
     @State private var lastWritingAreaHeight: CGFloat = 0
     @State private var releaseClipOffset: CGFloat = 0
+    @State private var showBloomPaywall: Bool = false
+    @State private var isSettingsPresented: Bool = false
     @Namespace private var promptNamespace
 
     init(
@@ -86,7 +95,7 @@ struct WritingView: View {
 
             ZStack {
                 // Background
-                Color.dandelionBackground
+                appearance.theme.background
                     .ignoresSafeArea()
                     .onTapGesture {
                         isTextEditorFocused = false
@@ -214,11 +223,43 @@ struct WritingView: View {
                 fadeInPrompt()
             }
             setupReleaseTracking()
+            syncCustomPrompts()
             onSwipeEligibilityChange(isPrompt)
         }
-        .onChange(of: viewModel.currentPrompt.id) { _, _ in
+        .onChange(of: customPrompts) { _, _ in
+            syncCustomPrompts()
+        }
+        .onChange(of: defaultPromptSettings) { _, _ in
+            syncCustomPrompts()
+        }
+        .onChange(of: premium.isBloomUnlocked) { _, _ in
+            syncCustomPrompts()
+            handleAmbientSound(for: viewModel.writingState)
+        }
+        .onChange(of: viewModel.writingState) { _, newValue in
+            handleAmbientSound(for: newValue)
+        }
+        .onChange(of: ambientSound.isEnabled) { _, _ in
+            handleAmbientSound(for: viewModel.writingState)
+        }
+        .onChange(of: ambientSound.selectedSound) { _, _ in
+            handleAmbientSound(for: viewModel.writingState)
+        }
+        .onChange(of: viewModel.currentPrompt?.id) { _, _ in
             if isPrompt {
                 fadeInPrompt()
+            }
+        }
+        .sheet(isPresented: $showBloomPaywall) {
+            BloomPaywallView(onClose: { showBloomPaywall = false })
+        }
+        .sheet(isPresented: $isSettingsPresented) {
+            SettingsView()
+        }
+        .onChange(of: isSettingsPresented) { _, isPresented in
+            if !isPresented {
+                // Reload prompt configuration when settings closes
+                syncCustomPrompts()
             }
         }
     }
@@ -233,6 +274,10 @@ struct WritingView: View {
 
     private var isReleasing: Bool {
         viewModel.writingState == .releasing
+    }
+
+    private var theme: DandelionTheme {
+        appearance.theme
     }
 
     private func contentView(in size: CGSize, safeAreaBottom: CGFloat, safeAreaTop: CGFloat, headerSpaceHeight: CGFloat, fullScreenSize: CGSize) -> some View {
@@ -267,6 +312,7 @@ struct WritingView: View {
             HStack {
                 historyButton
                 Spacer()
+                settingsButton
             }
             .padding(.horizontal, DandelionSpacing.screenEdge)
             .frame(height: 32)
@@ -279,45 +325,64 @@ struct WritingView: View {
         } label: {
             Image(systemName: "calendar")
                 .font(.system(size: 20, weight: .regular))
-                .foregroundColor(.dandelionSecondary)
+                .foregroundColor(theme.secondary)
         }
         .opacity(isPrompt ? 0.8 : 0)
         .animation(DandelionAnimation.gentle, value: isPrompt)
         .allowsHitTesting(isPrompt)
     }
 
+    private var settingsButton: some View {
+        Button {
+            isSettingsPresented = true
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 18, weight: .regular))
+                .foregroundColor(theme.secondary)
+        }
+        .opacity(isPrompt ? 0.8 : 0)
+        .animation(DandelionAnimation.gentle, value: isPrompt)
+        .allowsHitTesting(isPrompt)
+    }
+
+    @ViewBuilder
     private func headerView(in size: CGSize) -> some View {
         // Just the prompt text - dandelion is rendered separately as a persistent element
-        let promptMatchId = "promptText-\(viewModel.currentPrompt.id)"
-        return WordAnimatedTextView(
-            text: viewModel.currentPrompt.text,
-            font: isPrompt ? .dandelionTitle : .dandelionCaption,
-            uiFont: isPrompt ? .dandelionTitle : .dandelionCaption,
-            textColor: isPrompt ? .dandelionText : .dandelionSecondary,
-            lineWidth: max(
-                0,
-                size.width - ((isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge) * 2)
-            ),
-            isAnimating: false,
-            maxLines: isPrompt ? nil : 1,
-            lineBreakMode: isPrompt ? .byWordWrapping : .byTruncatingTail,
-            layoutIDPrefix: viewModel.currentPrompt.id
-        )
-        .matchedGeometryEffect(id: promptMatchId, in: promptNamespace)
-        .padding(.horizontal, isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge)
-        .padding(.top, isPrompt ? DandelionSpacing.lg : DandelionSpacing.xs)
-        .opacity(isReleasing ? 0 : (isPrompt ? promptOpacity : 1))
-        .animation(.easeInOut(duration: 1.0), value: isReleasing)
+        if let prompt = viewModel.currentPrompt {
+            let promptMatchId = "promptText-\(prompt.id)"
+            WordAnimatedTextView(
+                text: prompt.text,
+                font: isPrompt ? .dandelionTitle : .dandelionCaption,
+                uiFont: isPrompt ? .dandelionTitle : .dandelionCaption,
+                textColor: isPrompt ? theme.text : theme.secondary,
+                lineWidth: max(
+                    0,
+                    size.width - ((isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge) * 2)
+                ),
+                isAnimating: false,
+                maxLines: isPrompt ? nil : 1,
+                lineBreakMode: isPrompt ? .byWordWrapping : .byTruncatingTail,
+                layoutIDPrefix: prompt.id
+            )
+            .matchedGeometryEffect(id: promptMatchId, in: promptNamespace)
+            .padding(.horizontal, isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge)
+            .padding(.top, isPrompt ? DandelionSpacing.lg : DandelionSpacing.xs)
+            .opacity(isReleasing ? 0 : (isPrompt ? promptOpacity : 1))
+            .animation(.easeInOut(duration: 1.0), value: isReleasing)
+        }
     }
 
     private var promptButtons: some View {
         VStack(spacing: DandelionSpacing.md) {
-            Button("New Prompt") {
-                HapticsService.shared.tap()
-                viewModel.currentPrompt = PromptsManager().randomPrompt()
+            // Only show shuffle button if there are 2+ prompts to cycle through
+            if viewModel.availablePromptCount > 1 {
+                Button("Another Prompt") {
+                    HapticsService.shared.tap()
+                    viewModel.newPrompt()
+                }
+                .font(.dandelionCaption)
+                .foregroundColor(theme.secondary)
             }
-            .font(.dandelionCaption)
-            .foregroundColor(.dandelionSecondary)
 
             Button("Begin Writing") {
                 HapticsService.shared.tap()
@@ -343,7 +408,7 @@ struct WritingView: View {
                     AutoScrollingTextEditor(
                         text: $viewModel.writtenText,
                         font: .dandelionWriting,
-                        textColor: PlatformColor(Color.dandelionText),
+                        textColor: PlatformColor(theme.text),
                         isEditable: isWriting,
                         shouldBeFocused: $isTextEditorFocused,
                         scrollOffset: $textScrollOffset
@@ -366,7 +431,7 @@ struct WritingView: View {
                         text: showAnimatedText ? releaseTextSnapshot : viewModel.writtenText,
                         font: .dandelionWriting,
                         uiFont: .dandelionWriting,
-                        textColor: .dandelionText,
+                        textColor: theme.text,
                         lineWidth: lineWidth,
                         isAnimating: animateLetters,
                         screenSize: fullScreenSize,
@@ -448,6 +513,41 @@ struct WritingView: View {
         }
     }
 
+    private func syncCustomPrompts() {
+        let activeCustomPrompts = customPrompts
+            .filter { $0.isActive }
+            .map { WritingPrompt(id: $0.id.uuidString, text: $0.text) }
+
+        // Get disabled default prompt IDs from SwiftData (synced via CloudKit)
+        let disabledIds = Set(
+            defaultPromptSettings
+                .filter { !$0.isEnabled }
+                .map { $0.promptId }
+        )
+
+        viewModel.refreshPrompts(
+            customPrompts: activeCustomPrompts,
+            disabledDefaultIds: disabledIds,
+            isPremiumUnlocked: premium.isBloomUnlocked
+        )
+    }
+
+    private func handleAmbientSound(for state: WritingState) {
+        guard premium.isBloomUnlocked else {
+            ambientSound.stop()
+            return
+        }
+
+        switch state {
+        case .writing:
+            ambientSound.start()
+        case .releasing:
+            ambientSound.fadeOut()
+        case .prompt, .complete:
+            ambientSound.stop()
+        }
+    }
+
     // MARK: - Bottom Bar
 
     private func bottomBar(bottomInset: CGFloat) -> some View {
@@ -461,12 +561,14 @@ struct WritingView: View {
             // Bottom bar with persistent background
             ZStack {
                 // Background stays visible during release
-                Color.dandelionBackground
+                theme.background
                     .shadow(color: .black.opacity(0.05), radius: 10, y: -5)
                     .ignoresSafeArea(edges: .bottom)
 
                 // Content hides during release
                 HStack(spacing: DandelionSpacing.lg) {
+                    ambientToggleButton
+
                     // Microphone permission / blow instruction
                     microphoneStatusView
 
@@ -514,15 +616,15 @@ struct WritingView: View {
                     Text("Enable Blow")
                 }
                 .font(.dandelionCaption)
-                .foregroundColor(.dandelionSecondary)
+                .foregroundColor(theme.secondary)
             }
         } else if viewModel.blowDetection.hasPermission {
             HStack(spacing: DandelionSpacing.xs) {
                 Image(systemName: "mic.fill")
-                    .foregroundColor(.dandelionAccent)
+                    .foregroundColor(theme.accent)
                 Text("Blow to release")
                     .font(.dandelionCaption)
-                    .foregroundColor(.dandelionSecondary)
+                    .foregroundColor(theme.secondary)
             }
         } else {
             // Permission denied - no indicator needed
@@ -535,17 +637,17 @@ struct WritingView: View {
     private var blowIndicator: some View {
         HStack {
             Image(systemName: "wind")
-                .foregroundColor(.dandelionAccent)
+                .foregroundColor(theme.accent)
 
             Text("Keep blowing...")
                 .font(.dandelionSecondary)
-                .foregroundColor(.dandelionText)
+                .foregroundColor(theme.text)
         }
         .padding(.horizontal, DandelionSpacing.lg)
         .padding(.vertical, DandelionSpacing.sm)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color.dandelionPrimary.opacity(0.5))
+                .fill(theme.primary.opacity(0.5))
         )
         .transition(.opacity.combined(with: .scale))
     }
@@ -561,18 +663,41 @@ struct WritingView: View {
             .overlay(alignment: .bottom) {
                 DandelionBloomView(
                     seedCount: viewModel.dandelionSeedCount,
+                    style: appearance.style,
                     detachedSeedTimes: viewModel.detachedSeedTimes,
                     seedRestoreStartTime: viewModel.seedRestoreStartTime,
                     seedRestoreDuration: viewModel.seedRestoreDuration,
                     topOverflow: overflowHeight
                 )
+                .id(appearance.style)
                 .frame(height: height + overflowHeight)
             }
             .allowsHitTesting(false)
+    }
+
+    private var ambientToggleButton: some View {
+        Button {
+            if premium.isBloomUnlocked {
+                ambientSound.isEnabled.toggle()
+                handleAmbientSound(for: viewModel.writingState)
+            } else {
+                showBloomPaywall = true
+            }
+        } label: {
+            Image(systemName: ambientSound.isEnabled ? "speaker.wave.2.fill" : "speaker.wave.2")
+                .font(.system(size: 16, weight: .regular))
+                .foregroundColor(premium.isBloomUnlocked ? theme.secondary : theme.subtle)
+                .accessibilityLabel("Ambient sound")
+        }
+        .buttonStyle(.plain)
     }
 
 }
 
 #Preview {
     WritingView()
+        .environment(PremiumManager.shared)
+        .environment(AppearanceManager())
+        .environment(AmbientSoundService())
+        .modelContainer(for: [Release.self, CustomPrompt.self, DefaultPromptSetting.self], inMemory: true)
 }
