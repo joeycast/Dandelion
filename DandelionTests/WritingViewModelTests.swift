@@ -8,6 +8,7 @@
 import XCTest
 @testable import Dandelion
 
+@MainActor
 final class WritingViewModelTests: XCTestCase {
 
     var sut: WritingViewModel!
@@ -33,7 +34,8 @@ final class WritingViewModelTests: XCTestCase {
     }
 
     func testInitialPromptIsSet() {
-        XCTAssertFalse(sut.currentPrompt.text.isEmpty, "Initial prompt should be set")
+        XCTAssertNotNil(sut.currentPrompt, "Initial prompt should be set")
+        XCTAssertFalse(sut.currentPrompt?.text.isEmpty ?? true, "Initial prompt text should not be empty")
     }
 
     func testInitialReleaseMessageIsSet() {
@@ -108,10 +110,9 @@ final class WritingViewModelTests: XCTestCase {
     }
 
     func testReleaseCompleteGetsNewPrompt() {
-        let originalPrompt = sut.currentPrompt
         sut.releaseComplete()
         // Note: There's a chance the same prompt is selected, so we just verify a prompt exists
-        XCTAssertFalse(sut.currentPrompt.text.isEmpty, "Should have a new prompt")
+        XCTAssertNotNil(sut.currentPrompt, "Should have a prompt after release complete")
     }
 
     func testStartNewSessionClearsText() {

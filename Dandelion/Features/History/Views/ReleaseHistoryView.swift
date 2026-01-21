@@ -10,13 +10,14 @@ import SwiftData
 
 enum HistoryTab: String, CaseIterable {
     case history = "History"
-    case stats = "Stats"
+    case insights = "Insights"
 }
 
 struct ReleaseHistoryView: View {
     let topSafeArea: CGFloat
     let onNavigateToWriting: () -> Void
     @Environment(\.modelContext) private var modelContext
+    @Environment(AppearanceManager.self) private var appearance
     @Query(sort: \Release.timestamp) private var allReleases: [Release]
     @State private var selectedTab: HistoryTab = .history
     @State private var selectedYear: Int
@@ -47,13 +48,22 @@ struct ReleaseHistoryView: View {
                 switch selectedTab {
                 case .history:
                     historyContent
-                case .stats:
-                    statsPlaceholder
+                case .insights:
+                    InsightsView(releases: allReleases)
                 }
             }
-            .background(Color.dandelionBackground.ignoresSafeArea())
+            .background(appearance.theme.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        onNavigateToWriting()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(appearance.theme.secondary)
+                    }
+                }
                 ToolbarItem(placement: .principal) {
                     Picker("Tab", selection: $selectedTab) {
                         ForEach(HistoryTab.allCases, id: \.self) { tab in
@@ -63,18 +73,10 @@ struct ReleaseHistoryView: View {
                     .pickerStyle(.segmented)
                     .frame(width: 180)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        onNavigateToWriting()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(.dandelionSecondary)
-                    }
-                }
             }
-            .toolbarBackground(Color.dandelionBackground, for: .navigationBar)
+            .toolbarBackground(appearance.theme.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
         }
         .onAppear {
             releaseHistoryService = ReleaseHistoryService(modelContext: modelContext)
@@ -113,16 +115,6 @@ struct ReleaseHistoryView: View {
         }
     }
 
-    private var statsPlaceholder: some View {
-        VStack {
-            Spacer()
-            Text("Stats coming soon")
-                .font(.dandelionCaption)
-                .foregroundColor(.dandelionSecondary)
-            Spacer()
-        }
-    }
-
     private var yearTransition: AnyTransition {
         let offset: CGFloat = 50
         // Going to past = slide from left, going to future = slide from right
@@ -150,13 +142,13 @@ struct ReleaseHistoryView: View {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 18, weight: .semibold))
             }
-            .foregroundColor(.dandelionPrimary)
+            .foregroundColor(appearance.theme.primary)
             .opacity(canGoBack ? 1 : 0)
             .disabled(!canGoBack)
 
             Text(verbatim: String(selectedYear))
                 .font(.system(size: 20, weight: .semibold, design: .serif))
-                .foregroundColor(.dandelionPrimary)
+                .foregroundColor(appearance.theme.primary)
 
             // Right chevron or invisible placeholder to maintain layout
             Button {
@@ -165,7 +157,7 @@ struct ReleaseHistoryView: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 18, weight: .semibold))
             }
-            .foregroundColor(.dandelionPrimary)
+            .foregroundColor(appearance.theme.primary)
             .opacity(canGoForward ? 1 : 0)
             .disabled(!canGoForward)
         }
@@ -202,4 +194,6 @@ struct ReleaseHistoryView: View {
 #Preview {
     ReleaseHistoryView()
         .modelContainer(for: Release.self, inMemory: true)
+        .environment(AppearanceManager())
+        .environment(PremiumManager.shared)
 }

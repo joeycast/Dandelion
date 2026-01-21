@@ -13,31 +13,7 @@ import AppKit
 #endif
 
 // MARK: - Colors
-
-extension Color {
-    /// Soft cream/white background
-//    static let dandelionBackground = Color(red: 0.99, green: 0.98, blue: 0.95)
-    static let dandelionBackground = Color(red: 0, green: 0, blue: 0)
-
-    /// Pale yellow - primary dandelion color
-    static let dandelionPrimary = Color(red: 0.98, green: 0.93, blue: 0.75)
-
-    /// Gentle gold accent
-    static let dandelionAccent = Color(red: 0.85, green: 0.75, blue: 0.45)
-
-    /// Warm dark gray for text
-//    static let dandelionText = Color(red: 0.25, green: 0.24, blue: 0.22)
-    static let dandelionText = Color(red: 0.98, green: 0.93, blue: 0.75)
-
-    /// Light gray for secondary text and hints
-    static let dandelionSecondary = Color(red: 0.55, green: 0.53, blue: 0.50)
-
-    /// Very light gray for subtle elements
-    static let dandelionSubtle = Color(red: 0.88, green: 0.86, blue: 0.82)
-
-    /// Pappus color - slightly off-white for floating seeds
-    static let dandelionPappus = Color(red: 0.97, green: 0.95, blue: 0.90)
-}
+// Colors now come from AppearanceManager.theme to support palettes.
 
 // MARK: - Typography
 
@@ -177,15 +153,17 @@ extension View {
 // MARK: - Button Styles
 
 struct DandelionButtonStyle: ButtonStyle {
+    @Environment(AppearanceManager.self) private var appearance
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.dandelionButton)
-            .foregroundColor(.dandelionBackground)
+            .foregroundColor(appearance.theme.background)
             .padding(.horizontal, DandelionSpacing.lg)
             .padding(.vertical, DandelionSpacing.md)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.dandelionPrimary)
+                    .fill(appearance.theme.primary)
             )
             .opacity(configuration.isPressed ? 0.8 : 1.0)
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
@@ -194,15 +172,17 @@ struct DandelionButtonStyle: ButtonStyle {
 }
 
 struct DandelionSecondaryButtonStyle: ButtonStyle {
+    @Environment(AppearanceManager.self) private var appearance
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.dandelionButton)
-            .foregroundColor(.dandelionSecondary)
+            .foregroundColor(appearance.theme.secondary)
             .padding(.horizontal, DandelionSpacing.lg)
             .padding(.vertical, DandelionSpacing.md)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.dandelionSubtle, lineWidth: 1)
+                    .stroke(appearance.theme.subtle, lineWidth: 1)
             )
             .opacity(configuration.isPressed ? 0.6 : 1.0)
             .animation(DandelionAnimation.gentle, value: configuration.isPressed)

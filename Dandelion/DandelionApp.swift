@@ -11,9 +11,12 @@ import SwiftData
 @main
 struct DandelionApp: App {
     let modelContainer: ModelContainer
+    private let premiumManager = PremiumManager.shared
+    private let appearanceManager = AppearanceManager()
+    private let ambientSoundService = AmbientSoundService()
 
     init() {
-        let schema = Schema([Release.self])
+        let schema = Schema([Release.self, CustomPrompt.self, DefaultPromptSetting.self])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
@@ -74,5 +77,8 @@ struct DandelionApp: App {
             ContentView()
         }
         .modelContainer(modelContainer)
+        .environment(premiumManager)
+        .environment(appearanceManager)
+        .environment(ambientSoundService)
     }
 }

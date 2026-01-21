@@ -10,22 +10,24 @@ import SwiftUI
 struct StatBox: View {
     let value: Int
     let label: String
+    @Environment(AppearanceManager.self) private var appearance
 
     var body: some View {
+        let theme = appearance.theme
         VStack(spacing: DandelionSpacing.xs) {
             Text("\(value)")
                 .font(.system(size: 36, weight: .light, design: .serif))
-                .foregroundColor(.dandelionPrimary)
+                .foregroundColor(theme.primary)
 
             Text(label)
                 .font(.dandelionCaption)
-                .foregroundColor(.dandelionSecondary)
+                .foregroundColor(theme.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, DandelionSpacing.md)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.dandelionPrimary.opacity(0.08))
+                .fill(theme.primary.opacity(0.08))
         )
     }
 }
@@ -36,5 +38,6 @@ struct StatBox: View {
         StatBox(value: 156, label: "This Year")
     }
     .padding()
-    .background(Color.dandelionBackground)
+    .background(AppearanceManager().theme.background)
+    .environment(AppearanceManager())
 }
