@@ -82,26 +82,12 @@ struct SoundSettingsView: View {
                 }
             } else {
                 Section {
-                    VStack(alignment: .center, spacing: DandelionSpacing.md) {
-                        HStack(spacing: DandelionSpacing.sm) {
-                            Image(systemName: "lock.fill")
-                                .foregroundColor(theme.secondary)
-                            Text("Ambient sounds are part of Dandelion Bloom.")
-                                .font(.dandelionSecondary)
-                                .foregroundColor(theme.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        HStack {
-                            Spacer()
-                            Button("Unlock Dandelion Bloom") {
-                                showPaywall = true
-                            }
-                            .buttonStyle(.dandelion)
-                            Spacer()
-                        }
-                    }
-                    .padding(.vertical, DandelionSpacing.sm)
+                    BloomLockedCard(
+                        title: "Unlock Ambient Sounds",
+                        subtitle: "Add calming soundscapes to accompany your writing.",
+                        isCompact: true,
+                        action: { showPaywall = true }
+                    )
                     .listRowBackground(theme.card)
                 }
             }
