@@ -97,26 +97,12 @@ struct PromptsSettingsView: View {
             } else {
                 // Locked state for non-Bloom users
                 Section {
-                    VStack(alignment: .center, spacing: DandelionSpacing.md) {
-                        HStack(spacing: DandelionSpacing.sm) {
-                            Image(systemName: "lock.fill")
-                                .foregroundColor(theme.secondary)
-                            Text("Custom prompts are part of Dandelion Bloom.")
-                                .font(.dandelionSecondary)
-                                .foregroundColor(theme.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        HStack {
-                            Spacer()
-                            Button("Unlock Dandelion Bloom") {
-                                showPaywall = true
-                            }
-                            .buttonStyle(.dandelion)
-                            Spacer()
-                        }
-                    }
-                    .padding(.vertical, DandelionSpacing.sm)
+                    BloomLockedCard(
+                        title: "Unlock Custom Prompts",
+                        subtitle: "Create your own prompts and customize which ones appear.",
+                        isCompact: true,
+                        action: { showPaywall = true }
+                    )
                     .listRowBackground(theme.card)
                 } header: {
                     Text("Custom Prompts")
