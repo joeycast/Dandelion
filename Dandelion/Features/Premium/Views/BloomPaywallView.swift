@@ -36,24 +36,9 @@ struct BloomPaywallView: View {
     var body: some View {
         let theme = appearance.theme
 
-        ScrollView {
-            VStack(spacing: 0) {
-                // Close button
-                HStack {
-                    Spacer()
-                    if showsClose {
-                        Button {
-                            onClose?()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 28))
-                                .foregroundColor(theme.subtle)
-                        }
-                    }
-                }
-                .padding(.horizontal, DandelionSpacing.lg)
-                .padding(.top, DandelionSpacing.md)
-
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 0) {
                 // Dandelion illustration
                 DandelionBloomView(
                     seedCount: 90,
@@ -169,16 +154,31 @@ struct BloomPaywallView: View {
                         .padding(.horizontal, DandelionSpacing.lg)
                 }
 
-                Spacer(minLength: DandelionSpacing.xxl)
+                    Spacer(minLength: DandelionSpacing.xxl)
+                }
+            }
+            .background(theme.background.ignoresSafeArea())
+            .toolbar {
+                if showsClose {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Close") {
+                            onClose?()
+                        }
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(theme.primary)
+                    }
+                }
+            }
+            .onAppear {
+                Task { await premium.refreshEntitlement() }
+            }
+            .onChange(of: premium.errorMessage) { _, newValue in
+                showError = newValue != nil
             }
         }
-        .background(theme.background.ignoresSafeArea())
-        .onAppear {
-            Task { await premium.refreshEntitlement() }
-        }
-        .onChange(of: premium.errorMessage) { _, newValue in
-            showError = newValue != nil
-        }
+        .toolbar(showsClose ? .visible : .hidden, for: .navigationBar)
+        .toolbarBackground(theme.background, for: .navigationBar)
+        .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
     }
 }
 
