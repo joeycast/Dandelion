@@ -55,13 +55,11 @@ struct ReleaseHistoryView: View {
             .background(appearance.theme.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button {
                         onNavigateToWriting()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(appearance.theme.secondary)
                     }
                 }
                 ToolbarItem(placement: .principal) {

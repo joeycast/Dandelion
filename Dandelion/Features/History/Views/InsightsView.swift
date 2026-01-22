@@ -165,7 +165,6 @@ struct InsightsView: View {
     }
 
     private func exportMenu(insights: ReleaseInsights) -> some View {
-        let theme = appearance.theme
         let summary = ReleaseHistoryExport.summaryText(for: releases, insights: insights)
 
         return Menu {
@@ -189,7 +188,6 @@ struct InsightsView: View {
             }
         } label: {
             Image(systemName: "square.and.arrow.up")
-                .foregroundColor(theme.secondary)
         }
     }
 

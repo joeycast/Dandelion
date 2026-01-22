@@ -57,6 +57,7 @@ struct SoundSettingsView: View {
                         }
                     } header: {
                         Text("Sound")
+                            .foregroundColor(theme.secondary)
                     }
 
                     Section {
@@ -78,6 +79,7 @@ struct SoundSettingsView: View {
                         .listRowBackground(theme.card)
                     } header: {
                         Text("Volume")
+                            .foregroundColor(theme.secondary)
                     }
                 }
             } else {
@@ -88,7 +90,8 @@ struct SoundSettingsView: View {
                         isCompact: true,
                         action: { showPaywall = true }
                     )
-                    .listRowBackground(theme.card)
+                    .listRowInsets(EdgeInsets(top: 0, leading: DandelionSpacing.lg, bottom: 0, trailing: DandelionSpacing.lg))
+                    .listRowBackground(Color.clear)
                 }
             }
         }
@@ -97,6 +100,7 @@ struct SoundSettingsView: View {
         .background(theme.background)
         .navigationTitle("Sounds")
         .navigationBarTitleDisplayMode(.inline)
+        .tint(theme.primary)
         .toolbarBackground(theme.background, for: .navigationBar)
         .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
         .sheet(isPresented: $showPaywall) {

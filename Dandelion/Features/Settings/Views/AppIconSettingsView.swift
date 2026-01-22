@@ -76,6 +76,7 @@ struct AppIconSettingsView: View {
                     }
                 } header: {
                     Text("App Icon")
+                        .foregroundColor(theme.secondary)
                 }
             } else {
                 Section {
@@ -107,6 +108,7 @@ struct AppIconSettingsView: View {
         .background(theme.background)
         .navigationTitle("App Icon")
         .navigationBarTitleDisplayMode(.inline)
+        .tint(theme.primary)
         .toolbarBackground(theme.background, for: .navigationBar)
         .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
         .onAppear {

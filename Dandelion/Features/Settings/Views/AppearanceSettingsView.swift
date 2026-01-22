@@ -30,6 +30,7 @@ struct AppearanceSettingsView: View {
                 }
             } header: {
                 Text("Color Palette")
+                    .foregroundColor(theme.secondary)
             }
 
             Section {
@@ -58,6 +59,7 @@ struct AppearanceSettingsView: View {
                 }
             } header: {
                 Text("Dandelion Style")
+                    .foregroundColor(theme.secondary)
             }
         }
         .listStyle(.insetGrouped)
@@ -65,6 +67,7 @@ struct AppearanceSettingsView: View {
         .background(theme.background)
         .navigationTitle("Appearance")
         .navigationBarTitleDisplayMode(.inline)
+        .tint(theme.primary)
         .toolbarBackground(theme.background, for: .navigationBar)
         .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
         .sheet(isPresented: $showPaywall) {

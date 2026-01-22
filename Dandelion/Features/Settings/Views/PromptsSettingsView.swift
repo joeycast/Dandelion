@@ -56,6 +56,7 @@ struct PromptsSettingsView: View {
                     }
                 } header: {
                     Text("Custom Prompts")
+                        .foregroundColor(theme.secondary)
                 }
 
                 // Default prompts section with toggles
@@ -81,6 +82,7 @@ struct PromptsSettingsView: View {
                 } header: {
                     HStack {
                         Text("Curated Prompts")
+                            .foregroundColor(theme.secondary)
                         Spacer()
                         Button(allDefaultPromptsEnabled() ? "Deselect All" : "Select All") {
                             setAllDefaultPrompts(enabled: !allDefaultPromptsEnabled())
@@ -103,9 +105,11 @@ struct PromptsSettingsView: View {
                         isCompact: true,
                         action: { showPaywall = true }
                     )
-                    .listRowBackground(theme.card)
+                    .listRowInsets(EdgeInsets(top: 0, leading: DandelionSpacing.lg, bottom: 0, trailing: DandelionSpacing.lg))
+                    .listRowBackground(Color.clear)
                 } header: {
                     Text("Custom Prompts")
+                        .foregroundColor(theme.secondary)
                 }
 
                 // Show curated prompts (read-only for non-Bloom)
@@ -118,6 +122,7 @@ struct PromptsSettingsView: View {
                     }
                 } header: {
                     Text("Curated Prompts")
+                        .foregroundColor(theme.secondary)
                 }
             }
         }
@@ -126,6 +131,7 @@ struct PromptsSettingsView: View {
         .background(theme.background)
         .navigationTitle("Prompts")
         .navigationBarTitleDisplayMode(.inline)
+        .tint(theme.primary)
         .toolbarBackground(theme.background, for: .navigationBar)
         .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
         .toolbar {
@@ -137,7 +143,6 @@ struct PromptsSettingsView: View {
                         showEditor = true
                     } label: {
                         Image(systemName: "plus")
-                            .foregroundColor(theme.primary)
                     }
                 }
             }
