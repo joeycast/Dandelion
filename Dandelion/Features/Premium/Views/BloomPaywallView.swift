@@ -160,12 +160,10 @@ struct BloomPaywallView: View {
             .background(theme.background.ignoresSafeArea())
             .toolbar {
                 if showsClose {
-                    ToolbarItem(placement: .navigationBarTrailing) {
+                    ToolbarItem(placement: .cancellationAction) {
                         Button("Close") {
                             onClose?()
                         }
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(theme.primary)
                     }
                 }
             }
