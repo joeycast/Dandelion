@@ -12,46 +12,80 @@ struct SettingsView: View {
     @Environment(PremiumManager.self) private var premium
     @Environment(AppearanceManager.self) private var appearance
     @State private var showPaywall: Bool = false
+    @State private var navigationPath = NavigationPath()
+
+    private enum Destination: Hashable {
+        case prompts
+        case appearance
+        case sounds
+        case appIcon
+    }
 
     var body: some View {
         let theme = appearance.theme
         @Bindable var premium = premium
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             List {
                 Section {
-                    Button {
-                        if !premium.isBloomUnlocked {
-                            showPaywall = true
-                        }
-                    } label: {
+                    if premium.isBloomUnlocked {
                         HStack {
-                            if premium.isBloomUnlocked {
-                                Image(systemName: "leaf.fill")
-                                    .foregroundColor(theme.accent)
-                                    .frame(width: 24)
-                                Text("Dandelion Bloom")
-                                    .foregroundColor(theme.text)
-                                Spacer()
-                                Text("Purchased")
-                                    .font(.dandelionCaption)
-                                    .foregroundColor(theme.secondary)
-                            } else {
-                                Image(systemName: "leaf")
-                                    .foregroundColor(theme.accent)
-                                    .frame(width: 24)
-                                Text("Unlock Dandelion Bloom")
-                                    .foregroundColor(theme.text)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(theme.subtle)
-                            }
+                            Image(systemName: "leaf.fill")
+                                .foregroundColor(theme.accent)
+                                .frame(width: 24)
+                            Text("Dandelion Bloom")
+                                .foregroundColor(theme.text)
+                            Spacer()
+                            Text("Purchased")
+                                .font(.dandelionCaption)
+                                .foregroundColor(theme.secondary)
                         }
-                        .contentShape(Rectangle())
+                        .listRowBackground(theme.card)
+                    } else {
+                        BloomUnlockRow(action: { showPaywall = true })
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                    }
+                } header: {
+                    Text("Dandelion Bloom")
+                        .foregroundColor(theme.secondary)
+                }
+
+                Section {
+                    Button { navigationPath.append(Destination.prompts) } label: {
+                        SettingsRow(icon: "text.quote", title: "Prompts")
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(theme.card)
+
+                    Button { navigationPath.append(Destination.appearance) } label: {
+                        SettingsRow(icon: "paintpalette", title: "Appearance")
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(theme.card)
+
+                    Button { navigationPath.append(Destination.sounds) } label: {
+                        SettingsRow(icon: "speaker.wave.2", title: "Sounds")
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(theme.card)
+                } header: {
+                    Text("Writing")
+                        .foregroundColor(theme.secondary)
+                }
+
+                Section {
+                    Button { navigationPath.append(Destination.appIcon) } label: {
+                        SettingsRow(icon: "app.badge", title: "App Icon")
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(theme.card)
+                } header: {
+                    Text("App")
+                        .foregroundColor(theme.secondary)
+                }
+
 #if DEBUG
+                Section {
                     Toggle(isOn: $premium.debugForceBloom) {
                         HStack {
                             Image(systemName: "ladybug")
@@ -63,44 +97,11 @@ struct SettingsView: View {
                     }
                     .toggleStyle(SwitchToggleStyle(tint: theme.accent))
                     .listRowBackground(theme.card)
+                } header: {
+                    Text("Debug")
+                        .foregroundColor(theme.secondary)
+                }
 #endif
-                }
-
-                Section {
-                    NavigationLink {
-                        PromptsSettingsView()
-                    } label: {
-                        SettingsRow(icon: "text.quote", title: "Prompts")
-                    }
-                    .listRowBackground(theme.card)
-
-                    NavigationLink {
-                        AppearanceSettingsView()
-                    } label: {
-                        SettingsRow(icon: "paintpalette", title: "Appearance")
-                    }
-                    .listRowBackground(theme.card)
-
-                    NavigationLink {
-                        SoundSettingsView()
-                    } label: {
-                        SettingsRow(icon: "speaker.wave.2", title: "Sounds")
-                    }
-                    .listRowBackground(theme.card)
-                } header: {
-                    Text("Writing")
-                }
-
-                Section {
-                    NavigationLink {
-                        AppIconSettingsView()
-                    } label: {
-                        SettingsRow(icon: "app.badge", title: "App Icon")
-                    }
-                    .listRowBackground(theme.card)
-                } header: {
-                    Text("App")
-                }
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
@@ -115,7 +116,18 @@ struct SettingsView: View {
                         dismiss()
                     }
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(theme.primary)
+                }
+            }
+            .navigationDestination(for: Destination.self) { destination in
+                switch destination {
+                case .prompts:
+                    PromptsSettingsView()
+                case .appearance:
+                    AppearanceSettingsView()
+                case .sounds:
+                    SoundSettingsView()
+                case .appIcon:
+                    AppIconSettingsView()
                 }
             }
         }
@@ -139,7 +151,12 @@ private struct SettingsRow: View {
                 .frame(width: 24)
             Text(title)
                 .foregroundColor(theme.text)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(theme.secondary)
         }
+        .contentShape(Rectangle())
     }
 }
 
