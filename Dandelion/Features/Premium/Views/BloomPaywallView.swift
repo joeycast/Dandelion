@@ -106,6 +106,20 @@ struct BloomPaywallView: View {
                 .padding(.top, DandelionSpacing.lg)
                 .padding(.horizontal, DandelionSpacing.lg)
 
+                // Privacy note
+                HStack(spacing: DandelionSpacing.sm) {
+                    Image(systemName: "lock.shield")
+                        .font(.system(size: 16))
+                        .foregroundColor(theme.secondary)
+
+                    Text("Your words stay with you. We never store what you write—only dates and counts, saved locally and in iCloud.")
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(theme.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.top, DandelionSpacing.lg)
+                .padding(.horizontal, DandelionSpacing.xl)
+
                 // Purchase section
                 VStack(spacing: DandelionSpacing.md) {
                     // One-time purchase badge
