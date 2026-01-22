@@ -33,25 +33,15 @@ struct AppIconSettingsView: View {
                         } label: {
                             HStack(spacing: DandelionSpacing.md) {
                                 // Icon preview
-                                if let previewName = option.previewImageName {
-                                    Image(previewName)
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fit)
-                                        .frame(width: 44, height: 44)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10)
-                                                .stroke(theme.subtle, lineWidth: 0.5)
-                                        )
-                                } else {
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(theme.subtle.opacity(0.3))
-                                        .frame(width: 44, height: 44)
-                                        .overlay(
-                                            Image(systemName: "app")
-                                                .foregroundColor(theme.secondary)
-                                        )
-                                }
+                                Image(option.previewImageName)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 44, height: 44)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(theme.subtle, lineWidth: 0.5)
+                                    )
 
                                 Text(option.displayName)
                                     .foregroundColor(theme.text)
@@ -230,10 +220,16 @@ enum AppIconOption: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Preview image name in asset catalog (if available)
-    var previewImageName: String? {
-        // Return nil for now - add preview images to Assets if desired
-        nil
+    /// Preview image name in asset catalog
+    var previewImageName: String {
+        switch self {
+        case .default: return "AppIconPreview-Default"
+        case .watercolor: return "AppIconPreview-Watercolor"
+        case .lineArt: return "AppIconPreview-LineArt"
+        case .dawn: return "AppIconPreview-Dawn"
+        case .twilight: return "AppIconPreview-Twilight"
+        case .forest: return "AppIconPreview-Forest"
+        }
     }
 
 #if canImport(UIKit)
