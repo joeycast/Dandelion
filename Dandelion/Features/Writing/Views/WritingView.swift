@@ -38,6 +38,8 @@ struct WritingView: View {
     @State private var releaseClipOffset: CGFloat = 0
     @State private var showBloomPaywall: Bool = false
     @State private var isSettingsPresented: Bool = false
+    @State private var showLetGoHint: Bool = false
+    @AppStorage("hasSeenLetGoHint") private var hasSeenLetGoHint: Bool = false
     @Namespace private var promptNamespace
 
     init(
@@ -200,6 +202,15 @@ struct WritingView: View {
                 isTextEditorFocused = newValue == .writing
                 if newValue == .writing {
                     lastWritingDandelionTopPadding = dandelionTopPadding
+                    // Show hint on first time writing
+                    if !hasSeenLetGoHint {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                showLetGoHint = true
+                            }
+                            hasSeenLetGoHint = true
+                        }
+                    }
                 }
                 if newValue == .prompt || newValue == .complete || newValue == .writing {
                     animateLetters = false
@@ -260,6 +271,11 @@ struct WritingView: View {
             if !isPresented {
                 // Reload prompt configuration when settings closes
                 syncCustomPrompts()
+            }
+        }
+        .overlay {
+            if showLetGoHint {
+                letGoHintOverlay
             }
         }
     }
@@ -566,13 +582,21 @@ struct WritingView: View {
                     .ignoresSafeArea(edges: .bottom)
 
                 // Content hides during release
-                HStack(spacing: DandelionSpacing.lg) {
+                HStack(spacing: DandelionSpacing.md) {
                     ambientToggleButton
 
-                    // Microphone permission / blow instruction
-                    microphoneStatusView
-
                     Spacer()
+
+                    // Info button to show hint
+                    Button {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            showLetGoHint = true
+                        }
+                    } label: {
+                        Image(systemName: "questionmark.circle")
+                            .font(.system(size: 20))
+                            .foregroundColor(theme.secondary)
+                    }
 
                     // Manual release button
                     Button {
@@ -581,16 +605,24 @@ struct WritingView: View {
                         isTextEditorFocused = false
                         viewModel.manualRelease()
                     } label: {
-                        HStack(spacing: DandelionSpacing.sm) {
+                        HStack(spacing: 6) {
                             Image(systemName: "wind")
+                                .font(.system(size: 15))
                             Text("Let Go")
+                                .font(.system(size: 16, weight: .semibold, design: .serif))
                         }
+                        .foregroundColor(theme.background)
+                        .padding(.horizontal, DandelionSpacing.md)
+                        .padding(.vertical, DandelionSpacing.md)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(theme.primary)
+                        )
                     }
-                    .buttonStyle(.dandelion)
                     .disabled(!viewModel.canRelease)
                     .opacity(viewModel.canRelease ? 1.0 : 0.5)
                 }
-                .padding(.horizontal, DandelionSpacing.screenEdge)
+                .padding(.horizontal, DandelionSpacing.md)
                 .opacity(isWriting ? 1 : 0)
             }
             .frame(height: 56) // Fixed height for consistent layout
@@ -606,6 +638,7 @@ struct WritingView: View {
     @ViewBuilder
     private var microphoneStatusView: some View {
         if !viewModel.blowDetection.permissionDetermined {
+            // Prompt to enable blow detection
             Button {
                 Task {
                     await viewModel.requestMicrophonePermission()
@@ -613,21 +646,23 @@ struct WritingView: View {
             } label: {
                 HStack(spacing: DandelionSpacing.xs) {
                     Image(systemName: "mic")
-                    Text("Enable Blow")
+                    Text("Enable blow")
                 }
                 .font(.dandelionCaption)
                 .foregroundColor(theme.secondary)
             }
         } else if viewModel.blowDetection.hasPermission {
-            HStack(spacing: DandelionSpacing.xs) {
+            // Instruction text with mic indicator
+            HStack(spacing: 4) {
                 Image(systemName: "mic.fill")
+                    .font(.system(size: 11))
                     .foregroundColor(theme.accent)
-                Text("Blow to release")
-                    .font(.dandelionCaption)
+                Text("Tap Let Go, or simply blow to release")
+                    .font(.system(size: 13))
                     .foregroundColor(theme.secondary)
             }
         } else {
-            // Permission denied - no indicator needed
+            // Permission denied - no hint needed, button is clear
             EmptyView()
         }
     }
@@ -650,6 +685,80 @@ struct WritingView: View {
                 .fill(theme.primary.opacity(0.5))
         )
         .transition(.opacity.combined(with: .scale))
+    }
+
+    // MARK: - Let Go Hint Overlay
+
+    private var letGoHintOverlay: some View {
+        ZStack {
+            // Dimmed background
+            Color.black.opacity(0.5)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showLetGoHint = false
+                    }
+                }
+
+            // Hint card
+            VStack(spacing: DandelionSpacing.md) {
+                Text("When you're ready to let go")
+                    .font(.system(size: 20, weight: .semibold, design: .serif))
+                    .foregroundColor(theme.text)
+
+                VStack(alignment: .leading, spacing: DandelionSpacing.sm) {
+                    HStack(alignment: .top, spacing: DandelionSpacing.sm) {
+                        Image(systemName: "hand.tap")
+                            .font(.system(size: 16))
+                            .foregroundColor(theme.accent)
+                            .frame(width: 24)
+                        Text("Tap the **Let Go** button")
+                            .font(.system(size: 16, design: .serif))
+                            .foregroundColor(theme.text)
+                    }
+
+                    HStack(alignment: .top, spacing: DandelionSpacing.sm) {
+                        Image(systemName: "mic.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(theme.accent)
+                            .frame(width: 24)
+                        Text("Or blow gently into your microphone")
+                            .font(.system(size: 16, design: .serif))
+                            .foregroundColor(theme.text)
+                    }
+                }
+
+                Text("Your words will scatter like dandelion seeds.")
+                    .font(.system(size: 14, design: .serif))
+                    .foregroundColor(theme.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, DandelionSpacing.xs)
+
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showLetGoHint = false
+                    }
+                } label: {
+                    Text("Got it")
+                        .font(.system(size: 16, weight: .medium, design: .serif))
+                        .foregroundColor(theme.background)
+                        .padding(.horizontal, DandelionSpacing.xl)
+                        .padding(.vertical, DandelionSpacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(theme.primary)
+                        )
+                }
+                .padding(.top, DandelionSpacing.sm)
+            }
+            .padding(DandelionSpacing.xl)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(theme.card)
+            )
+            .padding(.horizontal, DandelionSpacing.xl)
+        }
+        .transition(.opacity)
     }
 
     // MARK: - Dandelion Illustration
