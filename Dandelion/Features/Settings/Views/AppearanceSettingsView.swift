@@ -31,6 +31,14 @@ struct AppearanceSettingsView: View {
             } header: {
                 Text("Color Palette")
                     .foregroundColor(theme.secondary)
+            } footer: {
+                if !premium.isBloomUnlocked {
+                    (Text("Custom palettes included with ") +
+                    Text("Dandelion Bloom")
+                        .foregroundColor(theme.accent) +
+                    Text("."))
+                    .onTapGesture { showPaywall = true }
+                }
             }
 
             /*

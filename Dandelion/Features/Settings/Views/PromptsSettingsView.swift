@@ -99,16 +99,31 @@ struct PromptsSettingsView: View {
             } else {
                 // Locked state for non-Bloom users
                 Section {
-                    BloomUnlockCallout(
-                        title: "Custom Prompts",
-                        subtitle: "Create your own prompts and customize which ones appear.",
-                        action: { showPaywall = true }
-                    )
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
+                    Button {
+                        showPaywall = true
+                    } label: {
+                        HStack {
+                            Text("Add your own prompts")
+                                .font(.dandelionSecondary)
+                                .foregroundColor(theme.secondary)
+                            Spacer()
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(theme.secondary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(theme.card)
                 } header: {
                     Text("Custom Prompts")
                         .foregroundColor(theme.secondary)
+                } footer: {
+                    (Text("Create your own prompts with ") +
+                    Text("Dandelion Bloom")
+                        .foregroundColor(theme.accent) +
+                    Text("."))
+                    .onTapGesture { showPaywall = true }
                 }
 
                 // Show curated prompts (read-only for non-Bloom)
@@ -135,14 +150,16 @@ struct PromptsSettingsView: View {
         .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                if premium.isBloomUnlocked {
-                    Button {
+                Button {
+                    if premium.isBloomUnlocked {
                         editorText = ""
                         editingPrompt = nil
                         showEditor = true
-                    } label: {
-                        Image(systemName: "plus")
+                    } else {
+                        showPaywall = true
                     }
+                } label: {
+                    Image(systemName: "plus")
                 }
             }
         }
