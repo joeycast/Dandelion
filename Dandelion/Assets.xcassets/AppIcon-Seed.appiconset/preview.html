@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dandelion Seed Icon Preview</title>
+  <style>
+    body {
+      background: #1a1a1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #888;
+    }
+    .preview-container {
+      display: flex;
+      gap: 40px;
+      align-items: flex-end;
+      margin-bottom: 40px;
+    }
+    .preview {
+      text-align: center;
+    }
+    .preview img, .preview object {
+      border-radius: 22%;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+    .label {
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    h1 {
+      color: #f0e4c4;
+      font-weight: 300;
+      margin-bottom: 60px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dandelion Seed Icon</h1>
+  <div class="preview-container">
+    <div class="preview">
+      <object data="dandelion-seed.svg" type="image/svg+xml" width="512" height="512"></object>
+      <div class="label">512px (App Store)</div>
+    </div>
+    <div class="preview">
+      <object data="dandelion-seed.svg" type="image/svg+xml" width="180" height="180"></object>
+      <div class="label">180px (iPhone @3x)</div>
+    </div>
+    <div class="preview">
+      <object data="dandelion-seed.svg" type="image/svg+xml" width="60" height="60"></object>
+      <div class="label">60px (Home Screen)</div>
+    </div>
+  </div>
+</body>
+</html>
