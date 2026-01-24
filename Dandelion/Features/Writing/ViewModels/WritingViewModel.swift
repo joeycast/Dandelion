@@ -177,6 +177,10 @@ final class WritingViewModel {
             debugLog("[ReleaseFlow] releaseComplete")
         }
 
+        withAnimation(.easeInOut(duration: dandelionReturnDuration)) {
+            writingState = .complete
+        }
+
         // Clear the text (it's gone forever!)
         writtenText = ""
         beginSeedRestore()

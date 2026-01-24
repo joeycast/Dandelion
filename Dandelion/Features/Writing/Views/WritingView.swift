@@ -550,17 +550,37 @@ struct WritingView: View {
 
     private func handleAmbientSound(for state: WritingState) {
         guard premium.isBloomUnlocked else {
+            debugLog("WritingView: ambient stop (not premium)")
+            ambientSound.stop()
+            return
+        }
+        if ambientSound.isPreviewing {
+            debugLog("WritingView: ambient skip (previewing)")
+            return
+        }
+        guard ambientSound.isEnabled else {
+            debugLog("WritingView: ambient stop (disabled)")
             ambientSound.stop()
             return
         }
 
         switch state {
         case .writing:
+            debugLog("WritingView: ambient start (writing)")
             ambientSound.start()
         case .releasing:
-            ambientSound.fadeOut()
-        case .prompt, .complete:
+            debugLog("WritingView: ambient start (releasing)")
+            ambientSound.start()
+        case .prompt:
+            if ambientSound.isFadingOut {
+                debugLog("WritingView: ambient skip stop (fading out)")
+                return
+            }
+            debugLog("WritingView: ambient stop (prompt)")
             ambientSound.stop()
+        case .complete:
+            debugLog("WritingView: ambient fadeOut (complete)")
+            ambientSound.fadeOut(duration: 1.8)
         }
     }
 
