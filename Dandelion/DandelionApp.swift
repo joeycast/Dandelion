@@ -67,7 +67,7 @@ struct DandelionApp: App {
                 try context.save()
             }
         } catch {
-            print("Failed to seed mock data: \(error)")
+            debugLog("Failed to seed mock data: \(error)")
         }
     }
     #endif
