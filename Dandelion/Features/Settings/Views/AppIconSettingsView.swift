@@ -22,12 +22,20 @@ struct AppIconSettingsView: View {
 
     var body: some View {
         let theme = appearance.theme
+        let availableOptions: [AppIconOption] = [
+            .default,
+            // .watercolor,
+            // .lineArt,
+            .dawn,
+            .twilight,
+            .forest,
+        ]
 
         List {
 #if canImport(UIKit)
             if UIApplication.shared.supportsAlternateIcons {
                 Section {
-                    ForEach(AppIconOption.allCases) { option in
+                    ForEach(availableOptions) { option in
                         Button {
                             select(option)
                         } label: {
