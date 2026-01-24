@@ -75,6 +75,14 @@ struct AppIconSettingsView: View {
                 } header: {
                     Text("App Icon")
                         .foregroundColor(theme.secondary)
+                } footer: {
+                    if !premium.isBloomUnlocked {
+                        (Text("Custom icons included with ") +
+                        Text("Dandelion Bloom")
+                            .foregroundColor(theme.accent) +
+                        Text("."))
+                        .onTapGesture { showPaywall = true }
+                    }
                 }
             } else {
                 Section {

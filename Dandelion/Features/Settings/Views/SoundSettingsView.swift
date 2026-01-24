@@ -85,13 +85,32 @@ struct SoundSettingsView: View {
                 }
             } else {
                 Section {
-                    BloomUnlockCallout(
-                        title: "Ambient Sounds",
-                        subtitle: "Add calming soundscapes to accompany your writing.",
-                        action: { showPaywall = true }
-                    )
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
+                    ForEach(AmbientSound.allCases) { sound in
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            HStack {
+                                Text(sound.displayName)
+                                    .foregroundColor(theme.text)
+                                Spacer()
+                                Image(systemName: "lock.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(theme.secondary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(theme.card)
+                    }
+                } header: {
+                    Text("Sounds")
+                        .foregroundColor(theme.secondary)
+                } footer: {
+                    (Text("Calming soundscapes to accompany your writing. Included with ") +
+                    Text("Dandelion Bloom")
+                        .foregroundColor(theme.accent) +
+                    Text("."))
+                    .onTapGesture { showPaywall = true }
                 }
             }
         }
