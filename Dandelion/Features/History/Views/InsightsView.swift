@@ -475,13 +475,15 @@ struct InsightsView: View {
                 }
             }
 
-            Button("Export CSV") {
+            Button {
                 if premium.isBloomUnlocked {
-                    csvDocument = ReleaseHistoryCSVDocument(csv: ReleaseHistoryExport.csvString(for: releases))
+                    csvDocument = ReleaseHistoryCSVDocument(csv: ReleaseHistoryExport.csvString(for: releases, insights: insights))
                     showCSVExporter = true
                 } else {
                     showPaywall = true
                 }
+            } label: {
+                Label("Export CSV", systemImage: "tablecells")
             }
         } label: {
             Image(systemName: "square.and.arrow.up")
