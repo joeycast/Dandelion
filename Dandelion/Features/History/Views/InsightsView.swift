@@ -98,7 +98,7 @@ struct InsightsView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, DandelionSpacing.lg)
+        .padding(.vertical, DandelionSpacing.xs)
     }
 
     // MARK: - Journey Hero (Locked - shows totals only)
