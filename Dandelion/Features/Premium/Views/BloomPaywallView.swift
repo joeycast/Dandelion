@@ -122,16 +122,32 @@ struct BloomPaywallView: View {
 
                 // Purchase section
                 VStack(spacing: DandelionSpacing.md) {
-                    // One-time purchase badge
-                    Text("One-time purchase")
-                        .font(.dandelionCaption)
-                        .foregroundColor(theme.secondary)
-                        .padding(.horizontal, DandelionSpacing.md)
-                        .padding(.vertical, DandelionSpacing.xs)
-                        .background(
-                            Capsule()
-                                .fill(theme.subtle.opacity(0.3))
-                        )
+                    // Pricing card
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Lifetime Access")
+                                .font(.system(size: 18, weight: .medium, design: .serif))
+                                .foregroundColor(theme.text)
+                            Text("Pay once, yours forever")
+                                .font(.dandelionCaption)
+                                .foregroundColor(theme.secondary)
+                        }
+
+                        Spacer()
+
+                        Text(premium.priceDisplay)
+                            .font(.system(size: 28, weight: .semibold, design: .serif))
+                            .foregroundColor(theme.text)
+                    }
+                    .padding(DandelionSpacing.lg)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(theme.card)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(theme.accent.opacity(0.5), lineWidth: 2)
+                    )
 
                     Button {
                         Task { await premium.purchase() }
@@ -141,7 +157,7 @@ struct BloomPaywallView: View {
                                 ProgressView()
                                     .tint(theme.background)
                             } else {
-                                Text("Unlock Dandelion Bloom — \(premium.priceDisplay)")
+                                Text("Unlock Dandelion Bloom")
                             }
                         }
                         .frame(maxWidth: .infinity)
