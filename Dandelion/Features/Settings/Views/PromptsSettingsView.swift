@@ -99,13 +99,12 @@ struct PromptsSettingsView: View {
             } else {
                 // Locked state for non-Bloom users
                 Section {
-                    BloomLockedCard(
-                        title: "Unlock Custom Prompts",
+                    BloomUnlockCallout(
+                        title: "Custom Prompts",
                         subtitle: "Create your own prompts and customize which ones appear.",
-                        isCompact: true,
                         action: { showPaywall = true }
                     )
-                    .listRowInsets(EdgeInsets(top: 0, leading: DandelionSpacing.lg, bottom: 0, trailing: DandelionSpacing.lg))
+                    .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                 } header: {
                     Text("Custom Prompts")

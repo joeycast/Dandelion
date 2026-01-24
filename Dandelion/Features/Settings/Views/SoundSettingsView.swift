@@ -85,13 +85,12 @@ struct SoundSettingsView: View {
                 }
             } else {
                 Section {
-                    BloomLockedCard(
-                        title: "Unlock Ambient Sounds",
+                    BloomUnlockCallout(
+                        title: "Ambient Sounds",
                         subtitle: "Add calming soundscapes to accompany your writing.",
-                        isCompact: true,
                         action: { showPaywall = true }
                     )
-                    .listRowInsets(EdgeInsets(top: 0, leading: DandelionSpacing.lg, bottom: 0, trailing: DandelionSpacing.lg))
+                    .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                 }
             }
