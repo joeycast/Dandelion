@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Gradient for the glow effect -->
+    <radialGradient id="glow" cx="50%" cy="40%" r="50%" fx="50%" fy="40%">
+      <stop offset="0%" stop-color="#fffef5" stop-opacity="0.4"/>
+      <stop offset="30%" stop-color="#f5e6c8" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Gradient for filaments - bright center to softer tips -->
+    <linearGradient id="filamentGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fffef8"/>
+      <stop offset="40%" stop-color="#f0e4c4"/>
+      <stop offset="100%" stop-color="#c4a86a" stop-opacity="0.6"/>
+    </linearGradient>
+
+    <!-- Gradient for the seed pod -->
+    <linearGradient id="seedGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b7355"/>
+      <stop offset="50%" stop-color="#6b5344"/>
+      <stop offset="100%" stop-color="#4a3828"/>
+    </linearGradient>
+
+    <!-- Stem gradient -->
+    <linearGradient id="stemGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e8dcc8"/>
+      <stop offset="100%" stop-color="#a89070"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Black background -->
+  <rect width="1024" height="1024" fill="#000000"/>
+
+  <!-- Subtle glow behind the pappus -->
+  <ellipse cx="580" cy="380" rx="280" ry="260" fill="url(#glow)"/>
+
+  <!-- Filaments group - positioned at the attachment point -->
+  <g id="filaments" stroke="url(#filamentGradient)" stroke-linecap="round" fill="none">
+    <!-- Main radiating filaments - varying lengths and angles -->
+    <!-- Top cluster -->
+    <path d="M 540 420 Q 500 300 480 180" stroke-width="1.2" opacity="0.9"/>
+    <path d="M 540 420 Q 520 290 530 160" stroke-width="1.0" opacity="0.85"/>
+    <path d="M 540 420 Q 540 280 580 150" stroke-width="1.1" opacity="0.9"/>
+    <path d="M 540 420 Q 560 270 630 140" stroke-width="1.0" opacity="0.85"/>
+    <path d="M 540 420 Q 580 260 680 135" stroke-width="1.2" opacity="0.9"/>
+
+    <!-- Upper right cluster -->
+    <path d="M 540 420 Q 600 280 720 160" stroke-width="1.1" opacity="0.88"/>
+    <path d="M 540 420 Q 620 290 760 190" stroke-width="1.0" opacity="0.85"/>
+    <path d="M 540 420 Q 640 300 800 220" stroke-width="1.2" opacity="0.9"/>
+    <path d="M 540 420 Q 660 320 830 260" stroke-width="1.0" opacity="0.82"/>
+    <path d="M 540 420 Q 680 340 850 300" stroke-width="1.1" opacity="0.88"/>
+
+    <!-- Right cluster -->
+    <path d="M 540 420 Q 700 360 870 340" stroke-width="1.0" opacity="0.85"/>
+    <path d="M 540 420 Q 710 380 880 380" stroke-width="1.2" opacity="0.9"/>
+    <path d="M 540 420 Q 720 400 885 420" stroke-width="1.1" opacity="0.87"/>
+    <path d="M 540 420 Q 710 420 875 460" stroke-width="1.0" opacity="0.84"/>
+    <path d="M 540 420 Q 700 440 860 500" stroke-width="1.2" opacity="0.88"/>
+
+    <!-- Lower right cluster -->
+    <path d="M 540 420 Q 680 460 840 540" stroke-width="1.1" opacity="0.86"/>
+    <path d="M 540 420 Q 660 480 810 580" stroke-width="1.0" opacity="0.83"/>
+    <path d="M 540 420 Q 640 490 780 610" stroke-width="1.2" opacity="0.88"/>
+    <path d="M 540 420 Q 620 500 740 640" stroke-width="1.0" opacity="0.82"/>
+
+    <!-- Additional fine filaments for density -->
+    <path d="M 540 420 Q 510 310 490 200" stroke-width="0.8" opacity="0.7"/>
+    <path d="M 540 420 Q 550 295 600 165" stroke-width="0.8" opacity="0.7"/>
+    <path d="M 540 420 Q 575 275 660 155" stroke-width="0.8" opacity="0.72"/>
+    <path d="M 540 420 Q 595 265 700 150" stroke-width="0.8" opacity="0.7"/>
+    <path d="M 540 420 Q 615 275 745 175" stroke-width="0.8" opacity="0.68"/>
+    <path d="M 540 420 Q 635 290 785 210" stroke-width="0.8" opacity="0.7"/>
+    <path d="M 540 420 Q 655 310 820 250" stroke-width="0.8" opacity="0.72"/>
+    <path d="M 540 420 Q 675 330 845 290" stroke-width="0.8" opacity="0.68"/>
+    <path d="M 540 420 Q 690 350 865 330" stroke-width="0.8" opacity="0.7"/>
+    <path d="M 540 420 Q 705 370 878 365" stroke-width="0.8" opacity="0.68"/>
+    <path d="M 540 420 Q 715 395 882 405" stroke-width="0.8" opacity="0.7"/>
+    <path d="M 540 420 Q 705 425 868 475" stroke-width="0.8" opacity="0.68"/>
+    <path d="M 540 420 Q 690 450 850 520" stroke-width="0.8" opacity="0.7"/>
+    <path d="M 540 420 Q 670 470 825 565" stroke-width="0.8" opacity="0.68"/>
+    <path d="M 540 420 Q 650 485 795 600" stroke-width="0.8" opacity="0.7"/>
+    <path d="M 540 420 Q 630 495 760 625" stroke-width="0.8" opacity="0.65"/>
+
+    <!-- Even finer accent filaments -->
+    <path d="M 540 420 Q 495 320 465 210" stroke-width="0.6" opacity="0.55"/>
+    <path d="M 540 420 Q 525 305 545 175" stroke-width="0.6" opacity="0.55"/>
+    <path d="M 540 420 Q 565 285 645 160" stroke-width="0.6" opacity="0.58"/>
+    <path d="M 540 420 Q 605 270 730 165" stroke-width="0.6" opacity="0.55"/>
+    <path d="M 540 420 Q 645 295 800 230" stroke-width="0.6" opacity="0.58"/>
+    <path d="M 540 420 Q 670 325 840 280" stroke-width="0.6" opacity="0.55"/>
+    <path d="M 540 420 Q 695 355 868 345" stroke-width="0.6" opacity="0.58"/>
+    <path d="M 540 420 Q 712 388 880 395" stroke-width="0.6" opacity="0.55"/>
+    <path d="M 540 420 Q 698 435 862 490" stroke-width="0.6" opacity="0.58"/>
+    <path d="M 540 420 Q 675 465 835 550" stroke-width="0.6" opacity="0.55"/>
+    <path d="M 540 420 Q 645 490 800 595" stroke-width="0.6" opacity="0.52"/>
+  </g>
+
+  <!-- Central bright point where filaments meet -->
+  <circle cx="540" cy="420" r="8" fill="#fffef8" opacity="0.95"/>
+  <circle cx="540" cy="420" r="4" fill="#ffffff"/>
+
+  <!-- Stem connecting to seed -->
+  <path d="M 540 420 Q 480 520 420 620 Q 370 700 340 780"
+        stroke="url(#stemGradient)" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+  <!-- Seed pod -->
+  <ellipse cx="330" cy="810" rx="18" ry="45" fill="url(#seedGradient)"
+           transform="rotate(-25, 330, 810)"/>
+  <!-- Seed texture lines -->
+  <path d="M 320 780 Q 325 810 320 840" stroke="#3a2818" stroke-width="0.8" fill="none" opacity="0.5"/>
+  <path d="M 330 775 Q 332 810 328 845" stroke="#3a2818" stroke-width="0.8" fill="none" opacity="0.4"/>
+  <path d="M 340 780 Q 338 810 335 838" stroke="#3a2818" stroke-width="0.8" fill="none" opacity="0.5"/>
+</svg>
