@@ -415,37 +415,10 @@ struct InsightsView: View {
     // MARK: - Locked Preview
 
     private var lockedPreview: some View {
-        let theme = appearance.theme
-
-        return VStack(spacing: DandelionSpacing.lg) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 32, weight: .light))
-                .foregroundColor(theme.accent)
-
-            VStack(spacing: DandelionSpacing.sm) {
-                Text("Discover your patterns")
-                    .font(.system(size: 20, weight: .medium, design: .serif))
-                    .foregroundColor(theme.text)
-
-                Text("Unlock Bloom to see trends, streaks, and insights about your writing journey.")
-                    .font(.dandelionSecondary)
-                    .foregroundColor(theme.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, DandelionSpacing.lg)
-            }
-
-            Button("Unlock Dandelion Bloom") {
-                showPaywall = true
-            }
-            .buttonStyle(.dandelion)
-            .padding(.top, DandelionSpacing.sm)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, DandelionSpacing.xl)
-        .padding(.horizontal, DandelionSpacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(theme.card)
+        BloomUnlockCallout(
+            title: "Discover your patterns",
+            subtitle: "Unlock Bloom to see trends, streaks, and insights about your writing journey.",
+            action: { showPaywall = true }
         )
     }
 
