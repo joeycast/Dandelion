@@ -41,31 +41,42 @@ struct DandelionApp: App {
     #if DEBUG
     private func seedMockData() {
         let context = modelContainer.mainContext
-
-        // Create date for January 9, 2023
-        var components = DateComponents()
-        components.year = 2023
-        components.month = 1
-        components.day = 9
-        guard let mockDate = Calendar.current.date(from: components) else { return }
-
-        // Check if we already have a release on this date
-        let startOfDay = Calendar.current.startOfDay(for: mockDate)
-        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
-
-        let descriptor = FetchDescriptor<Release>(
-            predicate: #Predicate { release in
-                release.timestamp >= startOfDay && release.timestamp < endOfDay
-            }
-        )
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? now
+        guard let startWindow = calendar.date(byAdding: .month, value: -11, to: startOfMonth) else { return }
+        let seedKey = "didSeedMockData_v3"
+        guard !UserDefaults.standard.bool(forKey: seedKey) else { return }
 
         do {
-            let existing = try context.fetch(descriptor)
-            if existing.isEmpty {
-                let mockRelease = Release(timestamp: mockDate, wordCount: 42)
-                context.insert(mockRelease)
-                try context.save()
+            for monthOffset in 0..<12 {
+                guard let monthStart = calendar.date(byAdding: .month, value: monthOffset, to: startWindow),
+                      let dayRange = calendar.range(of: .day, in: .month, for: monthStart) else { continue }
+
+                let releasesThisMonth = 4 + (monthOffset % 5) * 2
+                let daysInMonth = dayRange.count
+
+                for releaseIndex in 0..<releasesThisMonth {
+                    let day = min(daysInMonth, 1 + (releaseIndex * 3 + monthOffset) % daysInMonth)
+                    let hour = (releaseIndex * 5 + monthOffset * 2) % 24
+                    let minute = (releaseIndex * 7 + monthOffset * 3) % 60
+                    let second = (releaseIndex * 11) % 60
+
+                    var components = calendar.dateComponents([.year, .month], from: monthStart)
+                    components.day = day
+                    components.hour = hour
+                    components.minute = minute
+                    components.second = second
+
+                    guard let date = calendar.date(from: components), date <= now else { continue }
+
+                    let wordCount = 120 + ((monthOffset * 37 + releaseIndex * 53) % 1400)
+                    context.insert(Release(timestamp: date, wordCount: wordCount))
+                }
             }
+
+            try context.save()
+            UserDefaults.standard.set(true, forKey: seedKey)
         } catch {
             debugLog("Failed to seed mock data: \(error)")
         }

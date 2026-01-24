@@ -17,6 +17,8 @@ struct InsightsView: View {
     @State private var showPaywall: Bool = false
     @State private var showCSVExporter: Bool = false
     @State private var csvDocument = ReleaseHistoryCSVDocument(csv: "")
+    @State private var selectedReleaseMonthIndex: Int?
+    @State private var selectedWordsMonthIndex: Int?
 
     var body: some View {
         let theme = appearance.theme
@@ -260,8 +262,18 @@ struct InsightsView: View {
                 .padding(.leading, DandelionSpacing.xs)
 
             VStack(spacing: DandelionSpacing.lg) {
-                monthlyChart(summaries: summaries, metric: .releases, label: "Releases")
-                monthlyChart(summaries: summaries, metric: .words, label: "Words")
+                monthlyChart(
+                    summaries: summaries,
+                    metric: .releases,
+                    label: "Releases",
+                    selectedIndex: $selectedReleaseMonthIndex
+                )
+                monthlyChart(
+                    summaries: summaries,
+                    metric: .words,
+                    label: "Words",
+                    selectedIndex: $selectedWordsMonthIndex
+                )
             }
             .padding(DandelionSpacing.lg)
             .background(
@@ -271,7 +283,12 @@ struct InsightsView: View {
         }
     }
 
-    private func monthlyChart(summaries: [MonthlySummary], metric: MonthlyMetric, label: String) -> some View {
+    private func monthlyChart(
+        summaries: [MonthlySummary],
+        metric: MonthlyMetric,
+        label: String,
+        selectedIndex: Binding<Int?>
+    ) -> some View {
         let theme = appearance.theme
         let values = summaries.map { metric == .releases ? $0.releaseCount : $0.wordCount }
         let maxValue = max(values.max() ?? 1, 1)
@@ -285,18 +302,36 @@ struct InsightsView: View {
                 ForEach(Array(summaries.enumerated()), id: \.offset) { index, summary in
                     let value = metric == .releases ? summary.releaseCount : summary.wordCount
                     let height = max(4, CGFloat(value) / CGFloat(maxValue) * 60)
-                    let isCurrentMonth = index == summaries.count - 1
+                    let isSelected = selectedIndex.wrappedValue == index
+                    let hasSelection = selectedIndex.wrappedValue != nil
+                    let barOpacity = hasSelection && !isSelected ? 0.25 : 1.0
 
                     VStack(spacing: 4) {
+                        if isSelected {
+                            Text(formatCompactNumber(value))
+                                .font(.system(size: 14, weight: .medium, design: .serif))
+                                .foregroundColor(theme.text)
+                                .fixedSize(horizontal: true, vertical: false)
+                                .padding(.bottom, 2)
+                                .transition(.opacity)
+                        }
                         RoundedRectangle(cornerRadius: 3)
-                            .fill(isCurrentMonth ? theme.accent : theme.primary.opacity(0.5))
+                            .fill(theme.accent.opacity(0.85))
                             .frame(height: height)
+                            .opacity(barOpacity)
 
                         Text(monthLabel(from: summary.monthStart))
                             .font(.system(size: 9, design: .serif))
                             .foregroundColor(theme.subtle)
+                            .opacity(barOpacity)
                     }
                     .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            selectedIndex.wrappedValue = isSelected ? nil : index
+                        }
+                    }
                 }
             }
             .frame(height: 80)
@@ -495,6 +530,30 @@ struct InsightsView: View {
     private func formatNumber(_ number: Int) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
+        return formatter.string(from: NSNumber(value: number)) ?? "\(number)"
+    }
+
+    private func formatCompactNumber(_ number: Int) -> String {
+        let absValue = abs(number)
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+
+        if absValue >= 1_000_000 {
+            let value = Double(number) / 1_000_000
+            formatter.maximumFractionDigits = abs(value) < 10 ? 1 : 0
+            let formatted = formatter.string(from: NSNumber(value: value)) ?? "\(value)"
+            return "\(formatted)M"
+        }
+
+        if absValue >= 1_000 {
+            let value = Double(number) / 1_000
+            formatter.maximumFractionDigits = abs(value) < 10 ? 1 : 0
+            let formatted = formatter.string(from: NSNumber(value: value)) ?? "\(value)"
+            return "\(formatted)K"
+        }
+
+        formatter.maximumFractionDigits = 0
         return formatter.string(from: NSNumber(value: number)) ?? "\(number)"
     }
 
