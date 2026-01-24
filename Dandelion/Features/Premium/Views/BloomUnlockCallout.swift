@@ -67,15 +67,19 @@ struct BloomUnlockCallout: View {
         .padding(DandelionSpacing.lg)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            theme.accent.opacity(0.18),
-                            theme.accent.opacity(0.06)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                .fill(theme.card)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    theme.accent.opacity(0.25),
+                                    theme.accent.opacity(0.08)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                 )
         )
         .overlay(

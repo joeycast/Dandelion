@@ -36,7 +36,7 @@ struct InsightsView: View {
                     privacyNote
                 } else {
                     journeyHeroLocked(insights: insights)
-                    lockedPreview
+                    lockedInsightsPreview(insights: insights)
                 }
             }
             .padding(.horizontal, DandelionSpacing.lg)
@@ -414,12 +414,24 @@ struct InsightsView: View {
 
     // MARK: - Locked Preview
 
-    private var lockedPreview: some View {
-        BloomUnlockCallout(
-            title: "Discover your patterns",
-            subtitle: "Unlock Bloom to see trends, streaks, and insights about your writing journey.",
-            action: { showPaywall = true }
-        )
+    private func lockedInsightsPreview(insights: ReleaseInsights) -> some View {
+        VStack(spacing: DandelionSpacing.lg) {
+            streaksSection(insights: insights)
+            recentActivitySection(insights: insights)
+            monthlyTrendsSection(summaries: insights.monthlySummaries)
+            activityStatsSection(insights: insights)
+            patternsSection(insights: insights)
+        }
+        .blur(radius: 6)
+        .allowsHitTesting(false)
+        .overlay(alignment: .top) {
+            BloomUnlockCallout(
+                title: "Discover your patterns",
+                subtitle: "See trends, streaks, and insights about your writing journey.",
+                action: { showPaywall = true }
+            )
+            .padding(.top, DandelionSpacing.lg)
+        }
     }
 
     // MARK: - Empty State
