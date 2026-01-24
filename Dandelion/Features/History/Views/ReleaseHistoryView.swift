@@ -87,6 +87,17 @@ struct ReleaseHistoryView: View {
 
     private var historyContent: some View {
         VStack(spacing: 0) {
+            // Calendar header
+            VStack(spacing: DandelionSpacing.xs) {
+                Text("Your year at a glance")
+                    .font(.system(size: 22, weight: .medium, design: .serif))
+                    .foregroundColor(appearance.theme.text)
+                Text("Each bloom is a day you released")
+                    .font(.dandelionCaption)
+                    .foregroundColor(appearance.theme.secondary)
+            }
+            .padding(.vertical, DandelionSpacing.md)
+
             // Calendar grid
             GeometryReader { proxy in
                 YearGridView(
@@ -94,7 +105,6 @@ struct ReleaseHistoryView: View {
                     releaseDates: releaseDates
                 )
                 .padding(.horizontal, DandelionSpacing.md)
-                .padding(.top, DandelionSpacing.md)
                 .id(selectedYear)
                 .transition(yearTransition)
             }
