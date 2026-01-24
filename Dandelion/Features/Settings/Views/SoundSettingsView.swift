@@ -39,6 +39,7 @@ struct SoundSettingsView: View {
                         ForEach(AmbientSound.allCases) { sound in
                             Button {
                                 ambientSound.selectedSound = sound
+                                ambientSound.previewSelectedSound()
                             } label: {
                                 HStack {
                                     Text(sound.displayName)
