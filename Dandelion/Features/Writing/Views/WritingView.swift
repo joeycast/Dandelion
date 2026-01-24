@@ -26,6 +26,7 @@ struct WritingView: View {
     @State private var isTextEditorFocused: Bool = false
     @State private var animateLetters: Bool = false
     @State private var promptOpacity: Double = 1
+    @State private var mainContentOpacity: Double = 0
     @State private var textScrollOffset: CGFloat = 0
     @State private var capturedScrollOffset: CGFloat = 0
     @State private var releaseDandelionTopPadding: CGFloat? = nil
@@ -41,6 +42,7 @@ struct WritingView: View {
     @State private var showLetGoHint: Bool = false
     @AppStorage("hasSeenLetGoHint") private var hasSeenLetGoHint: Bool = false
     @Namespace private var promptNamespace
+    @State private var hasShownInitialPrompt: Bool = false
 
     init(
         topSafeArea: CGFloat = 0,
@@ -103,72 +105,74 @@ struct WritingView: View {
                         isTextEditorFocused = false
                     }
 
-                // Content (prompt text, writing area, buttons) - fades in/out
-                contentView(
-                    in: geometry.size,
-                    safeAreaBottom: safeAreaBottom,
-                    safeAreaTop: safeAreaTop,
-                    headerSpaceHeight: headerSpaceHeight,
-                    fullScreenSize: fullScreenSize
-                )
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        if isWriting || isReleasing {
-                            bottomBar(bottomInset: safeAreaBottom)
-                                // Animate in normally, but disappear instantly to avoid
-                                // clipping through the appearing prompt buttons
-                                .transition(.asymmetric(
-                                    insertion: .opacity,
-                                    removal: .identity
-                                ))
-                        }
-                    }
-
-                // Single persistent dandelion - lives above all content, animates size and position
-                VStack {
-                    dandelionIllustration(height: dandelionHeight)
-                    Spacer()
-                }
-                .padding(.top, effectiveDandelionTopPadding)
-                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
-                .animation(.easeInOut(duration: 1.2), value: isPrompt)
-                .animation(.easeInOut(duration: 1.2), value: dandelionHeight)
-                .animation(.easeInOut(duration: 1.2), value: viewModel.isDandelionReturning)
-                .animation(.easeInOut(duration: 1.2), value: releaseDandelionTopPadding)
-                .animation(nil, value: viewModel.writingState)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-
-                // Release message overlay
-                if isReleasing {
-                    ReleaseMessageView(
-                        releaseMessage: viewModel.currentReleaseMessage.text,
-                        messageTopPadding: promptMessageTopPadding,
-                        onMessageAppear: {
-                            withAnimation(.easeInOut(duration: 1.2)) {
-                                releaseDandelionTopPadding = releaseDandelionTop
-                            }
-                            viewModel.startDandelionReturn()
-                        },
-                        onMessageFadeStart: {
-                            viewModel.startSeedRestoreNow()
-                        },
-                        onComplete: {}
+                Group {
+                    // Content (prompt text, writing area, buttons) - fades in/out
+                    contentView(
+                        in: geometry.size,
+                        safeAreaBottom: safeAreaBottom,
+                        safeAreaTop: safeAreaTop,
+                        headerSpaceHeight: headerSpaceHeight,
+                        fullScreenSize: fullScreenSize
                     )
-                    .ignoresSafeArea()
-                    .onAppear {
-                        if WritingViewModel.debugReleaseFlow {
-                            debugLog("[ReleaseFlow] ReleaseMessageView onAppear")
+                        .safeAreaInset(edge: .bottom, spacing: 0) {
+                            if isWriting || isReleasing {
+                                bottomBar(bottomInset: safeAreaBottom)
+                                    // Animate in normally, but disappear instantly to avoid
+                                    // clipping through the appearing prompt buttons
+                                    .transition(.asymmetric(
+                                        insertion: .opacity,
+                                        removal: .identity
+                                    ))
+                            }
                         }
-                    }
-                    .onDisappear {
-                        if WritingViewModel.debugReleaseFlow {
-                            debugLog("[ReleaseFlow] ReleaseMessageView onDisappear")
-                        }
-                    }
-                    .zIndex(1)
-                    .allowsHitTesting(false)
-                }
 
+                    // Single persistent dandelion - lives above all content, animates size and position
+                    VStack {
+                        dandelionIllustration(height: dandelionHeight)
+                        Spacer()
+                    }
+                    .padding(.top, effectiveDandelionTopPadding)
+                    .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+                    .animation(.easeInOut(duration: 1.2), value: isPrompt)
+                    .animation(.easeInOut(duration: 1.2), value: dandelionHeight)
+                    .animation(.easeInOut(duration: 1.2), value: viewModel.isDandelionReturning)
+                    .animation(.easeInOut(duration: 1.2), value: releaseDandelionTopPadding)
+                    .animation(nil, value: viewModel.writingState)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+
+                    // Release message overlay
+                    if isReleasing {
+                        ReleaseMessageView(
+                            releaseMessage: viewModel.currentReleaseMessage.text,
+                            messageTopPadding: promptMessageTopPadding,
+                            onMessageAppear: {
+                                withAnimation(.easeInOut(duration: 1.2)) {
+                                    releaseDandelionTopPadding = releaseDandelionTop
+                                }
+                                viewModel.startDandelionReturn()
+                            },
+                            onMessageFadeStart: {
+                                viewModel.startSeedRestoreNow()
+                            },
+                            onComplete: {}
+                        )
+                        .ignoresSafeArea()
+                        .onAppear {
+                            if WritingViewModel.debugReleaseFlow {
+                                debugLog("[ReleaseFlow] ReleaseMessageView onAppear")
+                            }
+                        }
+                        .onDisappear {
+                            if WritingViewModel.debugReleaseFlow {
+                                debugLog("[ReleaseFlow] ReleaseMessageView onDisappear")
+                            }
+                        }
+                        .zIndex(1)
+                        .allowsHitTesting(false)
+                    }
+                }
+                .opacity(mainContentOpacity)
             }
             .onChange(of: viewModel.writingState) { _, newValue in
                 if WritingViewModel.debugReleaseFlow {
@@ -232,6 +236,9 @@ struct WritingView: View {
         .onAppear {
             if isPrompt {
                 fadeInPrompt()
+            }
+            withAnimation(.easeInOut(duration: 0.9)) {
+                mainContentOpacity = 1
             }
             setupReleaseTracking()
             syncCustomPrompts()
@@ -516,6 +523,11 @@ struct WritingView: View {
     }
 
     private func fadeInPrompt() {
+        if !hasShownInitialPrompt {
+            promptOpacity = 1
+            hasShownInitialPrompt = true
+            return
+        }
         promptOpacity = 0
         withAnimation(.easeIn(duration: 0.6)) {
             promptOpacity = 1
