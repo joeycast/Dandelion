@@ -399,7 +399,7 @@ struct WritingView: View {
         VStack(spacing: DandelionSpacing.md) {
             // Only show shuffle button if there are 2+ prompts to cycle through
             if viewModel.availablePromptCount > 1 {
-                Button("Another Prompt") {
+                Button("New Prompt") {
                     HapticsService.shared.tap()
                     viewModel.newPrompt()
                 }
