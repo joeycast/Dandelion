@@ -33,6 +33,7 @@ struct AppearanceSettingsView: View {
                     .foregroundColor(theme.secondary)
             }
 
+            /*
             Section {
                 ForEach(DandelionStyle.allCases) { style in
                     Button {
@@ -61,6 +62,7 @@ struct AppearanceSettingsView: View {
                 Text("Dandelion Style")
                     .foregroundColor(theme.secondary)
             }
+            */
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
