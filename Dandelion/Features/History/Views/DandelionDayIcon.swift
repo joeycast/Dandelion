@@ -9,23 +9,21 @@ import SwiftUI
 
 struct DandelionDayIcon: View {
     let isFullBloom: Bool
+    let isFuture: Bool
     let size: CGFloat
     @Environment(AppearanceManager.self) private var appearance
 
     var body: some View {
         Canvas { context, canvasSize in
             let theme = appearance.theme
-            let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height * 0.35)
+            let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
 
             if isFullBloom {
-                let stemBase = CGPoint(x: canvasSize.width / 2, y: canvasSize.height * 0.95)
-                // Draw stem
-                drawStem(in: &context, from: stemBase, to: center, size: canvasSize, theme: theme)
-                // Draw full dandelion bloom
+                // Draw dandelion bloom (no stem)
                 drawBloom(in: &context, center: center, size: canvasSize, theme: theme)
             } else {
-                // Draw a simple dot for empty/future days
-                drawEmptyDayDot(in: &context, center: center, size: canvasSize, theme: theme)
+                // Draw a simple dot for empty days (fainter for future days)
+                drawEmptyDayDot(in: &context, center: center, size: canvasSize, theme: theme, isFuture: isFuture)
             }
         }
         .frame(width: size, height: size)
@@ -102,9 +100,10 @@ struct DandelionDayIcon: View {
         in context: inout GraphicsContext,
         center: CGPoint,
         size: CGSize,
-        theme: DandelionTheme
+        theme: DandelionTheme,
+        isFuture: Bool
     ) {
-        // Small dot for empty day
+        // Small dot for empty day (fainter for future days)
         let dotSize = size.width * 0.18
         let dotRect = CGRect(
             x: center.x - dotSize / 2,
@@ -112,16 +111,17 @@ struct DandelionDayIcon: View {
             width: dotSize,
             height: dotSize
         )
-        context.fill(Path(ellipseIn: dotRect), with: .color(theme.secondary.opacity(0.4)))
+        let opacity: Double = isFuture ? 0.25 : 0.8
+        context.fill(Path(ellipseIn: dotRect), with: .color(theme.secondary.opacity(opacity)))
     }
 }
 
 #Preview {
     HStack(spacing: 20) {
-        DandelionDayIcon(isFullBloom: true, size: 24)
-        DandelionDayIcon(isFullBloom: false, size: 24)
-        DandelionDayIcon(isFullBloom: true, size: 40)
-        DandelionDayIcon(isFullBloom: false, size: 40)
+        DandelionDayIcon(isFullBloom: true, isFuture: false, size: 24)
+        DandelionDayIcon(isFullBloom: false, isFuture: false, size: 24)
+        DandelionDayIcon(isFullBloom: false, isFuture: true, size: 24)
+        DandelionDayIcon(isFullBloom: true, isFuture: false, size: 40)
     }
     .padding()
     .background(AppearanceManager().theme.background)

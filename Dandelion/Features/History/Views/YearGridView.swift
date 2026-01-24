@@ -73,10 +73,16 @@ private struct DayCell: View {
     let isValidDay: Bool
     let cellSize: CGFloat
 
+    private var isFuture: Bool {
+        guard let date else { return false }
+        return date > Calendar.current.startOfDay(for: Date())
+    }
+
     var body: some View {
         if isValidDay {
             DandelionDayIcon(
                 isFullBloom: hasRelease,
+                isFuture: isFuture,
                 size: cellSize
             )
         } else {
