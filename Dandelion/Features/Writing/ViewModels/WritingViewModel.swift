@@ -121,11 +121,19 @@ final class WritingViewModel {
             disabledDefaultIds: disabledDefaultIds,
             isPremiumUnlocked: isPremiumUnlocked
         )
-        currentPrompt = promptsManager.randomPrompt()
+        let newPrompt = promptsManager.randomPrompt()
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] refreshPrompts prompt=\(newPrompt?.id ?? "nil")")
+        }
+        currentPrompt = newPrompt
     }
 
     func newPrompt() {
-        currentPrompt = promptsManager.randomPrompt()
+        let newPrompt = promptsManager.randomPrompt()
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] newPrompt prompt=\(newPrompt?.id ?? "nil")")
+        }
+        currentPrompt = newPrompt
     }
 
     // MARK: - Actions
@@ -184,7 +192,10 @@ final class WritingViewModel {
         // Clear the text (it's gone forever!)
         writtenText = ""
         beginSeedRestore()
-        schedulePromptReset()
+        // Avoid swapping prompts twice if a reset already completed.
+        if activeReleaseID != nil {
+            schedulePromptReset()
+        }
     }
 
     /// Start a new writing session
@@ -209,11 +220,18 @@ final class WritingViewModel {
     private func schedulePromptReset() {
         guard promptResetTask == nil else { return }
         guard let releaseID = activeReleaseID else {
+            if Self.debugReleaseFlow {
+                debugLog("[ReleaseFlow] schedulePromptReset immediate (no activeRelease)")
+            }
+            let newPrompt = promptsManager.randomPrompt()
+            if Self.debugReleaseFlow {
+                debugLog("[ReleaseFlow] promptReset immediate prompt=\(newPrompt?.id ?? "nil")")
+            }
+            currentPrompt = newPrompt
             withAnimation(.easeInOut(duration: dandelionReturnDuration)) {
                 isDandelionReturning = false
                 writingState = .prompt
             }
-            currentPrompt = promptsManager.randomPrompt()
             currentReleaseMessage = promptsManager.randomReleaseMessage()
             return
         }
@@ -225,19 +243,32 @@ final class WritingViewModel {
             promptDelay = dandelionReturnDuration
         }
 
+        if Self.debugReleaseFlow {
+            debugLog(
+                "[ReleaseFlow] schedulePromptReset id=\(releaseID) delay=\(promptDelay) seedRestore=\(seedRestoreStartTime != nil)"
+            )
+        }
+
         promptResetTask = Task { [weak self] in
             guard let self else { return }
             try? await Task.sleep(nanoseconds: UInt64(promptDelay * 1_000_000_000))
             await MainActor.run {
                 guard self.activeReleaseID == releaseID else {
+                    if Self.debugReleaseFlow {
+                        debugLog("[ReleaseFlow] promptReset aborted id=\(releaseID)")
+                    }
                     self.promptResetTask = nil
                     return
                 }
+                let newPrompt = self.promptsManager.randomPrompt()
+                if Self.debugReleaseFlow {
+                    debugLog("[ReleaseFlow] promptReset complete id=\(releaseID) prompt=\(newPrompt?.id ?? "nil")")
+                }
+                self.currentPrompt = newPrompt
                 withAnimation(.easeInOut(duration: self.dandelionReturnDuration)) {
                     self.isDandelionReturning = false
                     self.writingState = .prompt
                 }
-                self.currentPrompt = self.promptsManager.randomPrompt()
                 self.currentReleaseMessage = self.promptsManager.randomReleaseMessage()
                 self.activeReleaseID = nil
                 self.promptResetTask = nil

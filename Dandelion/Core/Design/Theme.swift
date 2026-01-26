@@ -99,12 +99,45 @@ enum DandelionSpacing {
 
     /// Extra extra large: 48pt
     static let xxl: CGFloat = 48
-    
+
     /// extra extra extra large: 96pt
     static let xxxl: CGFloat = 96
 
     /// Screen edge padding
     static let screenEdge: CGFloat = 24
+}
+
+// MARK: - Dandelion Layout System
+
+/// Centralized layout calculations for positioning the dandelion and text elements.
+/// Ensures consistent spacing across all device sizes from iPhone SE to 13" iPad.
+enum DandelionLayout {
+
+    // MARK: - Fixed Layout Constants
+
+    /// Dandelion size when showing prompt (large)
+    static let dandelionLargeHeight: CGFloat = 220
+
+    /// Dandelion size during writing (small)
+    static let dandelionSmallHeight: CGFloat = 80
+
+    /// Fixed spacing between dandelion visual bottom and text content.
+    /// This is the actual visual gap the user sees, consistent across all devices.
+    static let dandelionToTextSpacing: CGFloat = 16
+
+    /// Minimum top margin above dandelion (below safe area)
+    static let minTopMargin: CGFloat = 16
+
+    /// Top safe area inset offset used for buttons (history/settings)
+    static let topButtonsHeight: CGFloat = 32
+
+    // MARK: - Positioning Helpers
+
+    /// Calculate the proportional offset used to center the dandelion on prompt/release states.
+    /// Capped at 80pt to prevent excessive offset on large screens (iPads).
+    static func proportionalOffset(screenHeight: CGFloat) -> CGFloat {
+        return min(screenHeight * 0.08, 80)
+    }
 }
 
 // MARK: - Animation
