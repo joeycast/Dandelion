@@ -203,6 +203,11 @@ struct BloomPaywallView: View {
             .onChange(of: premium.errorMessage) { _, newValue in
                 showError = newValue != nil
             }
+            .onChange(of: premium.isBloomUnlocked) { _, newValue in
+                if newValue {
+                    onClose?()
+                }
+            }
         }
         .toolbar(showsClose ? .visible : .hidden, for: .navigationBar)
         .toolbarBackground(theme.background, for: .navigationBar)
