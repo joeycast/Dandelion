@@ -209,9 +209,11 @@ struct BloomPaywallView: View {
                 }
             }
         }
+#if os(iOS)
         .toolbar(showsClose ? .visible : .hidden, for: .navigationBar)
         .toolbarBackground(theme.background, for: .navigationBar)
         .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
+#endif
     }
 }
 
