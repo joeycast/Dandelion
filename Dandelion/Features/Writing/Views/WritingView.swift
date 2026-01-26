@@ -66,36 +66,41 @@ struct WritingView: View {
             )
 
             // Dandelion sizing
-            let dandelionSmallHeight: CGFloat = 80
-            let dandelionLargeHeight: CGFloat = 220
+            let dandelionSmallHeight = DandelionLayout.dandelionSmallHeight
+            let dandelionLargeHeight = DandelionLayout.dandelionLargeHeight
             // Size: large on prompt, small during writing, grows back when returning
-            let dandelionHeight: CGFloat = (isPrompt || viewModel.isDandelionReturning) ? dandelionLargeHeight : dandelionSmallHeight
+            let dandelionHeight: CGFloat = (isPromptState || viewModel.isDandelionReturning)
+                ? dandelionLargeHeight
+                : dandelionSmallHeight
 
-            // Dandelion positioning - base position below safe area
-            let dandelionBaseTop = safeAreaTop + DandelionSpacing.md
-            // Extra offset to center dandelion on prompt/return/release states
-            let nonReleaseOffset: CGFloat = (isPrompt || viewModel.isDandelionReturning)
-                ? max(0, geometry.size.height * 0.08)
-                : 0
-            let releaseOffset: CGFloat = max(0, geometry.size.height * 0.08)
-            let dandelionOffset: CGFloat = isReleasing ? releaseOffset : nonReleaseOffset
-            let dandelionTopPadding = dandelionBaseTop + dandelionOffset
-            let releaseDandelionTop = dandelionBaseTop + releaseOffset
+            // Dandelion positioning
+            let dandelionBaseTop = safeAreaTop + DandelionLayout.minTopMargin
+            let proportionalOffset = DandelionLayout.proportionalOffset(screenHeight: geometry.size.height)
+            // Prompt/release: dandelion moves down with proportional offset for visual centering
+            // Writing: dandelion stays at base position (closer to top)
+            let dandelionTopPadding: CGFloat = (isPromptState || viewModel.isDandelionReturning || isReleasing)
+                ? dandelionBaseTop + proportionalOffset
+                : dandelionBaseTop
+            let releaseDandelionTop = dandelionBaseTop + proportionalOffset
             let effectiveDandelionTopPadding = isReleasing
                 ? (releaseDandelionTopPadding ?? lastWritingDandelionTopPadding)
                 : dandelionTopPadding
 
-            // Content header space - writing prompt sits just below the dandelion
-            let contentHeaderSpace = dandelionBaseTop + dandelionSmallHeight - DandelionSpacing.xxxl
-            let promptLift = DandelionSpacing.xxl
-            let headerSpaceHeight = isPrompt
-                ? max(0, dandelionBaseTop + dandelionLargeHeight - promptLift)
-                : max(0, contentHeaderSpace)
-            let promptMessageTopPadding = (dandelionBaseTop + max(0, geometry.size.height * 0.08))
-                + dandelionLargeHeight
-                - promptLift
-                + DandelionSpacing.lg
-                + DandelionSpacing.xl
+            // Content header space - position text directly below the VISUAL dandelion
+            // Prompt state: large dandelion, use 0.80 ratio (slightly above stem end)
+            let promptHeaderSpace = DandelionLayout.minTopMargin
+                + proportionalOffset
+                + (dandelionLargeHeight * 0.80)
+                + DandelionLayout.dandelionToTextSpacing
+            // Writing state: small dandelion, use 0.50 ratio (tighter to head)
+            let writingHeaderSpace = DandelionLayout.minTopMargin
+                + (dandelionSmallHeight * 0.40)
+                + DandelionLayout.dandelionToTextSpacing
+            let headerSpaceHeight = (isPromptState || viewModel.isDandelionReturning) ? promptHeaderSpace : writingHeaderSpace
+
+            // Release message position - uses 0.92 ratio (perfect per user feedback)
+            let releaseDandelionVisualBottom = releaseDandelionTop + (dandelionLargeHeight * 0.92)
+            let promptMessageTopPadding = releaseDandelionVisualBottom + DandelionLayout.dandelionToTextSpacing
 
             ZStack {
                 // Background
@@ -133,7 +138,7 @@ struct WritingView: View {
                     }
                     .padding(.top, effectiveDandelionTopPadding)
                     .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
-                    .animation(.easeInOut(duration: 1.2), value: isPrompt)
+                    .animation(.easeInOut(duration: 1.2), value: isPromptState)
                     .animation(.easeInOut(duration: 1.2), value: dandelionHeight)
                     .animation(.easeInOut(duration: 1.2), value: viewModel.isDandelionReturning)
                     .animation(.easeInOut(duration: 1.2), value: releaseDandelionTopPadding)
@@ -176,7 +181,9 @@ struct WritingView: View {
             }
             .onChange(of: viewModel.writingState) { _, newValue in
                 if WritingViewModel.debugReleaseFlow {
-                    debugLog("[ReleaseFlow] writingState -> \(newValue)")
+                    debugLog(
+                        "[ReleaseFlow] writingState -> \(newValue) prompt=\(viewModel.currentPrompt?.id ?? "nil")"
+                    )
                 }
                 if newValue == .releasing {
                     // Capture scroll offset only if keyboard is still up (blow-triggered release).
@@ -224,17 +231,17 @@ struct WritingView: View {
                     releaseVisibleHeight = 0
                     releaseClipOffset = 0
                 }
-                if newValue == .prompt || newValue == .complete {
-                    fadeInPrompt()
-                } else if newValue == .writing {
+                // Don't fade prompt on state change - let the prompt ID change handler do it
+                // This prevents double-animation when transitioning from release to prompt
+                if newValue == .writing {
                     promptOpacity = 1
                 }
-                onSwipeEligibilityChange(isPrompt)
+                onSwipeEligibilityChange(isPromptVisible)
             }
         }
         .animation(DandelionAnimation.slow, value: viewModel.writingState)
         .onAppear {
-            if isPrompt {
+            if isPromptVisible {
                 fadeInPrompt()
             }
             withAnimation(.easeInOut(duration: 0.9)) {
@@ -242,7 +249,7 @@ struct WritingView: View {
             }
             setupReleaseTracking()
             syncCustomPrompts()
-            onSwipeEligibilityChange(isPrompt)
+            onSwipeEligibilityChange(isPromptVisible)
         }
         .onChange(of: customPrompts) { _, _ in
             syncCustomPrompts()
@@ -264,8 +271,13 @@ struct WritingView: View {
             handleAmbientSound(for: viewModel.writingState)
         }
         .onChange(of: viewModel.currentPrompt?.id) { _, _ in
-            if isPrompt {
+            if isPromptVisible {
                 fadeInPrompt()
+            }
+            if WritingViewModel.debugReleaseFlow {
+                debugLog(
+                    "[ReleaseFlow] promptChanged state=\(viewModel.writingState) id=\(viewModel.currentPrompt?.id ?? "nil")"
+                )
             }
         }
         .sheet(isPresented: $showBloomPaywall) {
@@ -287,8 +299,16 @@ struct WritingView: View {
         }
     }
 
-    private var isPrompt: Bool {
+    private var isPromptState: Bool {
         viewModel.writingState == .prompt || viewModel.writingState == .complete
+    }
+
+    private var isPromptVisible: Bool {
+        viewModel.writingState == .prompt
+    }
+
+    private var isPromptHeaderVisible: Bool {
+        viewModel.writingState == .prompt || viewModel.writingState == .writing
     }
 
     private var isWriting: Bool {
@@ -312,12 +332,12 @@ struct WritingView: View {
                 // Space for dandelion (rendered separately as overlay)
                 Color.clear
                     .frame(height: headerSpaceHeight)
-                    .animation(.easeInOut(duration: 1.6), value: isPrompt)
+                    .animation(.easeInOut(duration: 1.6), value: isPromptState)
 
                 headerView(in: size)
-                    .animation(.easeInOut(duration: 1.6), value: isPrompt)
+                    .animation(.easeInOut(duration: 1.6), value: isPromptState)
 
-                if isPrompt {
+                if isPromptState {
                     Spacer(minLength: 0)
                 } else {
                     writingArea(fullScreenSize: fullScreenSize)
@@ -325,7 +345,7 @@ struct WritingView: View {
                 }
             }
 
-            if isPrompt {
+            if isPromptVisible {
                 promptButtons
                     .padding(.bottom, promptBottomPadding)
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
@@ -350,9 +370,9 @@ struct WritingView: View {
                 .font(.system(size: 20, weight: .regular))
                 .foregroundColor(theme.secondary)
         }
-        .opacity(isPrompt ? 0.8 : 0)
-        .animation(DandelionAnimation.gentle, value: isPrompt)
-        .allowsHitTesting(isPrompt)
+        .opacity(isPromptVisible ? 0.8 : 0)
+        .animation(DandelionAnimation.gentle, value: isPromptVisible)
+        .allowsHitTesting(isPromptVisible)
     }
 
     private var settingsButton: some View {
@@ -363,34 +383,35 @@ struct WritingView: View {
                 .font(.system(size: 18, weight: .regular))
                 .foregroundColor(theme.secondary)
         }
-        .opacity(isPrompt ? 0.8 : 0)
-        .animation(DandelionAnimation.gentle, value: isPrompt)
-        .allowsHitTesting(isPrompt)
+        .opacity(isPromptVisible ? 0.8 : 0)
+        .animation(DandelionAnimation.gentle, value: isPromptVisible)
+        .allowsHitTesting(isPromptVisible)
     }
 
     @ViewBuilder
     private func headerView(in size: CGSize) -> some View {
         // Just the prompt text - dandelion is rendered separately as a persistent element
+        // Spacing above text is handled by headerSpaceHeight from DandelionLayout
         if let prompt = viewModel.currentPrompt {
             let promptMatchId = "promptText-\(prompt.id)"
             WordAnimatedTextView(
                 text: prompt.text,
-                font: isPrompt ? .dandelionTitle : .dandelionCaption,
-                uiFont: isPrompt ? .dandelionTitle : .dandelionCaption,
-                textColor: isPrompt ? theme.text : theme.secondary,
+                font: isPromptState ? .dandelionTitle : .dandelionCaption,
+                uiFont: isPromptState ? .dandelionTitle : .dandelionCaption,
+                textColor: isPromptState ? theme.text : theme.secondary,
                 lineWidth: max(
                     0,
-                    size.width - ((isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge) * 2)
+                    size.width - ((isPromptState ? DandelionSpacing.xl : DandelionSpacing.screenEdge) * 2)
                 ),
                 isAnimating: false,
-                maxLines: isPrompt ? nil : 1,
-                lineBreakMode: isPrompt ? .byWordWrapping : .byTruncatingTail,
+                maxLines: isPromptState ? nil : 1,
+                lineBreakMode: isPromptState ? .byWordWrapping : .byTruncatingTail,
                 layoutIDPrefix: prompt.id
             )
             .matchedGeometryEffect(id: promptMatchId, in: promptNamespace)
-            .padding(.horizontal, isPrompt ? DandelionSpacing.xl : DandelionSpacing.screenEdge)
-            .padding(.top, isPrompt ? DandelionSpacing.lg : DandelionSpacing.xs)
-            .opacity(isReleasing ? 0 : (isPrompt ? promptOpacity : 1))
+            .padding(.horizontal, isPromptState ? DandelionSpacing.xl : DandelionSpacing.screenEdge)
+            .padding(.top, isPromptState ? 0 : DandelionSpacing.xs)
+            .opacity(isPromptHeaderVisible && !isReleasing ? (isPromptVisible ? promptOpacity : 1) : 0)
             .animation(.easeInOut(duration: 1.0), value: isReleasing)
         }
     }
@@ -523,6 +544,11 @@ struct WritingView: View {
     }
 
     private func fadeInPrompt() {
+        if WritingViewModel.debugReleaseFlow {
+            debugLog(
+                "[ReleaseFlow] fadeInPrompt id=\(viewModel.currentPrompt?.id ?? "nil") initial=\(!hasShownInitialPrompt)"
+            )
+        }
         if !hasShownInitialPrompt {
             promptOpacity = 1
             hasShownInitialPrompt = true
