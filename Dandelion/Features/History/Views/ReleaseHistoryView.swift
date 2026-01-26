@@ -53,7 +53,9 @@ struct ReleaseHistoryView: View {
                 }
             }
             .background(appearance.theme.background.ignoresSafeArea())
+#if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+#endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button {
@@ -72,9 +74,11 @@ struct ReleaseHistoryView: View {
                     .frame(width: 180)
                 }
             }
+#if os(iOS)
             .toolbarBackground(appearance.theme.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
+#endif
         }
         .onAppear {
             releaseHistoryService = ReleaseHistoryService(modelContext: modelContext)

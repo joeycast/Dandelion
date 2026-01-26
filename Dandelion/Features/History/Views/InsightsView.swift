@@ -47,9 +47,15 @@ struct InsightsView: View {
         }
         .background(theme.background.ignoresSafeArea())
         .toolbar {
+#if os(iOS)
             ToolbarItem(placement: .topBarTrailing) {
                 exportMenu(insights: insights)
             }
+#else
+            ToolbarItem(placement: .primaryAction) {
+                exportMenu(insights: insights)
+            }
+#endif
         }
         .sheet(isPresented: $showPaywall) {
             BloomPaywallView(onClose: { showPaywall = false })
