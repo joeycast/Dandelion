@@ -44,6 +44,8 @@ struct WritingView: View {
     @AppStorage("hasSeenLetGoHint") private var hasSeenLetGoHint: Bool = false
     @Namespace private var promptNamespace
     @State private var hasShownInitialPrompt: Bool = false
+    @State private var isDandelionWindAnimating: Bool = true
+    @State private var dandelionWindAnimationTask: Task<Void, Never>?
 
     init(
         topSafeArea: CGFloat = 0,
@@ -271,6 +273,7 @@ struct WritingView: View {
         }
         .onChange(of: viewModel.writingState) { _, newValue in
             handleAmbientSound(for: newValue)
+            handleDandelionWindAnimation(for: newValue)
         }
         .onChange(of: ambientSound.isEnabled) { _, _ in
             handleAmbientSound(for: viewModel.writingState)
@@ -647,6 +650,25 @@ struct WritingView: View {
         }
     }
 
+    private func handleDandelionWindAnimation(for state: WritingState) {
+        // Cancel any pending animation task
+        dandelionWindAnimationTask?.cancel()
+        dandelionWindAnimationTask = nil
+
+        switch state {
+        case .writing:
+            // Delay stopping the wind animation until the position animation completes
+            dandelionWindAnimationTask = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.2))
+                guard !Task.isCancelled else { return }
+                isDandelionWindAnimating = false
+            }
+        case .prompt, .releasing, .complete:
+            // Immediately resume wind animation for other states
+            isDandelionWindAnimating = true
+        }
+    }
+
     // MARK: - Bottom Bar
 
     private func bottomBar(bottomInset: CGFloat) -> some View {
@@ -860,7 +882,7 @@ struct WritingView: View {
                     seedRestoreStartTime: viewModel.seedRestoreStartTime,
                     seedRestoreDuration: viewModel.seedRestoreDuration,
                     topOverflow: overflowHeight,
-                    isAnimating: isActive
+                    isAnimating: isActive && isDandelionWindAnimating
                 )
                 .id(appearance.style)
                 .frame(height: height + overflowHeight)

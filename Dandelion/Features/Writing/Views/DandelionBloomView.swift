@@ -58,42 +58,24 @@ struct DandelionBloomView: View {
 
     var body: some View {
         let theme = appearance.theme
-        Group {
-            if isAnimating {
-                TimelineView(.animation(minimumInterval: nil, paused: false)) { timeline in
-                    Canvas { context, size in
-                        driver.step(to: timeline.date, windStrength: windStrength)
-                        DandelionRenderer.draw(
-                            in: context,
-                            size: size,
-                            topOverflow: topOverflow,
-                            time: timeline.date.timeIntervalSinceReferenceDate,
-                            simulation: driver.simulation,
-                            windStrength: windStrength,
-                            style: style,
-                            theme: theme,
-                            detachedSeedTimes: detachedSeedTimes,
-                            seedRestoreStartTime: seedRestoreStartTime,
-                            seedRestoreDuration: seedRestoreDuration
-                        )
-                    }
+        TimelineView(.animation(minimumInterval: nil, paused: !isAnimating)) { timeline in
+            Canvas { context, size in
+                if isAnimating {
+                    driver.step(to: timeline.date, windStrength: windStrength)
                 }
-            } else {
-                Canvas { context, size in
-                    DandelionRenderer.draw(
-                        in: context,
-                        size: size,
-                        topOverflow: topOverflow,
-                        time: staticRenderDate.timeIntervalSinceReferenceDate,
-                        simulation: driver.simulation,
-                        windStrength: windStrength,
-                        style: style,
-                        theme: theme,
-                        detachedSeedTimes: detachedSeedTimes,
-                        seedRestoreStartTime: seedRestoreStartTime,
-                        seedRestoreDuration: seedRestoreDuration
-                    )
-                }
+                DandelionRenderer.draw(
+                    in: context,
+                    size: size,
+                    topOverflow: topOverflow,
+                    time: isAnimating ? timeline.date.timeIntervalSinceReferenceDate : staticRenderDate.timeIntervalSinceReferenceDate,
+                    simulation: driver.simulation,
+                    windStrength: windStrength,
+                    style: style,
+                    theme: theme,
+                    detachedSeedTimes: detachedSeedTimes,
+                    seedRestoreStartTime: seedRestoreStartTime,
+                    seedRestoreDuration: seedRestoreDuration
+                )
             }
         }
         .accessibilityHidden(true)
