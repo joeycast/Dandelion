@@ -13,12 +13,12 @@ import SwiftData
 @Model
 final class Release {
     /// When the release occurred
-    var timestamp: Date
+    var timestamp: Date = Date()
 
     /// Number of words in the released writing
-    var wordCount: Int
+    var wordCount: Int = 0
 
-    init(timestamp: Date = .now, wordCount: Int) {
+    init(timestamp: Date = Date(), wordCount: Int = 0) {
         self.timestamp = timestamp
         self.wordCount = wordCount
     }

@@ -10,12 +10,12 @@ import SwiftData
 
 @Model
 final class CustomPrompt {
-    var id: UUID
-    var text: String
-    var createdAt: Date
-    var isActive: Bool
+    var id: UUID = UUID()
+    var text: String = ""
+    var createdAt: Date = Date()
+    var isActive: Bool = true
 
-    init(id: UUID = UUID(), text: String, createdAt: Date = .now, isActive: Bool = true) {
+    init(id: UUID = UUID(), text: String, createdAt: Date = Date(), isActive: Bool = true) {
         self.id = id
         self.text = text
         self.createdAt = createdAt

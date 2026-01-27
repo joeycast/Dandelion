@@ -109,18 +109,18 @@ struct AppIconSettingsView: View {
             }
 #endif
         }
-        .listStyle(.insetGrouped)
+        .dandelionListStyle()
         .scrollContentBackground(.hidden)
         .background(theme.background)
         .navigationTitle("App Icon")
-        .navigationBarTitleDisplayMode(.inline)
         .tint(theme.primary)
-        .toolbarBackground(theme.background, for: .navigationBar)
-        .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
+        .dandelionNavigationBarStyle(background: theme.background, colorScheme: appearance.colorScheme)
         .onAppear {
             selectedIcon = AppIconOption.current
 #if DEBUG
+#if canImport(UIKit)
             debugLog("[AppIcon] supportsAlternateIcons=\(UIApplication.shared.supportsAlternateIcons) current=\(selectedIcon.rawValue)")
+#endif
 #endif
         }
         .sheet(isPresented: $showPaywall) {

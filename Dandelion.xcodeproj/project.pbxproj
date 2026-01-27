@@ -377,7 +377,8 @@
 		F6B3D6EA2F0AB7F1007A5235 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Watercolor AppIcon-LineArt AppIcon-Dawn AppIcon-Twilight AppIcon-Forest";
+				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=iphoneos*]" = "AppIcon-Watercolor AppIcon-LineArt AppIcon-Dawn AppIcon-Twilight AppIcon-Forest";
+				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=iphonesimulator*]" = "AppIcon-Watercolor AppIcon-LineArt AppIcon-Dawn AppIcon-Twilight AppIcon-Forest";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
@@ -432,7 +433,8 @@
 		F6B3D6EB2F0AB7F1007A5235 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Watercolor AppIcon-LineArt AppIcon-Dawn AppIcon-Twilight AppIcon-Forest";
+				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=iphoneos*]" = "AppIcon-Watercolor AppIcon-LineArt AppIcon-Dawn AppIcon-Twilight AppIcon-Forest";
+				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=iphonesimulator*]" = "AppIcon-Watercolor AppIcon-LineArt AppIcon-Dawn AppIcon-Twilight AppIcon-Forest";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;

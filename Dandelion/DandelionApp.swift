@@ -91,5 +91,43 @@ struct DandelionApp: App {
         .environment(premiumManager)
         .environment(appearanceManager)
         .environment(ambientSoundService)
+#if os(macOS)
+        .defaultSize(width: 900, height: 700)
+        .commands {
+            MacCommands()
+        }
+#endif
+
+#if os(macOS)
+        // History panel window
+        Window("History", id: "history") {
+            MacHistoryWindow()
+        }
+        .modelContainer(modelContainer)
+        .environment(premiumManager)
+        .environment(appearanceManager)
+        .environment(ambientSoundService)
+        .defaultSize(width: 400, height: 600)
+        .windowResizability(.contentSize)
+
+        // Insights panel window
+        Window("Insights", id: "insights") {
+            MacInsightsWindow()
+        }
+        .modelContainer(modelContainer)
+        .environment(premiumManager)
+        .environment(appearanceManager)
+        .environment(ambientSoundService)
+        .defaultSize(width: 500, height: 700)
+        .windowResizability(.contentSize)
+
+        Settings {
+            MacSettingsView()
+        }
+        .environment(premiumManager)
+        .environment(appearanceManager)
+        .environment(ambientSoundService)
+        .modelContainer(modelContainer)
+#endif
     }
 }

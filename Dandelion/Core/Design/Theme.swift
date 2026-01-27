@@ -181,6 +181,35 @@ extension View {
             y: 1
         )
     }
+
+    @ViewBuilder
+    func dandelionListStyle() -> some View {
+#if os(iOS)
+        self.listStyle(.insetGrouped)
+#else
+        self.listStyle(.inset)
+#endif
+    }
+
+    @ViewBuilder
+    func dandelionNavigationBarStyle(background: Color, colorScheme: ColorScheme) -> some View {
+#if os(iOS)
+        self.navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(background, for: .navigationBar)
+            .toolbarColorScheme(colorScheme, for: .navigationBar)
+#else
+        self
+#endif
+    }
+
+    @ViewBuilder
+    func dandelionSettingsSheetDetents() -> some View {
+#if os(iOS)
+        self.presentationDetents([.large])
+#else
+        self
+#endif
+    }
 }
 
 // MARK: - Button Styles

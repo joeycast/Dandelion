@@ -192,6 +192,7 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
     var textColor: PlatformColor
     var isEditable: Bool
     @Binding var shouldBeFocused: Bool
+    @Binding var scrollOffset: CGFloat
 
     func makeNSView(context: Context) -> NSScrollView {
         let textView = NSTextView()
@@ -221,8 +222,15 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
+        scrollView.contentView.postsBoundsChangedNotifications = true
 
         context.coordinator.textView = textView
+        context.coordinator.scrollView = scrollView
+        context.coordinator.startObservingScroll()
+
+        DispatchQueue.main.async {
+            context.coordinator.parent.scrollOffset = scrollView.contentView.bounds.origin.y
+        }
         return scrollView
     }
 
@@ -268,11 +276,39 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: AutoScrollingTextEditor
         weak var textView: NSTextView?
+        weak var scrollView: NSScrollView?
         var isProcessingTextChange = false
         var isProcessingFocusChange = false
+        private var scrollObserver: NSObjectProtocol?
 
         init(_ parent: AutoScrollingTextEditor) {
             self.parent = parent
+        }
+
+        deinit {
+            stopObservingScroll()
+        }
+
+        func startObservingScroll() {
+            guard scrollObserver == nil, let scrollView else { return }
+            scrollObserver = NotificationCenter.default.addObserver(
+                forName: NSView.boundsDidChangeNotification,
+                object: scrollView.contentView,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self else { return }
+                let offset = scrollView.contentView.bounds.origin.y
+                if self.parent.scrollOffset != offset {
+                    self.parent.scrollOffset = offset
+                }
+            }
+        }
+
+        func stopObservingScroll() {
+            if let scrollObserver {
+                NotificationCenter.default.removeObserver(scrollObserver)
+                self.scrollObserver = nil
+            }
         }
 
         func textDidChange(_ notification: Notification) {
@@ -315,98 +351,6 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
         private func ensureCursorVisible(_ textView: NSTextView) {
             let selectedRange = textView.selectedRange()
             textView.scrollRangeToVisible(selectedRange)
-        }
-    }
-}
-
-#elseif canImport(AppKit)
-import AppKit
-
-struct AutoScrollingTextEditor: NSViewRepresentable {
-    @Binding var text: String
-    var font: PlatformFont
-    var textColor: PlatformColor
-    var isEditable: Bool
-    @Binding var shouldBeFocused: Bool
-    @Binding var scrollOffset: CGFloat
-
-    func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
-        scrollView.hasVerticalScroller = true
-        scrollView.drawsBackground = false
-
-        let textView = NSTextView()
-        textView.isEditable = isEditable
-        textView.isSelectable = true
-        textView.font = font
-        textView.textColor = textColor
-        textView.backgroundColor = .clear
-        textView.delegate = context.coordinator
-        textView.textStorage?.setAttributedString(NSAttributedString(string: text))
-
-        scrollView.documentView = textView
-        context.coordinator.textView = textView
-        context.coordinator.scrollView = scrollView
-
-        DispatchQueue.main.async {
-            self.scrollOffset = scrollView.contentView.bounds.origin.y
-        }
-
-        return scrollView
-    }
-
-    func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        guard let textView = scrollView.documentView as? NSTextView else { return }
-        context.coordinator.isUpdatingFromSwiftUI = true
-        defer { context.coordinator.isUpdatingFromSwiftUI = false }
-
-        if !context.coordinator.isProcessingTextChange && textView.string != text {
-            textView.string = text
-        }
-
-        textView.isEditable = isEditable
-        textView.isSelectable = true
-        textView.font = font
-        textView.textColor = textColor
-
-        if shouldBeFocused, scrollView.window?.firstResponder != textView, isEditable {
-            scrollView.window?.makeFirstResponder(textView)
-        } else if !shouldBeFocused, scrollView.window?.firstResponder == textView {
-            scrollView.window?.makeFirstResponder(nil)
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    final class Coordinator: NSObject, NSTextViewDelegate {
-        var parent: AutoScrollingTextEditor
-        weak var textView: NSTextView?
-        weak var scrollView: NSScrollView?
-        var isProcessingTextChange = false
-        var isUpdatingFromSwiftUI = false
-
-        init(_ parent: AutoScrollingTextEditor) {
-            self.parent = parent
-        }
-
-        func textDidChange(_ notification: Notification) {
-            guard let textView = textView else { return }
-            isProcessingTextChange = true
-            let newText = textView.string
-
-            DispatchQueue.main.async { [weak self] in
-                self?.parent.text = newText
-                self?.isProcessingTextChange = false
-            }
-        }
-
-        func textViewDidChangeSelection(_ notification: Notification) {
-            guard let scrollView else { return }
-            DispatchQueue.main.async { [weak self] in
-                self?.parent.scrollOffset = scrollView.contentView.bounds.origin.y
-            }
         }
     }
 }

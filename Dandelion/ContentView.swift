@@ -15,6 +15,9 @@ struct ContentView: View {
     @Environment(AppearanceManager.self) private var appearance
 
     var body: some View {
+#if os(macOS)
+        MacRootView()
+#else
         GeometryReader { geometry in
             let topSafeArea = geometry.safeAreaInsets.top
             let bottomSafeArea = geometry.safeAreaInsets.bottom
@@ -59,6 +62,7 @@ struct ContentView: View {
                 Task { await premium.refreshEntitlement() }
             }
         }
+#endif
     }
 
     private var isMacBloomLocked: Bool {

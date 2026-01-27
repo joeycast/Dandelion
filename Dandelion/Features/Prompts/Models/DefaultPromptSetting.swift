@@ -11,10 +11,10 @@ import SwiftData
 @Model
 final class DefaultPromptSetting {
     /// The ID of the default prompt (matches WritingPrompt.defaults IDs)
-    @Attribute(.unique) var promptId: String
+    var promptId: String = ""
 
     /// Whether this prompt is enabled (shown in rotation)
-    var isEnabled: Bool
+    var isEnabled: Bool = true
 
     init(promptId: String, isEnabled: Bool = true) {
         self.promptId = promptId

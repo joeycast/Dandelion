@@ -35,27 +35,37 @@ struct BloomPaywallView: View {
 
     var body: some View {
         let theme = appearance.theme
+        @Bindable var premium = premium
 
         NavigationStack {
             ScrollView {
-                VStack(spacing: 0) {
-                // Dandelion illustration
+                let content = VStack(spacing: 0) {
+                // Dandelion illustration (static to save CPU)
                 DandelionBloomView(
                     seedCount: 90,
                     filamentsPerSeed: 16,
                     windStrength: 0.5,
-                    style: appearance.style
+                    style: appearance.style,
+                    isAnimating: false
                 )
                 .frame(height: 160)
 
                 // Title
                 VStack(spacing: DandelionSpacing.xs) {
                     Text(title)
+#if os(macOS)
+                        .font(.system(size: 36, weight: .semibold, design: .serif))
+#else
                         .font(.system(size: 32, weight: .semibold, design: .serif))
+#endif
                         .foregroundColor(theme.text)
 
                     Text(subtitle)
+#if os(macOS)
+                        .font(.system(size: 18, design: .serif))
+#else
                         .font(.dandelionSecondary)
+#endif
                         .foregroundColor(theme.secondary)
                 }
                 .padding(.top, DandelionSpacing.sm)
@@ -63,7 +73,11 @@ struct BloomPaywallView: View {
                 // Optional body text
                 if let bodyText {
                     Text(bodyText)
+#if os(macOS)
+                        .font(.system(size: 15, design: .serif))
+#else
                         .font(.dandelionCaption)
+#endif
                         .foregroundColor(theme.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, DandelionSpacing.xl)
@@ -103,20 +117,34 @@ struct BloomPaywallView: View {
                         description: "Share or export your release history"
                     )
                 }
+#if os(macOS)
+                .frame(maxWidth: 400)
+#endif
                 .padding(.top, DandelionSpacing.lg)
                 .padding(.horizontal, DandelionSpacing.lg)
 
                 // Privacy note
                 HStack(spacing: DandelionSpacing.sm) {
                     Image(systemName: "lock.shield")
+#if os(macOS)
+                        .font(.system(size: 18))
+#else
                         .font(.system(size: 16))
+#endif
                         .foregroundColor(theme.secondary)
 
                     Text("Your words stay with you. We never store what you write—only dates and counts, saved locally and in iCloud.")
+#if os(macOS)
+                        .font(.system(size: 14, design: .serif))
+#else
                         .font(.system(size: 13, design: .serif))
+#endif
                         .foregroundColor(theme.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+#if os(macOS)
+                .frame(maxWidth: 500)
+#endif
                 .padding(.top, DandelionSpacing.lg)
                 .padding(.horizontal, DandelionSpacing.xl)
 
@@ -171,8 +199,24 @@ struct BloomPaywallView: View {
                     .font(.dandelionCaption)
                     .foregroundColor(theme.secondary)
                 }
+#if os(macOS)
+                .frame(maxWidth: 360)
+#endif
                 .padding(.top, DandelionSpacing.xl)
                 .padding(.horizontal, DandelionSpacing.lg)
+
+#if DEBUG && os(macOS)
+                VStack(spacing: DandelionSpacing.sm) {
+                    Toggle(isOn: $premium.debugForceBloom) {
+                        Text("Debug: Unlock Bloom")
+                            .font(.dandelionCaption)
+                            .foregroundColor(theme.secondary)
+                    }
+                    .toggleStyle(.switch)
+                }
+                .frame(maxWidth: 360)
+                .padding(.top, DandelionSpacing.md)
+#endif
 
                 // Error message
                 if let errorMessage = premium.errorMessage, showError {
@@ -186,6 +230,12 @@ struct BloomPaywallView: View {
 
                     Spacer(minLength: DandelionSpacing.xxl)
                 }
+#if os(macOS)
+                content
+                    .frame(maxWidth: 600)
+#else
+                content
+#endif
             }
             .background(theme.background.ignoresSafeArea())
             .toolbar {
@@ -228,17 +278,29 @@ private struct FeatureRow: View {
 
         HStack(alignment: .top, spacing: DandelionSpacing.md) {
             Image(systemName: icon)
+#if os(macOS)
+                .font(.system(size: 22))
+#else
                 .font(.system(size: 20))
+#endif
                 .foregroundColor(theme.accent)
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
+#if os(macOS)
+                    .font(.system(size: 18, weight: .medium, design: .serif))
+#else
                     .font(.system(size: 16, weight: .medium, design: .serif))
+#endif
                     .foregroundColor(theme.text)
 
                 Text(description)
+#if os(macOS)
+                    .font(.system(size: 14, design: .serif))
+#else
                     .font(.dandelionCaption)
+#endif
                     .foregroundColor(theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

@@ -16,6 +16,7 @@ enum HistoryTab: String, CaseIterable {
 struct ReleaseHistoryView: View {
     let topSafeArea: CGFloat
     let onNavigateToWriting: () -> Void
+    let showsTabs: Bool
     @Environment(\.modelContext) private var modelContext
     @Environment(AppearanceManager.self) private var appearance
     @Query(sort: \Release.timestamp) private var allReleases: [Release]
@@ -34,8 +35,9 @@ struct ReleaseHistoryView: View {
         return Calendar.current.component(.year, from: firstRelease.timestamp)
     }
 
-    init(topSafeArea: CGFloat = 0, onNavigateToWriting: @escaping () -> Void = {}) {
+    init(topSafeArea: CGFloat = 0, showsTabs: Bool = true, onNavigateToWriting: @escaping () -> Void = {}) {
         self.topSafeArea = topSafeArea
+        self.showsTabs = showsTabs
         self.onNavigateToWriting = onNavigateToWriting
         let year = Calendar.current.component(.year, from: Date())
         _selectedYear = State(initialValue: year)
@@ -45,11 +47,15 @@ struct ReleaseHistoryView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                switch selectedTab {
-                case .history:
+                if showsTabs {
+                    switch selectedTab {
+                    case .history:
+                        historyContent
+                    case .insights:
+                        InsightsView(releases: allReleases)
+                    }
+                } else {
                     historyContent
-                case .insights:
-                    InsightsView(releases: allReleases)
                 }
             }
             .background(appearance.theme.background.ignoresSafeArea())
@@ -64,14 +70,16 @@ struct ReleaseHistoryView: View {
                         Image(systemName: "xmark")
                     }
                 }
-                ToolbarItem(placement: .principal) {
-                    Picker("Tab", selection: $selectedTab) {
-                        ForEach(HistoryTab.allCases, id: \.self) { tab in
-                            Text(tab.rawValue).tag(tab)
+                if showsTabs {
+                    ToolbarItem(placement: .principal) {
+                        Picker("Tab", selection: $selectedTab) {
+                            ForEach(HistoryTab.allCases, id: \.self) { tab in
+                                Text(tab.rawValue).tag(tab)
+                            }
                         }
+                        .pickerStyle(.segmented)
+                        .frame(width: 180)
                     }
-                    .pickerStyle(.segmented)
-                    .frame(width: 180)
                 }
             }
 #if os(iOS)

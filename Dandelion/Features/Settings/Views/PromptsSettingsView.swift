@@ -19,11 +19,155 @@ struct PromptsSettingsView: View {
     @State private var showPaywall: Bool = false
     @State private var editorText: String = ""
     @State private var editingPrompt: CustomPrompt?
+#if os(macOS)
+    @State private var isAddingPrompt: Bool = false
+    @State private var newPromptText: String = ""
+    @FocusState private var isNewPromptFocused: Bool
+#endif
 
     var body: some View {
         let theme = appearance.theme
 
-        List {
+#if os(macOS)
+        promptsForm
+            .formStyle(.grouped)
+#else
+        promptsList
+            .dandelionListStyle()
+            .scrollContentBackground(.hidden)
+            .background(theme.background)
+            .navigationTitle("Prompts")
+            .tint(theme.primary)
+            .dandelionNavigationBarStyle(background: theme.background, colorScheme: appearance.colorScheme)
+#endif
+    }
+
+#if os(macOS)
+    private var promptsForm: some View {
+        Form {
+            if premium.isBloomUnlocked {
+                Section {
+                    ForEach(customPrompts) { prompt in
+                        MacPromptRow(
+                            prompt: prompt,
+                            onDelete: { modelContext.delete(prompt) }
+                        )
+                    }
+
+                    if isAddingPrompt {
+                        HStack {
+                            TextField("Enter your prompt...", text: $newPromptText)
+                                .textFieldStyle(.plain)
+                                .focused($isNewPromptFocused)
+                                .onSubmit {
+                                    saveNewPrompt()
+                                }
+                                .onExitCommand {
+                                    cancelNewPrompt()
+                                }
+
+                            Button("Add") {
+                                saveNewPrompt()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(newPromptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                            Button("Cancel") {
+                                cancelNewPrompt()
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    } else {
+                        Button {
+                            isAddingPrompt = true
+                            newPromptText = ""
+                            isNewPromptFocused = true
+                        } label: {
+                            Label("Add Prompt", systemImage: "plus")
+                        }
+                    }
+                } header: {
+                    Text("Custom Prompts")
+                }
+
+                Section {
+                    ForEach(WritingPrompt.defaults) { prompt in
+                        Toggle(isOn: Binding(
+                            get: { isDefaultPromptEnabled(prompt) },
+                            set: { _ in toggleDefaultPrompt(prompt) }
+                        )) {
+                            Text(prompt.text)
+                                .font(.dandelionSecondary)
+                                .lineLimit(2)
+                        }
+                    }
+                } header: {
+                    HStack {
+                        Text("Curated Prompts")
+                        Spacer()
+                        Button(allDefaultPromptsEnabled() ? "Deselect All" : "Select All") {
+                            setAllDefaultPrompts(enabled: !allDefaultPromptsEnabled())
+                        }
+                        .font(.dandelionCaption)
+                        .buttonStyle(.plain)
+                    }
+                }
+            } else {
+                Section {
+                    Button {
+                        showPaywall = true
+                    } label: {
+                        HStack {
+                            Label("Add Prompt", systemImage: "plus")
+                            Spacer()
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Custom Prompts")
+                } footer: {
+                    Text("Create your own prompts with Dandelion Bloom.")
+                }
+
+                Section {
+                    ForEach(WritingPrompt.defaults) { prompt in
+                        Text(prompt.text)
+                            .font(.dandelionSecondary)
+                    }
+                } header: {
+                    Text("Curated Prompts")
+                }
+            }
+        }
+        .sheet(isPresented: $showPaywall) {
+            BloomPaywallView(onClose: { showPaywall = false })
+        }
+    }
+
+    private func saveNewPrompt() {
+        let trimmed = newPromptText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            cancelNewPrompt()
+            return
+        }
+        let newPrompt = CustomPrompt(text: trimmed)
+        modelContext.insert(newPrompt)
+        cancelNewPrompt()
+    }
+
+    private func cancelNewPrompt() {
+        isAddingPrompt = false
+        newPromptText = ""
+        isNewPromptFocused = false
+    }
+#endif
+
+    private var promptsList: some View {
+        let theme = appearance.theme
+
+        return List {
             if premium.isBloomUnlocked {
                 // Custom prompts section
                 Section {
@@ -140,14 +284,7 @@ struct PromptsSettingsView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(theme.background)
-        .navigationTitle("Prompts")
-        .navigationBarTitleDisplayMode(.inline)
-        .tint(theme.primary)
-        .toolbarBackground(theme.background, for: .navigationBar)
-        .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
+#if os(iOS)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
@@ -173,6 +310,7 @@ struct PromptsSettingsView: View {
         .sheet(isPresented: $showPaywall) {
             BloomPaywallView(onClose: { showPaywall = false })
         }
+#endif
     }
 
     private func savePrompt() {
@@ -200,14 +338,8 @@ struct PromptsSettingsView: View {
     }
 
     private func toggleDefaultPrompt(_ prompt: WritingPrompt) {
-        if let setting = defaultPromptSettings.first(where: { $0.promptId == prompt.id }) {
-            // Toggle existing setting
-            setting.isEnabled.toggle()
-        } else {
-            // Create new setting (disabled, since it was enabled by default)
-            let newSetting = DefaultPromptSetting(promptId: prompt.id, isEnabled: false)
-            modelContext.insert(newSetting)
-        }
+        let setting = upsertDefaultPromptSetting(promptId: prompt.id, defaultIsEnabled: true)
+        setting.isEnabled.toggle()
     }
 
     private func allDefaultPromptsEnabled() -> Bool {
@@ -215,16 +347,96 @@ struct PromptsSettingsView: View {
     }
 
     private func setAllDefaultPrompts(enabled: Bool) {
-        let settingsById = Dictionary(uniqueKeysWithValues: defaultPromptSettings.map { ($0.promptId, $0) })
         for prompt in WritingPrompt.defaults {
-            if let setting = settingsById[prompt.id] {
+            if let setting = defaultPromptSettings.first(where: { $0.promptId == prompt.id }) {
                 setting.isEnabled = enabled
             } else if !enabled {
-                modelContext.insert(DefaultPromptSetting(promptId: prompt.id, isEnabled: false))
+                let setting = upsertDefaultPromptSetting(promptId: prompt.id, defaultIsEnabled: false)
+                setting.isEnabled = false
             }
         }
     }
+
+    private func upsertDefaultPromptSetting(promptId: String, defaultIsEnabled: Bool) -> DefaultPromptSetting {
+        if let existing = defaultPromptSettings.first(where: { $0.promptId == promptId }) {
+            return existing
+        }
+        let setting = DefaultPromptSetting(promptId: promptId, isEnabled: defaultIsEnabled)
+        modelContext.insert(setting)
+        return setting
+    }
 }
+
+#if os(macOS)
+private struct MacPromptRow: View {
+    @Bindable var prompt: CustomPrompt
+    let onDelete: () -> Void
+    @State private var isEditing: Bool = false
+    @State private var editText: String = ""
+    @FocusState private var isEditFocused: Bool
+
+    var body: some View {
+        HStack {
+            if isEditing {
+                TextField("Edit prompt...", text: $editText)
+                    .textFieldStyle(.plain)
+                    .focused($isEditFocused)
+                    .onSubmit {
+                        saveEdit()
+                    }
+                    .onExitCommand {
+                        cancelEdit()
+                    }
+
+                Button("Save") {
+                    saveEdit()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                Button("Cancel") {
+                    cancelEdit()
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Toggle(isOn: $prompt.isActive) {
+                    Text(prompt.text)
+                }
+
+                Button {
+                    editText = prompt.text
+                    isEditing = true
+                    isEditFocused = true
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .buttonStyle(.borderless)
+
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+    }
+
+    private func saveEdit() {
+        let trimmed = editText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            prompt.text = trimmed
+        }
+        cancelEdit()
+    }
+
+    private func cancelEdit() {
+        isEditing = false
+        editText = ""
+        isEditFocused = false
+    }
+}
+#endif
 
 private struct PromptRow: View {
     @Bindable var prompt: CustomPrompt
@@ -274,10 +486,9 @@ private struct PromptEditorView: View {
             .padding(.top, DandelionSpacing.lg)
             .background(theme.background.ignoresSafeArea())
             .navigationTitle("Prompt")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(theme.background, for: .navigationBar)
-            .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
+            .dandelionNavigationBarStyle(background: theme.background, colorScheme: appearance.colorScheme)
             .toolbar {
+#if os(iOS)
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { onCancel() }
                         .foregroundColor(theme.secondary)
@@ -288,6 +499,18 @@ private struct PromptEditorView: View {
                         .foregroundColor(theme.primary)
                         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
+#else
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { onCancel() }
+                        .foregroundColor(theme.secondary)
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Save") { onSave() }
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(theme.primary)
+                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+#endif
             }
             .onAppear {
                 isFocused = true

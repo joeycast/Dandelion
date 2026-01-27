@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    let showsDoneButton: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(PremiumManager.self) private var premium
     @Environment(AppearanceManager.self) private var appearance
@@ -19,6 +20,10 @@ struct SettingsView: View {
         case appearance
         case sounds
         case appIcon
+    }
+
+    init(showsDoneButton: Bool = true) {
+        self.showsDoneButton = showsDoneButton
     }
 
     var body: some View {
@@ -97,25 +102,45 @@ struct SettingsView: View {
                     }
                     .toggleStyle(SwitchToggleStyle(tint: theme.accent))
                     .listRowBackground(theme.card)
+#if os(macOS)
+                    HStack {
+                        Image(systemName: "icloud")
+                            .foregroundColor(theme.secondary)
+                            .frame(width: 24)
+                        Text("CloudKit: Enabled")
+                            .foregroundColor(theme.secondary)
+                    }
+                    .font(.dandelionSecondary)
+                    .listRowBackground(theme.card)
+#endif
                 } header: {
                     Text("Debug")
                         .foregroundColor(theme.secondary)
                 }
 #endif
             }
-            .listStyle(.insetGrouped)
+            .dandelionListStyle()
             .scrollContentBackground(.hidden)
             .background(theme.background)
             .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(theme.background, for: .navigationBar)
-            .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
+            .dandelionNavigationBarStyle(background: theme.background, colorScheme: appearance.colorScheme)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
+                if showsDoneButton {
+#if os(iOS)
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .font(.system(size: 17, weight: .semibold))
                     }
-                    .font(.system(size: 17, weight: .semibold))
+#else
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .font(.system(size: 17, weight: .semibold))
+                    }
+#endif
                 }
             }
             .navigationDestination(for: Destination.self) { destination in
@@ -131,7 +156,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .presentationDetents([.large])
+        .dandelionSettingsSheetDetents()
         .sheet(isPresented: $showPaywall) {
             BloomPaywallView(onClose: { showPaywall = false })
         }

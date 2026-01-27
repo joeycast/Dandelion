@@ -14,9 +14,45 @@ struct AppearanceSettingsView: View {
     @State private var showPaywall: Bool = false
 
     var body: some View {
+#if os(macOS)
+        appearanceForm
+#else
+        appearanceList
+#endif
+    }
+
+#if os(macOS)
+    private var appearanceForm: some View {
+        Form {
+            Section {
+                ForEach(DandelionPalette.allCases) { palette in
+                    Button {
+                        selectPalette(palette)
+                    } label: {
+                        MacPaletteRow(palette: palette, isSelected: appearance.palette == palette)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            } header: {
+                Text("Color Palette")
+            } footer: {
+                if !premium.isBloomUnlocked {
+                    Text("Custom palettes included with Dandelion Bloom.")
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .sheet(isPresented: $showPaywall) {
+            BloomPaywallView(onClose: { showPaywall = false })
+        }
+    }
+#endif
+
+    private var appearanceList: some View {
         let theme = appearance.theme
 
-        List {
+        return List {
             Section {
                 ForEach(DandelionPalette.allCases) { palette in
                     Button {
@@ -40,46 +76,13 @@ struct AppearanceSettingsView: View {
                     .onTapGesture { showPaywall = true }
                 }
             }
-
-            /*
-            Section {
-                ForEach(DandelionStyle.allCases) { style in
-                    Button {
-                        selectStyle(style)
-                    } label: {
-                        HStack {
-                            Text(style.displayName)
-                                .foregroundColor(theme.text)
-                            Spacer()
-                            if appearance.style == style {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(theme.accent)
-                            } else if isStyleLocked(style) {
-                                Image(systemName: "lock.fill")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(theme.secondary)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .listRowBackground(theme.card)
-                }
-            } header: {
-                Text("Dandelion Style")
-                    .foregroundColor(theme.secondary)
-            }
-            */
         }
-        .listStyle(.insetGrouped)
+        .dandelionListStyle()
         .scrollContentBackground(.hidden)
         .background(theme.background)
         .navigationTitle("Appearance")
-        .navigationBarTitleDisplayMode(.inline)
         .tint(theme.primary)
-        .toolbarBackground(theme.background, for: .navigationBar)
-        .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
+        .dandelionNavigationBarStyle(background: theme.background, colorScheme: appearance.colorScheme)
         .sheet(isPresented: $showPaywall) {
             BloomPaywallView(onClose: { showPaywall = false })
         }
@@ -107,6 +110,48 @@ struct AppearanceSettingsView: View {
         !premium.isBloomUnlocked && style != .procedural
     }
 }
+
+#if os(macOS)
+private struct MacPaletteRow: View {
+    let palette: DandelionPalette
+    let isSelected: Bool
+    @Environment(PremiumManager.self) private var premium
+
+    var body: some View {
+        let previewTheme = AppearanceManager.theme(for: palette)
+        let isLocked = palette != .dark && !premium.isBloomUnlocked
+
+        HStack(spacing: DandelionSpacing.md) {
+            // Color preview chip
+            HStack(spacing: 0) {
+                Rectangle().fill(previewTheme.background)
+                Rectangle().fill(previewTheme.card)
+                Rectangle().fill(previewTheme.primary)
+            }
+            .frame(width: 48, height: 24)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+            )
+
+            Text(palette.displayName)
+
+            Spacer()
+
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.accentColor)
+            } else if isLocked {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+}
+#endif
 
 private struct PaletteRow: View {
     let palette: DandelionPalette

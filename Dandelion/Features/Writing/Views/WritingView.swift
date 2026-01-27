@@ -16,6 +16,7 @@ struct WritingView: View {
     let bottomSafeArea: CGFloat
     let onShowHistory: () -> Void
     let onSwipeEligibilityChange: (Bool) -> Void
+    let isActive: Bool
     @Environment(\.modelContext) private var modelContext
     @Environment(AppearanceManager.self) private var appearance
     @Environment(PremiumManager.self) private var premium
@@ -48,12 +49,14 @@ struct WritingView: View {
         topSafeArea: CGFloat = 0,
         bottomSafeArea: CGFloat = 0,
         onShowHistory: @escaping () -> Void = {},
-        onSwipeEligibilityChange: @escaping (Bool) -> Void = { _ in }
+        onSwipeEligibilityChange: @escaping (Bool) -> Void = { _ in },
+        isActive: Bool = true
     ) {
         self.topSafeArea = topSafeArea
         self.bottomSafeArea = bottomSafeArea
         self.onShowHistory = onShowHistory
         self.onSwipeEligibilityChange = onSwipeEligibilityChange
+        self.isActive = isActive
     }
 
     var body: some View {
@@ -241,6 +244,11 @@ struct WritingView: View {
         }
         .animation(DandelionAnimation.slow, value: viewModel.writingState)
         .onAppear {
+            if !isActive {
+                viewModel.blowDetection.stopListening()
+                viewModel.showBlowIndicator = false
+                ambientSound.stop()
+            }
             if isPromptVisible {
                 fadeInPrompt()
             }
@@ -269,6 +277,15 @@ struct WritingView: View {
         }
         .onChange(of: ambientSound.selectedSound) { _, _ in
             handleAmbientSound(for: viewModel.writingState)
+        }
+        .onChange(of: isActive) { _, newValue in
+            if newValue {
+                handleAmbientSound(for: viewModel.writingState)
+            } else {
+                viewModel.blowDetection.stopListening()
+                viewModel.showBlowIndicator = false
+                ambientSound.stop()
+            }
         }
         .onChange(of: viewModel.currentPrompt?.id) { _, _ in
             if isPromptVisible {
@@ -352,6 +369,7 @@ struct WritingView: View {
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
+#if os(iOS)
             HStack {
                 historyButton
                 Spacer()
@@ -359,6 +377,9 @@ struct WritingView: View {
             }
             .padding(.horizontal, DandelionSpacing.screenEdge)
             .frame(height: 32)
+#else
+            Color.clear.frame(height: 0)
+#endif
         }
     }
 
@@ -587,6 +608,10 @@ struct WritingView: View {
     }
 
     private func handleAmbientSound(for state: WritingState) {
+        guard isActive else {
+            ambientSound.stop()
+            return
+        }
         guard premium.isBloomUnlocked else {
             debugLog("WritingView: ambient stop (not premium)")
             ambientSound.stop()
@@ -834,7 +859,8 @@ struct WritingView: View {
                     detachedSeedTimes: viewModel.detachedSeedTimes,
                     seedRestoreStartTime: viewModel.seedRestoreStartTime,
                     seedRestoreDuration: viewModel.seedRestoreDuration,
-                    topOverflow: overflowHeight
+                    topOverflow: overflowHeight,
+                    isAnimating: isActive
                 )
                 .id(appearance.style)
                 .frame(height: height + overflowHeight)

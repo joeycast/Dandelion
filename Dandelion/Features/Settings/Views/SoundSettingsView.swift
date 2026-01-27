@@ -15,10 +15,80 @@ struct SoundSettingsView: View {
     @State private var showPaywall: Bool = false
 
     var body: some View {
+#if os(macOS)
+        soundsForm
+#else
+        soundsList
+#endif
+    }
+
+#if os(macOS)
+    private var soundsForm: some View {
+        @Bindable var ambientSound = ambientSound
+
+        return Form {
+            if premium.isBloomUnlocked {
+                Section {
+                    Toggle("Ambient Sounds", isOn: $ambientSound.isEnabled)
+                }
+
+                if ambientSound.isEnabled {
+                    Section {
+                        Picker("Sound", selection: $ambientSound.selectedSound) {
+                            ForEach(AmbientSound.allCases) { sound in
+                                Text(sound.displayName).tag(sound)
+                            }
+                        }
+                        .onChange(of: ambientSound.selectedSound) { _, _ in
+                            ambientSound.previewSelectedSound()
+                        }
+                    } header: {
+                        Text("Sound")
+                    }
+
+                    Section {
+                        HStack {
+                            Image(systemName: "speaker.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                            Slider(value: Binding(
+                                get: { Double(ambientSound.volume) },
+                                set: { ambientSound.volume = Float($0) }
+                            ), in: 0...1)
+                            Image(systemName: "speaker.wave.3.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                    } header: {
+                        Text("Volume")
+                    }
+                }
+            } else {
+                Section {
+                    ForEach(AmbientSound.allCases) { sound in
+                        Button(sound.displayName) {
+                            showPaywall = true
+                        }
+                    }
+                } header: {
+                    Text("Sounds")
+                } footer: {
+                    Text("Calming soundscapes to accompany your writing. Included with Dandelion Bloom.")
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .sheet(isPresented: $showPaywall) {
+            BloomPaywallView(onClose: { showPaywall = false })
+        }
+    }
+#endif
+
+    private var soundsList: some View {
         let theme = appearance.theme
         @Bindable var ambientSound = ambientSound
 
-        List {
+        return List {
             if premium.isBloomUnlocked {
                 Section {
                     Toggle(isOn: $ambientSound.isEnabled) {
@@ -114,14 +184,12 @@ struct SoundSettingsView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .dandelionListStyle()
         .scrollContentBackground(.hidden)
         .background(theme.background)
         .navigationTitle("Sounds")
-        .navigationBarTitleDisplayMode(.inline)
         .tint(theme.primary)
-        .toolbarBackground(theme.background, for: .navigationBar)
-        .toolbarColorScheme(appearance.colorScheme, for: .navigationBar)
+        .dandelionNavigationBarStyle(background: theme.background, colorScheme: appearance.colorScheme)
         .sheet(isPresented: $showPaywall) {
             BloomPaywallView(onClose: { showPaywall = false })
         }
