@@ -58,7 +58,9 @@ struct DandelionBloomView: View {
 
     var body: some View {
         let theme = appearance.theme
-        TimelineView(.animation(minimumInterval: nil, paused: !isAnimating)) { timeline in
+        let isIdleWind = detachedSeedTimes.isEmpty && seedRestoreStartTime == nil
+        let idleMinimumInterval: TimeInterval? = (isAnimating && isIdleWind) ? (1.0 / 30.0) : nil
+        TimelineView(.animation(minimumInterval: idleMinimumInterval, paused: !isAnimating)) { timeline in
             Canvas { context, size in
                 if isAnimating {
                     driver.step(to: timeline.date, windStrength: windStrength)
