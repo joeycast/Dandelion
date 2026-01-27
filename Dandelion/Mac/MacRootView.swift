@@ -74,6 +74,7 @@ struct MacRootView: View {
         .focusedSceneValue(\.togglePanelAction) { panelType in
             togglePanel(panelType)
         }
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
     }
 
     @ViewBuilder
