@@ -23,7 +23,11 @@ struct AppearanceSettingsView: View {
 
 #if os(macOS)
     private var appearanceForm: some View {
-        Form {
+        let reduceMotionBinding = Binding<Bool>(
+            get: { !appearance.isWindAnimationEnabled },
+            set: { appearance.isWindAnimationEnabled = !$0 }
+        )
+        return Form {
             Section {
                 ForEach(DandelionPalette.allCases) { palette in
                     Button {
@@ -41,6 +45,16 @@ struct AppearanceSettingsView: View {
                     Text("Custom palettes included with Dandelion Bloom.")
                 }
             }
+
+            Section {
+                Toggle(isOn: reduceMotionBinding) {
+                    Text("Reduce Motion")
+                }
+            } header: {
+                Text("Motion")
+            } footer: {
+                Text("Disables the dandelion wind animation to reduce motion and battery usage. Automatically enabled when system Reduce Motion or Low Power Mode is on.")
+            }
         }
         .formStyle(.grouped)
         .sheet(isPresented: $showPaywall) {
@@ -51,6 +65,10 @@ struct AppearanceSettingsView: View {
 
     private var appearanceList: some View {
         let theme = appearance.theme
+        let reduceMotionBinding = Binding<Bool>(
+            get: { !appearance.isWindAnimationEnabled },
+            set: { appearance.isWindAnimationEnabled = !$0 }
+        )
 
         return List {
             Section {
@@ -75,6 +93,21 @@ struct AppearanceSettingsView: View {
                     Text("."))
                     .onTapGesture { showPaywall = true }
                 }
+            }
+
+            Section {
+                Toggle(isOn: reduceMotionBinding) {
+                    Text("Reduce Motion")
+                        .foregroundColor(theme.text)
+                }
+                .toggleStyle(SwitchToggleStyle(tint: theme.accent))
+                .listRowBackground(theme.card)
+            } header: {
+                Text("Motion")
+                    .foregroundColor(theme.secondary)
+            } footer: {
+                Text("Disables the dandelion wind animation to reduce motion and battery usage. Automatically enabled when system Reduce Motion or Low Power Mode is on.")
+                    .foregroundColor(theme.secondary)
             }
         }
         .dandelionListStyle()

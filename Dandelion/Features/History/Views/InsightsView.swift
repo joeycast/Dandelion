@@ -13,6 +13,7 @@ struct InsightsView: View {
 
     @Environment(PremiumManager.self) private var premium
     @Environment(AppearanceManager.self) private var appearance
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showPaywall: Bool = false
     @State private var showCSVExporter: Bool = false
@@ -481,7 +482,13 @@ struct InsightsView: View {
         let theme = appearance.theme
 
         return VStack(spacing: DandelionSpacing.lg) {
-            DandelionBloomView(seedCount: 60, filamentsPerSeed: 12, windStrength: 0.4, style: .procedural)
+            DandelionBloomView(
+                seedCount: 60,
+                filamentsPerSeed: 12,
+                windStrength: 0.4,
+                style: .procedural,
+                isAnimating: appearance.isWindAnimationAllowed && !reduceMotion
+            )
                 .frame(height: 160)
 
             VStack(spacing: DandelionSpacing.sm) {

@@ -20,6 +20,7 @@ struct DandelionBloomView: View {
     private let staticRenderDate = Date(timeIntervalSinceReferenceDate: 0)
 
     @Environment(AppearanceManager.self) private var appearance
+    @Environment(\.scenePhase) private var scenePhase
     @State private var driver: DandelionSimulationDriver
 
     init(
@@ -59,24 +60,26 @@ struct DandelionBloomView: View {
     var body: some View {
         let theme = appearance.theme
         let isIdleWind = detachedSeedTimes.isEmpty && seedRestoreStartTime == nil
-        let idleMinimumInterval: TimeInterval? = (isAnimating && isIdleWind) ? (1.0 / 30.0) : nil
-        TimelineView(.animation(minimumInterval: idleMinimumInterval, paused: !isAnimating)) { timeline in
+        let isTimelineActive = isAnimating && scenePhase == .active
+        let idleMinimumInterval: TimeInterval? = (isTimelineActive && isIdleWind) ? (1.0 / 20.0) : nil
+        TimelineView(.animation(minimumInterval: idleMinimumInterval, paused: !isTimelineActive)) { timeline in
             Canvas { context, size in
-                if isAnimating {
+                if isTimelineActive {
                     driver.step(to: timeline.date, windStrength: windStrength)
                 }
                 DandelionRenderer.draw(
                     in: context,
                     size: size,
                     topOverflow: topOverflow,
-                    time: isAnimating ? timeline.date.timeIntervalSinceReferenceDate : staticRenderDate.timeIntervalSinceReferenceDate,
+                    time: isTimelineActive ? timeline.date.timeIntervalSinceReferenceDate : staticRenderDate.timeIntervalSinceReferenceDate,
                     simulation: driver.simulation,
                     windStrength: windStrength,
                     style: style,
                     theme: theme,
                     detachedSeedTimes: detachedSeedTimes,
                     seedRestoreStartTime: seedRestoreStartTime,
-                    seedRestoreDuration: seedRestoreDuration
+                    seedRestoreDuration: seedRestoreDuration,
+                    isIdleWind: isIdleWind
                 )
             }
         }
@@ -129,7 +132,8 @@ private enum DandelionRenderer {
         theme: DandelionTheme,
         detachedSeedTimes: [Int: TimeInterval],
         seedRestoreStartTime: TimeInterval?,
-        seedRestoreDuration: TimeInterval
+        seedRestoreDuration: TimeInterval,
+        isIdleWind: Bool
     ) {
         var context = context
         let windField = DandelionWindField()
@@ -140,6 +144,8 @@ private enum DandelionRenderer {
             duration: seedRestoreDuration
         )
         let effectiveDetachedSeedTimes = restoreProgress >= 1 ? [:] : detachedSeedTimes
+        let shouldSkipFadedDetachedSeeds = restoreProgress <= 0.0001
+        let flightFadeCutoff: TimeInterval = 4.0
 
         // Calculate visible height (total minus overflow) for positioning the dandelion
         let visibleHeight = size.height - topOverflow
@@ -175,7 +181,10 @@ private enum DandelionRenderer {
 
         for index in simulation.backSeedIndices {
             let seed = seeds[index]
-            if effectiveDetachedSeedTimes[seed.id] != nil {
+            if let detachedStart = effectiveDetachedSeedTimes[seed.id] {
+                if shouldSkipFadedDetachedSeeds && (time - detachedStart) > flightFadeCutoff {
+                    continue
+                }
                 detachedIndices.append(index)
                 continue
             }
@@ -194,7 +203,8 @@ private enum DandelionRenderer {
                 theme: theme,
                 detachment: detachmentState(for: seed, time: time, detachedSeedTimes: effectiveDetachedSeedTimes),
                 restoreProgress: restoreProgress,
-                restoreDuration: CGFloat(seedRestoreDuration)
+                restoreDuration: CGFloat(seedRestoreDuration),
+                isIdleWind: isIdleWind
             )
         }
 
@@ -202,7 +212,10 @@ private enum DandelionRenderer {
 
         for index in simulation.frontSeedIndices {
             let seed = seeds[index]
-            if effectiveDetachedSeedTimes[seed.id] != nil {
+            if let detachedStart = effectiveDetachedSeedTimes[seed.id] {
+                if shouldSkipFadedDetachedSeeds && (time - detachedStart) > flightFadeCutoff {
+                    continue
+                }
                 detachedIndices.append(index)
                 continue
             }
@@ -221,7 +234,8 @@ private enum DandelionRenderer {
                 theme: theme,
                 detachment: detachmentState(for: seed, time: time, detachedSeedTimes: effectiveDetachedSeedTimes),
                 restoreProgress: restoreProgress,
-                restoreDuration: CGFloat(seedRestoreDuration)
+                restoreDuration: CGFloat(seedRestoreDuration),
+                isIdleWind: isIdleWind
             )
         }
 
@@ -242,7 +256,8 @@ private enum DandelionRenderer {
                 theme: theme,
                 detachment: detachmentState(for: seed, time: time, detachedSeedTimes: effectiveDetachedSeedTimes),
                 restoreProgress: restoreProgress,
-                restoreDuration: CGFloat(seedRestoreDuration)
+                restoreDuration: CGFloat(seedRestoreDuration),
+                isIdleWind: isIdleWind
             )
         }
     }
@@ -378,7 +393,8 @@ private enum DandelionRenderer {
         theme: DandelionTheme,
         detachment: DetachmentState,
         restoreProgress: CGFloat,
-        restoreDuration: CGFloat
+        restoreDuration: CGFloat,
+        isIdleWind: Bool
     ) {
         let depthFactor = (seed.depth + 1) * 0.5
         let depthScale = 0.78 + depthFactor * 0.32
@@ -737,9 +753,11 @@ private struct DandelionSeed: Identifiable {
 
         for i in 0..<filamentCount {
             let base = (CGFloat(i) / CGFloat(filamentCount)) * (2 * .pi)
-            filamentAngles.append(base + random(in: -0.08...0.08, using: &rng))
+            let angle = base + random(in: -0.08...0.08, using: &rng)
+            filamentAngles.append(angle)
             filamentPhases.append(random(in: 0...(.pi * 2), using: &rng))
-            filamentLengths.append(random(in: 0.82...1.12, using: &rng))
+            let lengthScale = random(in: 0.82...1.12, using: &rng)
+            filamentLengths.append(lengthScale)
         }
 
         return DandelionSeed(

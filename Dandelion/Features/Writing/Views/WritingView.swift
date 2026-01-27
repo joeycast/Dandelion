@@ -21,6 +21,7 @@ struct WritingView: View {
     @Environment(AppearanceManager.self) private var appearance
     @Environment(PremiumManager.self) private var premium
     @Environment(AmbientSoundService.self) private var ambientSound
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \CustomPrompt.createdAt) private var customPrompts: [CustomPrompt]
     @Query private var defaultPromptSettings: [DefaultPromptSetting]
     @State private var viewModel = WritingViewModel()
@@ -872,6 +873,12 @@ struct WritingView: View {
         // Use Color.clear as layout placeholder, with DandelionBloomView overlaid
         // This allows seeds to fly upward beyond the layout bounds without clipping
         let overflowHeight: CGFloat = 500
+        let hasReleaseAnimation = viewModel.writingState == .releasing
+            || !viewModel.detachedSeedTimes.isEmpty
+            || viewModel.seedRestoreStartTime != nil
+        let isWindAnimating = appearance.isWindAnimationAllowed && !reduceMotion
+            ? (isDandelionWindAnimating || hasReleaseAnimation)
+            : hasReleaseAnimation
         return Color.clear
             .frame(height: height)
             .overlay(alignment: .bottom) {
@@ -882,7 +889,7 @@ struct WritingView: View {
                     seedRestoreStartTime: viewModel.seedRestoreStartTime,
                     seedRestoreDuration: viewModel.seedRestoreDuration,
                     topOverflow: overflowHeight,
-                    isAnimating: isActive && isDandelionWindAnimating
+                    isAnimating: isActive && isWindAnimating
                 )
                 .id(appearance.style)
                 .frame(height: height + overflowHeight)

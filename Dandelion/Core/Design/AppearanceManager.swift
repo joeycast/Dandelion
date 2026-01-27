@@ -58,6 +58,7 @@ final class AppearanceManager {
     private enum Keys {
         static let palette = "com.dandelion.palette"
         static let style = "com.dandelion.style"
+        static let windAnimationEnabled = "com.dandelion.windAnimationEnabled"
     }
 
     var palette: DandelionPalette {
@@ -70,6 +71,17 @@ final class AppearanceManager {
         didSet {
             UserDefaults.standard.set(style.rawValue, forKey: Keys.style)
         }
+    }
+
+    var isWindAnimationEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isWindAnimationEnabled, forKey: Keys.windAnimationEnabled)
+        }
+    }
+
+    private(set) var isLowPowerModeEnabled: Bool = ProcessInfo.processInfo.isLowPowerModeEnabled
+    var isWindAnimationAllowed: Bool {
+        isWindAnimationEnabled && !isLowPowerModeEnabled
     }
 
     var theme: DandelionTheme {
@@ -149,5 +161,33 @@ final class AppearanceManager {
         } else {
             self.style = .procedural
         }
+
+        if UserDefaults.standard.object(forKey: Keys.windAnimationEnabled) != nil {
+            self.isWindAnimationEnabled = UserDefaults.standard.bool(
+                forKey: Keys.windAnimationEnabled
+            )
+        } else {
+            self.isWindAnimationEnabled = true
+        }
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handlePowerStateDidChange),
+            name: Notification.Name.NSProcessInfoPowerStateDidChange,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(
+            self,
+            name: Notification.Name.NSProcessInfoPowerStateDidChange,
+            object: nil
+        )
+    }
+
+    @MainActor
+    @objc private func handlePowerStateDidChange() {
+        isLowPowerModeEnabled = ProcessInfo.processInfo.isLowPowerModeEnabled
     }
 }
