@@ -164,15 +164,21 @@ private enum DandelionRenderer {
         )
 
         let seeds = simulation.seeds
-        let attachedSeeds = seeds.filter { effectiveDetachedSeedTimes[$0.id] == nil }
-        let detachedSeeds = seeds.filter { effectiveDetachedSeedTimes[$0.id] != nil }
-        let backSeeds = attachedSeeds.filter { $0.depth < 0 }
-        let frontSeeds = attachedSeeds.filter { $0.depth >= 0 }
 
         // Calculate visible size for flight animations (excludes overflow area)
         let visibleSize = CGSize(width: size.width, height: visibleHeight)
 
-        for seed in backSeeds {
+        var detachedIndices: [Int] = []
+        if !effectiveDetachedSeedTimes.isEmpty {
+            detachedIndices.reserveCapacity(effectiveDetachedSeedTimes.count)
+        }
+
+        for index in simulation.backSeedIndices {
+            let seed = seeds[index]
+            if effectiveDetachedSeedTimes[seed.id] != nil {
+                detachedIndices.append(index)
+                continue
+            }
             drawSeed(
                 seed,
                 in: &context,
@@ -194,7 +200,12 @@ private enum DandelionRenderer {
 
         drawCore(in: &context, center: headCenter, radius: headRadius, style: style, theme: theme, time: t)
 
-        for seed in frontSeeds {
+        for index in simulation.frontSeedIndices {
+            let seed = seeds[index]
+            if effectiveDetachedSeedTimes[seed.id] != nil {
+                detachedIndices.append(index)
+                continue
+            }
             drawSeed(
                 seed,
                 in: &context,
@@ -214,7 +225,8 @@ private enum DandelionRenderer {
             )
         }
 
-        for seed in detachedSeeds {
+        for index in detachedIndices {
+            let seed = seeds[index]
             drawSeed(
                 seed,
                 in: &context,
@@ -569,6 +581,8 @@ private struct DetachmentState {
 
 private struct DandelionSimulation {
     var seeds: [DandelionSeed]
+    let backSeedIndices: [Int]
+    let frontSeedIndices: [Int]
     var stemAngle: CGFloat = 0
     private var stemVelocity: CGFloat = 0
     private var lastUpdate: TimeInterval?
@@ -578,17 +592,27 @@ private struct DandelionSimulation {
         var rng = SeededRandomNumberGenerator(seed: 0xDA11_F0AD)
         var seeds: [DandelionSeed] = []
         seeds.reserveCapacity(seedCount)
+        var backSeedIndices: [Int] = []
+        var frontSeedIndices: [Int] = []
+        backSeedIndices.reserveCapacity(seedCount / 2)
+        frontSeedIndices.reserveCapacity(seedCount / 2)
         for index in 0..<seedCount {
-            seeds.append(
-                DandelionSeed.make(
-                    index: index,
-                    total: seedCount,
-                    filamentsPerSeed: filamentsPerSeed,
-                    rng: &rng
-                )
+            let seed = DandelionSeed.make(
+                index: index,
+                total: seedCount,
+                filamentsPerSeed: filamentsPerSeed,
+                rng: &rng
             )
+            seeds.append(seed)
+            if seed.depth < 0 {
+                backSeedIndices.append(index)
+            } else {
+                frontSeedIndices.append(index)
+            }
         }
         self.seeds = seeds
+        self.backSeedIndices = backSeedIndices
+        self.frontSeedIndices = frontSeedIndices
     }
 
     mutating func step(to date: Date, windStrength: CGFloat) {
