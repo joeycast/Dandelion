@@ -345,7 +345,12 @@ struct WritingView: View {
     }
 
     private func contentView(in size: CGSize, safeAreaBottom: CGFloat, safeAreaTop: CGFloat, headerSpaceHeight: CGFloat, fullScreenSize: CGSize) -> some View {
+#if os(macOS)
+        // On macOS, bring buttons up closer to center for better balance
+        let promptBottomPadding = max(size.height * 0.15, 100)
+#else
         let promptBottomPadding = safeAreaBottom + DandelionSpacing.lg
+#endif
         _ = safeAreaTop
 
         return ZStack(alignment: .bottom) {

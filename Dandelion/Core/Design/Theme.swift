@@ -134,9 +134,15 @@ enum DandelionLayout {
     // MARK: - Positioning Helpers
 
     /// Calculate the proportional offset used to center the dandelion on prompt/release states.
-    /// Capped at 80pt to prevent excessive offset on large screens (iPads).
+    /// iOS: Capped at 80pt to prevent excessive offset on large screens (iPads).
+    /// macOS: Uses larger offset to better center content on spacious desktop windows.
     static func proportionalOffset(screenHeight: CGFloat) -> CGFloat {
+#if os(macOS)
+        // On macOS, push content down more to center it in larger windows
+        return min(screenHeight * 0.15, 180)
+#else
         return min(screenHeight * 0.08, 80)
+#endif
     }
 }
 
