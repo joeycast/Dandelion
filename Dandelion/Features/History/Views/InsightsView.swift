@@ -27,6 +27,13 @@ struct InsightsView: View {
 
         ScrollView {
             VStack(spacing: DandelionSpacing.lg) {
+#if os(macOS)
+                // On macOS, place share button inline at top right of content
+                HStack {
+                    Spacer()
+                    exportMenu(insights: insights)
+                }
+#endif
                 if releases.isEmpty {
                     emptyState
                 } else if premium.isBloomUnlocked {
@@ -47,17 +54,14 @@ struct InsightsView: View {
             .padding(.bottom, DandelionSpacing.xxl)
         }
         .background(theme.background.ignoresSafeArea())
-        .toolbar {
 #if os(iOS)
+        .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 exportMenu(insights: insights)
+                    .modifier(LiquidGlassToolbarButtonModifier())
             }
-#else
-            ToolbarItem(placement: .primaryAction) {
-                exportMenu(insights: insights)
-            }
-#endif
         }
+#endif
         .sheet(isPresented: $showPaywall) {
             BloomPaywallView(onClose: { showPaywall = false })
         }

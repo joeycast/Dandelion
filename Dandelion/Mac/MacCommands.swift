@@ -10,7 +10,7 @@ import SwiftUI
 #if os(macOS)
 struct MacCommands: Commands {
     @Environment(\.openSettings) private var openSettings
-    @FocusedValue(\.openWindowAction) var openWindowAction
+    @FocusedValue(\.togglePanelAction) var togglePanelAction
 
     var body: some Commands {
         CommandGroup(replacing: .appSettings) {
@@ -21,17 +21,17 @@ struct MacCommands: Commands {
         }
 
         CommandMenu("View") {
-            Button("Show History") {
-                openWindowAction?("history")
+            Button("Toggle History") {
+                togglePanelAction?(.history)
             }
             .keyboardShortcut("h", modifiers: [.command, .shift])
-            .disabled(openWindowAction == nil)
+            .disabled(togglePanelAction == nil)
 
-            Button("Show Insights") {
-                openWindowAction?("insights")
+            Button("Toggle Insights") {
+                togglePanelAction?(.insights)
             }
             .keyboardShortcut("i", modifiers: [.command, .shift])
-            .disabled(openWindowAction == nil)
+            .disabled(togglePanelAction == nil)
         }
     }
 }

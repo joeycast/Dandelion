@@ -63,13 +63,16 @@ struct ReleaseHistoryView: View {
             .navigationBarTitleDisplayMode(.inline)
 #endif
             .toolbar {
+#if os(iOS)
                 ToolbarItem(placement: .cancellationAction) {
                     Button {
                         onNavigateToWriting()
                     } label: {
                         Image(systemName: "xmark")
                     }
+                    .modifier(LiquidGlassToolbarButtonModifier())
                 }
+#endif
                 if showsTabs {
                     ToolbarItem(placement: .principal) {
                         Picker("Tab", selection: $selectedTab) {
