@@ -78,6 +78,7 @@ struct MacRootView: View {
         }
         .toolbarColorScheme(appearance.colorScheme, for: .windowToolbar)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .frame(minWidth: 680, minHeight: 560)
     }
 
     @ViewBuilder
