@@ -48,6 +48,18 @@ struct WritingView: View {
     @State private var isDandelionWindAnimating: Bool = true
     @State private var dandelionWindAnimationTask: Task<Void, Never>?
 
+    private struct LayoutMetrics {
+        let safeAreaTop: CGFloat
+        let safeAreaBottom: CGFloat
+        let fullScreenSize: CGSize
+        let dandelionHeight: CGFloat
+        let dandelionTopPadding: CGFloat
+        let releaseDandelionTop: CGFloat
+        let effectiveDandelionTopPadding: CGFloat
+        let headerSpaceHeight: CGFloat
+        let promptMessageTopPadding: CGFloat
+    }
+
     init(
         topSafeArea: CGFloat = 0,
         bottomSafeArea: CGFloat = 0,
@@ -64,186 +76,7 @@ struct WritingView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let safeAreaTop = topSafeArea
-            let safeAreaBottom = max(bottomSafeArea, geometry.safeAreaInsets.bottom)
-            let fullScreenSize = CGSize(
-                width: geometry.size.width,
-                height: geometry.size.height + safeAreaTop + safeAreaBottom
-            )
-
-            // Dandelion sizing
-            let dandelionSmallHeight = DandelionLayout.dandelionSmallHeight
-            let dandelionLargeHeight = DandelionLayout.dandelionLargeHeight
-            // Size: large on prompt, small during writing, grows back when returning
-            let dandelionHeight: CGFloat = (isPromptState || viewModel.isDandelionReturning)
-                ? dandelionLargeHeight
-                : dandelionSmallHeight
-
-            // Dandelion positioning
-            let dandelionBaseTop = safeAreaTop + DandelionLayout.minTopMargin
-            let proportionalOffset = DandelionLayout.proportionalOffset(screenHeight: geometry.size.height)
-            // Prompt/release: dandelion moves down with proportional offset for visual centering
-            // Writing: dandelion stays at base position (closer to top)
-            let dandelionTopPadding: CGFloat = (isPromptState || viewModel.isDandelionReturning || isReleasing)
-                ? dandelionBaseTop + proportionalOffset
-                : dandelionBaseTop
-            let releaseDandelionTop = dandelionBaseTop + proportionalOffset
-            let effectiveDandelionTopPadding = isReleasing
-                ? (releaseDandelionTopPadding ?? lastWritingDandelionTopPadding)
-                : dandelionTopPadding
-
-            // Content header space - position text directly below the VISUAL dandelion
-            // Prompt state: large dandelion, use 0.80 ratio (slightly above stem end)
-            let promptHeaderSpace = DandelionLayout.minTopMargin
-                + proportionalOffset
-                + (dandelionLargeHeight * 0.80)
-                + DandelionLayout.dandelionToTextSpacing
-            // Writing state: small dandelion, use 0.50 ratio (tighter to head)
-            let writingHeaderSpace = DandelionLayout.minTopMargin
-                + (dandelionSmallHeight * 0.40)
-                + DandelionLayout.dandelionToTextSpacing
-            let headerSpaceHeight = (isPromptState || viewModel.isDandelionReturning) ? promptHeaderSpace : writingHeaderSpace
-
-            // Release message position - uses 0.92 ratio (perfect per user feedback)
-            let releaseDandelionVisualBottom = releaseDandelionTop + (dandelionLargeHeight * 0.92)
-            let promptMessageTopPadding = releaseDandelionVisualBottom + DandelionLayout.dandelionToTextSpacing
-
-            ZStack {
-                // Background
-                appearance.theme.background
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        isTextEditorFocused = false
-                    }
-
-                Group {
-                    // Content (prompt text, writing area, buttons) - fades in/out
-                    contentView(
-                        in: geometry.size,
-                        safeAreaBottom: safeAreaBottom,
-                        safeAreaTop: safeAreaTop,
-                        headerSpaceHeight: headerSpaceHeight,
-                        fullScreenSize: fullScreenSize
-                    )
-                        .safeAreaInset(edge: .bottom, spacing: 0) {
-                            if isWriting || isReleasing {
-                                bottomBar(bottomInset: safeAreaBottom)
-                                    // Animate in normally, but disappear instantly to avoid
-                                    // clipping through the appearing prompt buttons
-                                    .transition(.asymmetric(
-                                        insertion: .opacity,
-                                        removal: .identity
-                                    ))
-                            }
-                        }
-
-                    // Single persistent dandelion - lives above all content, animates size and position
-                    VStack {
-                        dandelionIllustration(height: dandelionHeight)
-                        Spacer()
-                    }
-                    .padding(.top, effectiveDandelionTopPadding)
-                    .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
-                    .animation(.easeInOut(duration: 1.2), value: isPromptState)
-                    .animation(.easeInOut(duration: 1.2), value: dandelionHeight)
-                    .animation(.easeInOut(duration: 1.2), value: viewModel.isDandelionReturning)
-                    .animation(.easeInOut(duration: 1.2), value: releaseDandelionTopPadding)
-                    .animation(nil, value: viewModel.writingState)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-
-                    // Release message overlay
-                    if isReleasing {
-                        ReleaseMessageView(
-                            releaseMessage: viewModel.currentReleaseMessage.text,
-                            messageTopPadding: promptMessageTopPadding,
-                            onMessageAppear: {
-                                withAnimation(.easeInOut(duration: 1.2)) {
-                                    releaseDandelionTopPadding = releaseDandelionTop
-                                }
-                                viewModel.startDandelionReturn()
-                            },
-                            onMessageFadeStart: {
-                                viewModel.startSeedRestoreNow()
-                            },
-                            onComplete: {}
-                        )
-                        .ignoresSafeArea()
-                        .onAppear {
-                            if WritingViewModel.debugReleaseFlow {
-                                debugLog("[ReleaseFlow] ReleaseMessageView onAppear")
-                            }
-                        }
-                        .onDisappear {
-                            if WritingViewModel.debugReleaseFlow {
-                                debugLog("[ReleaseFlow] ReleaseMessageView onDisappear")
-                            }
-                        }
-                        .zIndex(1)
-                        .allowsHitTesting(false)
-                    }
-                }
-                .opacity(mainContentOpacity)
-            }
-            .onChange(of: viewModel.writingState) { _, newValue in
-                if WritingViewModel.debugReleaseFlow {
-                    debugLog(
-                        "[ReleaseFlow] writingState -> \(newValue) prompt=\(viewModel.currentPrompt?.id ?? "nil")"
-                    )
-                }
-                if newValue == .releasing {
-                    // Capture scroll offset only if keyboard is still up (blow-triggered release).
-                    // For manual release, the button action already captured it before dismissing keyboard.
-                    if isTextEditorFocused {
-                        capturedScrollOffset = textScrollOffset
-                    }
-                    releaseDandelionTopPadding = lastWritingDandelionTopPadding
-                    releaseTextSnapshot = viewModel.writtenText
-                    showAnimatedText = true
-                    releaseVisibleHeight = lastWritingAreaHeight
-                    if WritingViewModel.debugReleaseFlow {
-                        debugLog(
-                            "[ReleaseFlow] release heights snapshot area=\(lastWritingAreaHeight) visible=\(releaseVisibleHeight)"
-                        )
-                    }
-                    showWrittenText = false
-                    viewModel.beginReleaseDetachment()
-                    animateLetters = true
-                    // Start with clip at bounds, then animate it open to release characters upward
-                    releaseClipOffset = 0
-                    withAnimation(.easeInOut(duration: 2.0)) {
-                        releaseClipOffset = 200
-                    }
-                }
-                // Update focus state after releasing check (so we can detect if keyboard was up)
-                isTextEditorFocused = newValue == .writing
-                if newValue == .writing {
-                    lastWritingDandelionTopPadding = dandelionTopPadding
-                    // Show hint on first time writing
-                    if !hasSeenLetGoHint {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            withAnimation(.easeOut(duration: 0.3)) {
-                                showLetGoHint = true
-                            }
-                            hasSeenLetGoHint = true
-                        }
-                    }
-                }
-                if newValue == .prompt || newValue == .complete || newValue == .writing {
-                    animateLetters = false
-                    releaseDandelionTopPadding = nil
-                    showWrittenText = true
-                    showAnimatedText = false
-                    releaseVisibleHeight = 0
-                    releaseClipOffset = 0
-                }
-                // Don't fade prompt on state change - let the prompt ID change handler do it
-                // This prevents double-animation when transitioning from release to prompt
-                if newValue == .writing {
-                    promptOpacity = 1
-                }
-                onSwipeEligibilityChange(isPromptVisible)
-            }
+            writingLayoutView(in: geometry)
         }
         .animation(DandelionAnimation.slow, value: viewModel.writingState)
         .onAppear {
@@ -320,6 +153,171 @@ struct WritingView: View {
         }
     }
 
+    @ViewBuilder
+    private func writingLayoutView(in geometry: GeometryProxy) -> some View {
+        let layout = layoutMetrics(in: geometry)
+
+        ZStack {
+            // Background
+            appearance.theme.background
+                .ignoresSafeArea()
+                .onTapGesture {
+                    isTextEditorFocused = false
+                }
+
+            Group {
+                // Content (prompt text, writing area, buttons) - fades in/out
+                contentView(
+                    in: geometry.size,
+                    safeAreaBottom: layout.safeAreaBottom,
+                    safeAreaTop: layout.safeAreaTop,
+                    headerSpaceHeight: layout.headerSpaceHeight,
+                    fullScreenSize: layout.fullScreenSize
+                )
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        if isWriting || isReleasing {
+                            bottomBar(bottomInset: layout.safeAreaBottom)
+                                // Animate in normally, but disappear instantly to avoid
+                                // clipping through the appearing prompt buttons
+                                .transition(.asymmetric(
+                                    insertion: .opacity,
+                                    removal: .identity
+                                ))
+                        }
+                    }
+
+                // Single persistent dandelion - lives above all content, animates size and position
+                VStack {
+                    dandelionIllustration(height: layout.dandelionHeight)
+                    Spacer()
+                }
+                .padding(.top, layout.effectiveDandelionTopPadding)
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+                .animation(.easeInOut(duration: 1.2), value: isPromptState)
+                .animation(.easeInOut(duration: 1.2), value: layout.dandelionHeight)
+                .animation(.easeInOut(duration: 1.2), value: viewModel.isDandelionReturning)
+                .animation(.easeInOut(duration: 1.2), value: releaseDandelionTopPadding)
+                .animation(nil, value: viewModel.writingState)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+
+                // Release message overlay
+                if isReleasing {
+                    releaseMessageOverlay(layout: layout)
+                }
+            }
+            .opacity(mainContentOpacity)
+        }
+        .onChange(of: viewModel.writingState) { _, newValue in
+            if WritingViewModel.debugReleaseFlow {
+                debugLog(
+                    "[ReleaseFlow] writingState -> \(newValue) prompt=\(viewModel.currentPrompt?.id ?? "nil")"
+                )
+            }
+            if newValue == .releasing {
+                // Capture scroll offset only if keyboard is still up (blow-triggered release).
+                // For manual release, the button action already captured it before dismissing keyboard.
+                if isTextEditorFocused {
+                    capturedScrollOffset = textScrollOffset
+                }
+                releaseDandelionTopPadding = lastWritingDandelionTopPadding
+                releaseTextSnapshot = viewModel.writtenText
+                showAnimatedText = true
+                releaseVisibleHeight = lastWritingAreaHeight
+                if WritingViewModel.debugReleaseFlow {
+                    debugLog(
+                        "[ReleaseFlow] release heights snapshot area=\(lastWritingAreaHeight) visible=\(releaseVisibleHeight)"
+                    )
+                }
+                showWrittenText = false
+                viewModel.beginReleaseDetachment()
+                animateLetters = true
+                // Start with clip at bounds, then animate it open to release characters upward
+                releaseClipOffset = 0
+                withAnimation(.easeInOut(duration: 2.0)) {
+                    releaseClipOffset = 200
+                }
+            }
+            // Update focus state after releasing check (so we can detect if keyboard was up)
+            isTextEditorFocused = newValue == .writing
+            if newValue == .writing {
+                lastWritingDandelionTopPadding = layout.dandelionTopPadding
+                // Show hint on first time writing
+                if !hasSeenLetGoHint {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            showLetGoHint = true
+                        }
+                        hasSeenLetGoHint = true
+                    }
+                }
+            }
+            if newValue == .prompt || newValue == .complete || newValue == .writing {
+                animateLetters = false
+                releaseDandelionTopPadding = nil
+                showWrittenText = true
+                showAnimatedText = false
+                releaseVisibleHeight = 0
+                releaseClipOffset = 0
+            }
+            // Don't fade prompt on state change - let the prompt ID change handler do it
+            // This prevents double-animation when transitioning from release to prompt
+            if newValue == .writing {
+                promptOpacity = 1
+            }
+            onSwipeEligibilityChange(isPromptVisible)
+        }
+    }
+
+    private func releaseMessageOverlay(layout: LayoutMetrics) -> some View {
+        #if os(macOS)
+        let base = ReleaseMessageView(
+            releaseMessage: viewModel.currentReleaseMessage.text,
+            messageTopPadding: layout.promptMessageTopPadding,
+            onMessageAppear: {
+                withAnimation(.easeInOut(duration: 1.2)) {
+                    releaseDandelionTopPadding = layout.releaseDandelionTop
+                }
+                viewModel.startDandelionReturn()
+            },
+            onMessageFadeStart: {
+                viewModel.startSeedRestoreNow()
+            },
+            onComplete: {}
+        )
+        #else
+        let base = ReleaseMessageView(
+            releaseMessage: viewModel.currentReleaseMessage.text,
+            messageTopPadding: layout.promptMessageTopPadding,
+            onMessageAppear: {
+                withAnimation(.easeInOut(duration: 1.2)) {
+                    releaseDandelionTopPadding = layout.releaseDandelionTop
+                }
+                viewModel.startDandelionReturn()
+            },
+            onMessageFadeStart: {
+                viewModel.startSeedRestoreNow()
+            },
+            onComplete: {}
+        )
+        .ignoresSafeArea()
+        #endif
+
+        return base
+            .onAppear {
+                if WritingViewModel.debugReleaseFlow {
+                    debugLog("[ReleaseFlow] ReleaseMessageView onAppear")
+                }
+            }
+            .onDisappear {
+                if WritingViewModel.debugReleaseFlow {
+                    debugLog("[ReleaseFlow] ReleaseMessageView onDisappear")
+                }
+            }
+            .zIndex(1)
+            .allowsHitTesting(false)
+    }
+
     private var isPromptState: Bool {
         viewModel.writingState == .prompt || viewModel.writingState == .complete
     }
@@ -342,6 +340,55 @@ struct WritingView: View {
 
     private var theme: DandelionTheme {
         appearance.theme
+    }
+
+    private func layoutMetrics(in geometry: GeometryProxy) -> LayoutMetrics {
+        let safeAreaTop = topSafeArea
+        let safeAreaBottom = max(bottomSafeArea, geometry.safeAreaInsets.bottom)
+        let fullScreenSize = CGSize(
+            width: geometry.size.width,
+            height: geometry.size.height + safeAreaTop + safeAreaBottom
+        )
+
+        let dandelionSmallHeight = DandelionLayout.dandelionSmallHeight
+        let dandelionLargeHeight = DandelionLayout.dandelionLargeHeight
+        let dandelionHeight: CGFloat = (isPromptState || viewModel.isDandelionReturning)
+            ? dandelionLargeHeight
+            : dandelionSmallHeight
+
+        let dandelionBaseTop = safeAreaTop + DandelionLayout.minTopMargin
+        let proportionalOffset = DandelionLayout.proportionalOffset(screenHeight: geometry.size.height)
+        let dandelionTopPadding: CGFloat = (isPromptState || viewModel.isDandelionReturning || isReleasing)
+            ? dandelionBaseTop + proportionalOffset
+            : dandelionBaseTop
+        let releaseDandelionTop = dandelionBaseTop + proportionalOffset
+        let effectiveDandelionTopPadding = isReleasing
+            ? (releaseDandelionTopPadding ?? lastWritingDandelionTopPadding)
+            : dandelionTopPadding
+
+        let promptHeaderSpace = DandelionLayout.minTopMargin
+            + proportionalOffset
+            + (dandelionLargeHeight * 0.80)
+            + DandelionLayout.dandelionToTextSpacing
+        let writingHeaderSpace = DandelionLayout.minTopMargin
+            + (dandelionSmallHeight * 0.40)
+            + DandelionLayout.dandelionToTextSpacing
+        let headerSpaceHeight = (isPromptState || viewModel.isDandelionReturning) ? promptHeaderSpace : writingHeaderSpace
+
+        let releaseDandelionVisualBottom = releaseDandelionTop + (dandelionLargeHeight * 0.92)
+        let promptMessageTopPadding = releaseDandelionVisualBottom + DandelionLayout.dandelionToTextSpacing
+
+        return LayoutMetrics(
+            safeAreaTop: safeAreaTop,
+            safeAreaBottom: safeAreaBottom,
+            fullScreenSize: fullScreenSize,
+            dandelionHeight: dandelionHeight,
+            dandelionTopPadding: dandelionTopPadding,
+            releaseDandelionTop: releaseDandelionTop,
+            effectiveDandelionTopPadding: effectiveDandelionTopPadding,
+            headerSpaceHeight: headerSpaceHeight,
+            promptMessageTopPadding: promptMessageTopPadding
+        )
     }
 
     private func contentView(in size: CGSize, safeAreaBottom: CGFloat, safeAreaTop: CGFloat, headerSpaceHeight: CGFloat, fullScreenSize: CGSize) -> some View {
