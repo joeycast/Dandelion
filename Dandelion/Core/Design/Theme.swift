@@ -131,6 +131,9 @@ enum DandelionLayout {
     /// Top safe area inset offset used for buttons (history/settings)
     static let topButtonsHeight: CGFloat = 32
 
+    /// Maximum writing line width on macOS to keep text readable in wide windows.
+    static let maxWritingWidth: CGFloat = 720
+
     // MARK: - Positioning Helpers
 
     /// Calculate the proportional offset used to center the dandelion on prompt/release states.

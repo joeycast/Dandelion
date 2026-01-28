@@ -470,7 +470,15 @@ struct WritingView: View {
         VStack(spacing: 0) {
             // Text editor fills available space
             GeometryReader { geometry in
-                let horizontalPadding = DandelionSpacing.screenEdge - 5
+                let baseHorizontalPadding = DandelionSpacing.screenEdge - 5
+#if os(macOS)
+                let horizontalPadding = max(
+                    baseHorizontalPadding,
+                    (geometry.size.width - DandelionLayout.maxWritingWidth) / 2
+                )
+#else
+                let horizontalPadding = baseHorizontalPadding
+#endif
                 let size = geometry.size
                 let lineWidth = geometry.size.width - (horizontalPadding * 2)
                 let overlayVisibleHeight = isReleasing
