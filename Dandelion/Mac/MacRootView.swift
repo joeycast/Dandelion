@@ -16,6 +16,8 @@ struct MacRootView: View {
     @Query(sort: \Release.timestamp) private var releases: [Release]
 
     @State private var activePanel: MacPanelType?
+    @State private var isInspectorPresented: Bool = false
+    @State private var closeTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -65,8 +67,8 @@ struct MacRootView: View {
             }
         }
         .inspector(isPresented: Binding(
-            get: { activePanel != nil },
-            set: { if !$0 { activePanel = nil } }
+            get: { isInspectorPresented },
+            set: { if !$0 { closeInspector(animated: true) } }
         )) {
             inspectorContent
                 .inspectorColumnWidth(min: 350, ideal: 400, max: 500)
@@ -98,17 +100,44 @@ struct MacRootView: View {
     }
 
     private func togglePanel(_ panelType: MacPanelType) {
-        withAnimation(.easeInOut(duration: 0.25)) {
-            if activePanel == panelType {
-                activePanel = nil
-            } else {
-                activePanel = panelType
+        if activePanel == panelType {
+            closeInspector(animated: true)
+            return
+        }
+
+        if activePanel == nil {
+            activePanel = panelType
+            withAnimation(.easeInOut(duration: 0.25)) {
+                isInspectorPresented = true
+            }
+        } else {
+            // Avoid animating a full content swap while the inspector is open.
+            activePanel = panelType
+            if !isInspectorPresented {
+                isInspectorPresented = true
             }
         }
     }
 
     private var isMacBloomLocked: Bool {
         !premium.isBloomUnlocked
+    }
+
+    private func closeInspector(animated: Bool) {
+        closeTask?.cancel()
+        if animated {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                isInspectorPresented = false
+            }
+        } else {
+            isInspectorPresented = false
+        }
+
+        closeTask = Task {
+            try? await Task.sleep(nanoseconds: 260_000_000)
+            guard !Task.isCancelled, !isInspectorPresented else { return }
+            activePanel = nil
+        }
     }
 }
 #endif

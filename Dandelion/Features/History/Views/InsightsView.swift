@@ -15,15 +15,20 @@ struct InsightsView: View {
     @Environment(AppearanceManager.self) private var appearance
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    @State private var insights: ReleaseInsights
     @State private var showPaywall: Bool = false
     @State private var showCSVExporter: Bool = false
     @State private var csvDocument = ReleaseHistoryCSVDocument(csv: "")
     @State private var selectedReleaseMonthIndex: Int?
     @State private var selectedWordsMonthIndex: Int?
 
+    init(releases: [Release]) {
+        self.releases = releases
+        _insights = State(initialValue: ReleaseInsightsCalculator.calculate(releases: releases))
+    }
+
     var body: some View {
         let theme = appearance.theme
-        let insights = ReleaseInsightsCalculator.calculate(releases: releases)
 
         ScrollView {
             VStack(spacing: DandelionSpacing.lg) {
@@ -71,6 +76,13 @@ struct InsightsView: View {
             contentType: .commaSeparatedText,
             defaultFilename: "dandelion-release-history"
         ) { _ in }
+        .onChange(of: releases) { _, _ in
+            var transaction = Transaction()
+            transaction.animation = nil
+            withTransaction(transaction) {
+                insights = ReleaseInsightsCalculator.calculate(releases: releases)
+            }
+        }
     }
 
     // MARK: - Journey Hero (Unlocked)
