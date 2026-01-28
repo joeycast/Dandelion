@@ -17,6 +17,7 @@ struct ContentView: View {
     var body: some View {
 #if os(macOS)
         MacRootView()
+            .preferredColorScheme(appearance.colorScheme)
 #else
         GeometryReader { geometry in
             let topSafeArea = geometry.safeAreaInsets.top

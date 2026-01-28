@@ -76,6 +76,7 @@ struct MacRootView: View {
         .focusedSceneValue(\.togglePanelAction) { panelType in
             togglePanel(panelType)
         }
+        .toolbarColorScheme(appearance.colorScheme, for: .windowToolbar)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
     }
 
