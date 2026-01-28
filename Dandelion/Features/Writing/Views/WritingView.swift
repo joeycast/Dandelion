@@ -39,6 +39,15 @@ struct WritingView: View {
     @State private var releaseVisibleHeight: CGFloat = 0
     @State private var lastWritingAreaHeight: CGFloat = 0
     @State private var releaseClipOffset: CGFloat = 0
+    @State private var fadeOutLetters: Bool = false
+    @State private var lastWritingState: WritingState = .prompt
+    @State private var suppressPromptLayoutAnimation: Bool = false
+
+#if os(macOS)
+    private static let debugShowDandelionLayer = false
+    private static let debugShowReleaseLayers = false
+    private static let debugShowReleaseMetrics = false
+#endif
     @State private var showBloomPaywall: Bool = false
     @State private var isSettingsPresented: Bool = false
     @State private var showLetGoHint: Bool = false
@@ -185,6 +194,7 @@ struct WritingView: View {
                                 ))
                         }
                     }
+                    .zIndex(isReleasing ? 2 : 0)
 
                 // Single persistent dandelion - lives above all content, animates size and position
                 VStack {
@@ -200,10 +210,12 @@ struct WritingView: View {
                 .animation(nil, value: viewModel.writingState)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
+                .zIndex(1)
 
                 // Release message overlay
                 if isReleasing {
                     releaseMessageOverlay(layout: layout)
+                        .zIndex(3)
                 }
             }
             .opacity(mainContentOpacity)
@@ -215,6 +227,7 @@ struct WritingView: View {
                 )
             }
             if newValue == .releasing {
+                logReleaseTiming("state=releasing")
                 // Capture scroll offset only if keyboard is still up (blow-triggered release).
                 // For manual release, the button action already captured it before dismissing keyboard.
                 if isTextEditorFocused {
@@ -222,16 +235,31 @@ struct WritingView: View {
                 }
                 releaseDandelionTopPadding = lastWritingDandelionTopPadding
                 releaseTextSnapshot = viewModel.writtenText
-                showAnimatedText = true
+                showAnimatedText = false
+                fadeOutLetters = false
                 releaseVisibleHeight = lastWritingAreaHeight
                 if WritingViewModel.debugReleaseFlow {
                     debugLog(
                         "[ReleaseFlow] release heights snapshot area=\(lastWritingAreaHeight) visible=\(releaseVisibleHeight)"
                     )
                 }
-                showWrittenText = false
+                showWrittenText = true
                 viewModel.beginReleaseDetachment()
+#if os(macOS)
+                DispatchQueue.main.async {
+                    showAnimatedText = true
+                    animateLetters = true
+                    logReleaseTiming("animatedText=visible")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        showWrittenText = false
+                    }
+                }
+#else
+                showAnimatedText = true
                 animateLetters = true
+                logReleaseTiming("animatedText=visible")
+                showWrittenText = false
+#endif
                 // Start with clip at bounds, then animate it open to release characters upward
                 releaseClipOffset = 0
                 withAnimation(.easeInOut(duration: 2.0)) {
@@ -254,12 +282,20 @@ struct WritingView: View {
             }
             if newValue == .prompt || newValue == .complete || newValue == .writing {
                 animateLetters = false
+                fadeOutLetters = false
                 releaseDandelionTopPadding = nil
                 showWrittenText = true
                 showAnimatedText = false
                 releaseVisibleHeight = 0
                 releaseClipOffset = 0
             }
+            if newValue == .prompt && lastWritingState == .complete {
+                suppressPromptLayoutAnimation = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    suppressPromptLayoutAnimation = false
+                }
+            }
+            lastWritingState = newValue
             // Don't fade prompt on state change - let the prompt ID change handler do it
             // This prevents double-animation when transitioning from release to prompt
             if newValue == .writing {
@@ -278,6 +314,8 @@ struct WritingView: View {
                 withAnimation(.easeInOut(duration: 1.2)) {
                     releaseDandelionTopPadding = layout.releaseDandelionTop
                 }
+                fadeOutLetters = true
+                logReleaseTiming("releaseMessage=appear")
                 viewModel.startDandelionReturn()
             },
             onMessageFadeStart: {
@@ -293,6 +331,8 @@ struct WritingView: View {
                 withAnimation(.easeInOut(duration: 1.2)) {
                     releaseDandelionTopPadding = layout.releaseDandelionTop
                 }
+                fadeOutLetters = true
+                logReleaseTiming("releaseMessage=appear")
                 viewModel.startDandelionReturn()
             },
             onMessageFadeStart: {
@@ -342,6 +382,16 @@ struct WritingView: View {
         appearance.theme
     }
 
+    private func logReleaseTiming(_ label: String) {
+        guard WritingViewModel.debugReleaseFlow else { return }
+        guard let releaseStartTime = viewModel.releaseStartTime else {
+            debugLog("[ReleaseFlow] \(label) (no start time)")
+            return
+        }
+        let elapsed = Date().timeIntervalSinceReferenceDate - releaseStartTime
+        debugLog(String(format: "[ReleaseFlow] %@ +%.3fs", label, elapsed))
+    }
+
     private func layoutMetrics(in geometry: GeometryProxy) -> LayoutMetrics {
         let safeAreaTop = topSafeArea
         let safeAreaBottom = max(bottomSafeArea, geometry.safeAreaInsets.bottom)
@@ -386,7 +436,9 @@ struct WritingView: View {
             + (dandelionSmallHeight * 0.40)
             + DandelionLayout.dandelionToTextSpacing
 #endif
-        let headerSpaceHeight = (isPromptState || viewModel.isDandelionReturning) ? promptHeaderSpace : writingHeaderSpace
+        let headerSpaceHeight = isReleasing
+            ? writingHeaderSpace
+            : (isPromptState || viewModel.isDandelionReturning ? promptHeaderSpace : writingHeaderSpace)
 
 #if os(macOS)
         let releaseDandelionVisualBottom = releaseDandelionTop + (dandelionLargeHeight * 0.72)
@@ -422,10 +474,10 @@ struct WritingView: View {
                 // Space for dandelion (rendered separately as overlay)
                 Color.clear
                     .frame(height: headerSpaceHeight)
-                    .animation(.easeInOut(duration: 1.6), value: isPromptState)
+                    .animation(suppressPromptLayoutAnimation ? nil : .easeInOut(duration: 1.6), value: isPromptState)
 
                 headerView(in: size)
-                    .animation(.easeInOut(duration: 1.6), value: isPromptState)
+                    .animation(suppressPromptLayoutAnimation ? nil : .easeInOut(duration: 1.6), value: isPromptState)
 
                 if isPromptState {
                     Spacer(minLength: 0)
@@ -441,6 +493,9 @@ struct WritingView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
             }
         }
+#if os(macOS)
+        .background(Self.debugShowReleaseLayers ? Color.blue.opacity(0.08) : Color.clear)
+#endif
         .safeAreaInset(edge: .top, spacing: 0) {
 #if os(iOS)
             HStack {
@@ -551,6 +606,22 @@ struct WritingView: View {
 
                 ZStack(alignment: .topLeading) {
                     // Auto-scrolling text editor (hidden when releasing)
+#if os(macOS)
+                    if showWrittenText {
+                        AutoScrollingTextEditor(
+                            text: $viewModel.writtenText,
+                            font: .dandelionWriting,
+                            textColor: PlatformColor(theme.text),
+                            isEditable: isWriting,
+                            scrollbarKnobStyle: appearance.colorScheme == .light ? .dark : .automatic,
+                            shouldBeFocused: $isTextEditorFocused,
+                            scrollOffset: $textScrollOffset
+                        )
+                        .frame(width: lineWidth,
+                               height: geometry.size.height)
+                        .zIndex(0)
+                    }
+#else
                     AutoScrollingTextEditor(
                         text: $viewModel.writtenText,
                         font: .dandelionWriting,
@@ -570,6 +641,7 @@ struct WritingView: View {
                             transaction.animation = nil
                         }
                     }
+#endif
 
                     // Animatable text overlay - starts at the same position as the text editor
                     // Top padding matches UITextView's textContainerInset when unscrolled,
@@ -581,11 +653,15 @@ struct WritingView: View {
                         textColor: theme.text,
                         lineWidth: lineWidth,
                         isAnimating: animateLetters,
+                        fadeOutTrigger: fadeOutLetters,
                         screenSize: fullScreenSize,
                         visibleHeight: overlayVisibleHeight,
                         scrollOffset: capturedScrollOffset
                     )
                     .padding(.top, max(0, 8 - capturedScrollOffset))
+#if os(macOS)
+                    .compositingGroup()
+#else
                     // Clip mask that starts at view bounds, then expands upward to release characters
                     // Uses gradient at top edge for smooth fade-in rather than hard clip
                     .mask(
@@ -605,12 +681,38 @@ struct WritingView: View {
                             .offset(y: -releaseClipOffset)
                         }
                     )
+#endif
                     .opacity(showAnimatedText ? 1 : 0)
                     .allowsHitTesting(false)
+                    .zIndex(1)
+#if os(macOS)
+                    .background(Self.debugShowReleaseLayers ? Color.yellow.opacity(0.12) : Color.clear)
+#endif
                 }
                 .padding(.horizontal, horizontalPadding)
                 .opacity((isWriting || isReleasing) ? 1 : 0)
                 .animation(nil, value: isWriting)
+#if os(macOS)
+                .background(Self.debugShowReleaseLayers ? Color.green.opacity(0.08) : Color.clear)
+                .overlay(alignment: .topLeading) {
+                    if Self.debugShowReleaseMetrics {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("overlayVisibleHeight: \(Int(overlayVisibleHeight))")
+                            Text("releaseVisibleHeight: \(Int(releaseVisibleHeight))")
+                            Text("lastWritingAreaHeight: \(Int(lastWritingAreaHeight))")
+                            Text("capturedScrollOffset: \(Int(capturedScrollOffset))")
+                            Text("textScrollOffset: \(Int(textScrollOffset))")
+                            Text("lineWidth: \(Int(lineWidth))")
+                        }
+                        .font(.system(size: 11, weight: .regular, design: .monospaced))
+                        .padding(6)
+                        .background(Color.black.opacity(0.2))
+                        .foregroundColor(.white)
+                        .padding(.top, 4)
+                        .padding(.leading, 4)
+                    }
+                }
+#endif
 
                 Color.clear
                     .onAppear {
@@ -971,6 +1073,9 @@ struct WritingView: View {
                 )
                 .id(appearance.style)
                 .frame(height: height + overflowHeight)
+#if os(macOS)
+                .background(Self.debugShowDandelionLayer ? Color.red.opacity(0.12) : Color.clear)
+#endif
             }
             .allowsHitTesting(false)
     }

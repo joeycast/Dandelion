@@ -62,6 +62,7 @@ final class WritingViewModel {
     private var seedRestoreTask: Task<Void, Never>?
     private var regrowHapticsTask: Task<Void, Never>?
     private(set) var seedRestoreStartTime: TimeInterval?
+    private(set) var releaseStartTime: TimeInterval?
     let seedRestoreDuration: TimeInterval = 8.0
     private let dandelionReturnDuration: TimeInterval = 1.5  // Position animation before regrowth begins
     static let debugReleaseFlow = true
@@ -145,6 +146,7 @@ final class WritingViewModel {
         }
         haptics.tap()
         isDandelionReturning = false
+        writtenText = ""
         withAnimation(DandelionAnimation.slow) {
             writingState = .writing
         }
@@ -191,6 +193,7 @@ final class WritingViewModel {
 
         // Clear the text (it's gone forever!)
         writtenText = ""
+        releaseStartTime = nil
         beginSeedRestore()
         // Avoid swapping prompts twice if a reset already completed.
         if activeReleaseID != nil {
@@ -320,12 +323,19 @@ final class WritingViewModel {
             debugLog("[ReleaseFlow] triggerRelease")
         }
 
-        // Record the release BEFORE clearing text (captures word count)
-        let wordCount = WordCounter.count(writtenText)
-        onReleaseTriggered?(wordCount)
-
         isDandelionReturning = false
         writingState = .releasing
+        releaseStartTime = Date().timeIntervalSinceReferenceDate
+
+        // Record the release asynchronously to avoid blocking the animation start.
+        let releaseText = writtenText
+        let onRelease = onReleaseTriggered
+        Task.detached {
+            let wordCount = WordCounter.count(releaseText)
+            await MainActor.run {
+                onRelease?(wordCount)
+            }
+        }
 
         releaseTask?.cancel()
         releaseHapticsTask?.cancel()
@@ -462,7 +472,12 @@ final class WritingViewModel {
     func startDandelionReturn() {
         guard !isDandelionReturning else { return }
         if Self.debugReleaseFlow {
-            debugLog("[ReleaseFlow] startDandelionReturn")
+            if let releaseStartTime {
+                let elapsed = Date().timeIntervalSinceReferenceDate - releaseStartTime
+                debugLog(String(format: "[ReleaseFlow] startDandelionReturn +%.3fs", elapsed))
+            } else {
+                debugLog("[ReleaseFlow] startDandelionReturn")
+            }
         }
         withAnimation(.easeInOut(duration: dandelionReturnDuration)) {
             isDandelionReturning = true
@@ -474,7 +489,12 @@ final class WritingViewModel {
         guard seedRestoreStartTime == nil else { return }
         guard !detachedSeedTimes.isEmpty else { return }
         if Self.debugReleaseFlow {
-            debugLog("[ReleaseFlow] startSeedRestoreNow")
+            if let releaseStartTime {
+                let elapsed = Date().timeIntervalSinceReferenceDate - releaseStartTime
+                debugLog(String(format: "[ReleaseFlow] startSeedRestoreNow +%.3fs", elapsed))
+            } else {
+                debugLog("[ReleaseFlow] startSeedRestoreNow")
+            }
         }
 
         cancelSeedRestore()

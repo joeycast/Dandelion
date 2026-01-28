@@ -237,7 +237,8 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
         context.coordinator.startObservingScroll()
 
         DispatchQueue.main.async {
-            context.coordinator.parent.scrollOffset = scrollView.contentView.bounds.origin.y
+            let visibleOrigin = textView.visibleRect.origin.y
+            context.coordinator.parent.scrollOffset = visibleOrigin
         }
         return scrollView
     }
@@ -306,7 +307,7 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
                 queue: .main
             ) { [weak self] _ in
                 guard let self else { return }
-                let offset = scrollView.contentView.bounds.origin.y
+                let offset = self.textView?.visibleRect.origin.y ?? scrollView.contentView.bounds.origin.y
                 if self.parent.scrollOffset != offset {
                     self.parent.scrollOffset = offset
                 }

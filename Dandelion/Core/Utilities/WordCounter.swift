@@ -10,7 +10,7 @@ import Foundation
 enum WordCounter {
     /// Counts words in the given text using proper linguistic tokenization
     /// Handles multiple spaces, tabs, newlines, and punctuation correctly
-    static func count(_ text: String) -> Int {
+    nonisolated static func count(_ text: String) -> Int {
         guard !text.isEmpty else { return 0 }
 
         var wordCount = 0

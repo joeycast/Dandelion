@@ -19,6 +19,7 @@ struct AnimatableTextView: View {
     let textColor: Color
     let lineWidth: CGFloat
     let isAnimating: Bool
+    let fadeOutTrigger: Bool
     let screenSize: CGSize
     let visibleHeight: CGFloat
     let scrollOffset: CGFloat
@@ -27,9 +28,12 @@ struct AnimatableTextView: View {
         uiFont.lineHeight
     }
     private let lineFragmentPadding: CGFloat = 5
+    @State private var cachedLayout: GlyphLayout = GlyphLayout(glyphs: [], totalHeight: 0)
+    @State private var cachedKey: LayoutKey?
+    @State private var containerOpacity: Double = 1
 
     var body: some View {
-        let layout = glyphLayout
+        let layout = cachedLayout
         ZStack(alignment: .topLeading) {
             ForEach(layout.glyphs) { glyph in
                 CharacterView(
@@ -45,6 +49,22 @@ struct AnimatableTextView: View {
             }
         }
         .frame(height: layout.totalHeight, alignment: .topLeading)
+        .opacity(containerOpacity)
+        .onAppear {
+            updateLayoutIfNeeded()
+        }
+        .onChange(of: layoutKey) { _, _ in
+            updateLayoutIfNeeded()
+        }
+        .onChange(of: fadeOutTrigger) { _, newValue in
+            if newValue {
+                withAnimation(.easeIn(duration: 0.5)) {
+                    containerOpacity = 0
+                }
+            } else {
+                containerOpacity = 1
+            }
+        }
     }
 
     private struct GlyphLayout {
@@ -60,7 +80,34 @@ struct AnimatableTextView: View {
         let charIndex: Int
     }
 
-    private var glyphLayout: GlyphLayout {
+    private struct LayoutKey: Hashable {
+        let textHash: Int
+        let lineWidth: Int
+        let visibleHeight: Int
+        let scrollOffset: Int
+        let fontName: String
+        let fontSize: Int
+    }
+
+    private var layoutKey: LayoutKey {
+        LayoutKey(
+            textHash: text.hashValue,
+            lineWidth: Int(lineWidth.rounded()),
+            visibleHeight: Int(visibleHeight.rounded()),
+            scrollOffset: Int(scrollOffset.rounded()),
+            fontName: uiFont.fontName,
+            fontSize: Int(uiFont.pointSize.rounded())
+        )
+    }
+
+    private func updateLayoutIfNeeded() {
+        let key = layoutKey
+        guard cachedKey != key else { return }
+        cachedKey = key
+        cachedLayout = computeGlyphLayout()
+    }
+
+    private func computeGlyphLayout() -> GlyphLayout {
         guard !text.isEmpty, visibleHeight > 0 else {
             return GlyphLayout(glyphs: [], totalHeight: 0)
         }
@@ -79,6 +126,7 @@ struct AnimatableTextView: View {
 
         layoutManager.addTextContainer(textContainer)
         textStorage.addLayoutManager(layoutManager)
+        layoutManager.ensureLayout(for: textContainer)
 
         let nsText = text as NSString
         var glyphs: [Glyph] = []
@@ -212,13 +260,6 @@ struct CharacterView: View {
             offset = CGSize(width: horizontalDrift, height: verticalDrift)
             rotation = finalRotation
         }
-
-        // Hold visibility, then fade
-        let holdTime: Double = 3.0
-        let fadeDuration = max(0.8, duration * 0.35)
-        withAnimation(.easeIn(duration: fadeDuration).delay(delay + holdTime)) {
-            opacity = 0
-        }
     }
 }
 
@@ -233,6 +274,7 @@ struct CharacterView: View {
             textColor: AppearanceManager().theme.text,
             lineWidth: 300,
             isAnimating: false,
+            fadeOutTrigger: false,
             screenSize: CGSize(width: 393, height: 852),
             visibleHeight: 300,
             scrollOffset: 0
