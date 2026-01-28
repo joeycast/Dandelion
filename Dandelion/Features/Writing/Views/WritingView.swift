@@ -492,6 +492,7 @@ struct WritingView: View {
                         font: .dandelionWriting,
                         textColor: PlatformColor(theme.text),
                         isEditable: isWriting,
+                        scrollbarKnobStyle: appearance.colorScheme == .light ? .dark : .automatic,
                         shouldBeFocused: $isTextEditorFocused,
                         scrollOffset: $textScrollOffset
                     )

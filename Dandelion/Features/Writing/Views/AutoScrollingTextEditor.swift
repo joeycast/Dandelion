@@ -7,6 +7,11 @@
 
 import SwiftUI
 
+enum ScrollbarKnobStyle {
+    case automatic
+    case dark
+}
+
 #if canImport(UIKit)
 import UIKit
 
@@ -15,6 +20,7 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
     var font: PlatformFont
     var textColor: PlatformColor
     var isEditable: Bool
+    var scrollbarKnobStyle: ScrollbarKnobStyle = .automatic
     @Binding var shouldBeFocused: Bool
     @Binding var scrollOffset: CGFloat
 
@@ -191,6 +197,7 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
     var font: PlatformFont
     var textColor: PlatformColor
     var isEditable: Bool
+    var scrollbarKnobStyle: ScrollbarKnobStyle = .automatic
     @Binding var shouldBeFocused: Bool
     @Binding var scrollOffset: CGFloat
 
@@ -223,6 +230,7 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
         scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
         scrollView.contentView.postsBoundsChangedNotifications = true
+        scrollView.verticalScroller?.knobStyle = scrollbarKnobStyle == .dark ? .dark : .default
 
         context.coordinator.textView = textView
         context.coordinator.scrollView = scrollView
@@ -251,6 +259,7 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
         textView.isEditable = isEditable
         textView.font = font
         textView.textColor = textColor
+        scrollView.verticalScroller?.knobStyle = scrollbarKnobStyle == .dark ? .dark : .default
 
         if !coordinator.isProcessingFocusChange {
             if shouldBeFocused && isEditable {
