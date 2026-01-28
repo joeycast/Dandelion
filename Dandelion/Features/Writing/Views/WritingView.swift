@@ -366,16 +366,33 @@ struct WritingView: View {
             ? (releaseDandelionTopPadding ?? lastWritingDandelionTopPadding)
             : dandelionTopPadding
 
+        #if os(macOS)
+        let promptHeaderSpace = DandelionLayout.minTopMargin
+            + proportionalOffset
+            + (dandelionLargeHeight * 0.72)
+            + DandelionLayout.dandelionToTextSpacing
+        #else
         let promptHeaderSpace = DandelionLayout.minTopMargin
             + proportionalOffset
             + (dandelionLargeHeight * 0.80)
             + DandelionLayout.dandelionToTextSpacing
+        #endif
+#if os(macOS)
+        let writingHeaderSpace = DandelionLayout.minTopMargin
+            + (dandelionSmallHeight * 0.10)
+            + DandelionLayout.dandelionToTextSpacing
+#else
         let writingHeaderSpace = DandelionLayout.minTopMargin
             + (dandelionSmallHeight * 0.40)
             + DandelionLayout.dandelionToTextSpacing
+#endif
         let headerSpaceHeight = (isPromptState || viewModel.isDandelionReturning) ? promptHeaderSpace : writingHeaderSpace
 
+#if os(macOS)
+        let releaseDandelionVisualBottom = releaseDandelionTop + (dandelionLargeHeight * 0.72)
+#else
         let releaseDandelionVisualBottom = releaseDandelionTop + (dandelionLargeHeight * 0.92)
+#endif
         let promptMessageTopPadding = releaseDandelionVisualBottom + DandelionLayout.dandelionToTextSpacing
 
         return LayoutMetrics(
