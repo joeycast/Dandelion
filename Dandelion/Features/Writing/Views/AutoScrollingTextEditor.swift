@@ -227,6 +227,7 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
+        scrollView.scrollerStyle = .overlay  // Prevent scrollbar from affecting content width
         scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
         scrollView.contentView.postsBoundsChangedNotifications = true
@@ -253,10 +254,14 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
         let coordinator = context.coordinator
         guard let textView = scrollView.documentView as? NSTextView else { return }
 
+        // Preserve scroll position before any changes that might affect layout
+        let preservedScrollOffset = scrollView.contentView.bounds.origin
+
         if !coordinator.isProcessingTextChange && textView.string != text {
             textView.string = text
         }
 
+        let wasEditable = textView.isEditable
         textView.isEditable = isEditable
         textView.font = font
         textView.textColor = textColor
@@ -275,6 +280,14 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
                 if isFirstResponder {
                     textView.window?.makeFirstResponder(nil)
                 }
+            }
+        }
+
+        // If we transitioned from editable to non-editable, restore scroll position
+        // This prevents scroll jumping when releasing
+        if wasEditable && !isEditable {
+            DispatchQueue.main.async {
+                scrollView.contentView.setBoundsOrigin(preservedScrollOffset)
             }
         }
     }

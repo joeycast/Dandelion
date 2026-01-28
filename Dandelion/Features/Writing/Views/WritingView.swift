@@ -9,6 +9,8 @@ import SwiftUI
 import SwiftData
 #if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
 #endif
 
 struct WritingView: View {
@@ -230,9 +232,14 @@ struct WritingView: View {
                 logReleaseTiming("state=releasing")
                 // Capture scroll offset only if keyboard is still up (blow-triggered release).
                 // For manual release, the button action already captured it before dismissing keyboard.
+                // On macOS, always capture since there's no keyboard.
+#if os(macOS)
+                capturedScrollOffset = textScrollOffset
+#else
                 if isTextEditorFocused {
                     capturedScrollOffset = textScrollOffset
                 }
+#endif
                 releaseDandelionTopPadding = lastWritingDandelionTopPadding
                 releaseTextSnapshot = viewModel.writtenText
                 showAnimatedText = false
@@ -243,23 +250,13 @@ struct WritingView: View {
                         "[ReleaseFlow] release heights snapshot area=\(lastWritingAreaHeight) visible=\(releaseVisibleHeight)"
                     )
                 }
-                showWrittenText = true
                 viewModel.beginReleaseDetachment()
-#if os(macOS)
-                DispatchQueue.main.async {
-                    showAnimatedText = true
-                    animateLetters = true
-                    logReleaseTiming("animatedText=visible")
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        showWrittenText = false
-                    }
-                }
-#else
+                // Show animated text and hide written text together for smooth handoff.
+                // Both platforms now use the same approach - instant swap with animations disabled.
                 showAnimatedText = true
                 animateLetters = true
                 logReleaseTiming("animatedText=visible")
                 showWrittenText = false
-#endif
                 // Start with clip at bounds, then animate it open to release characters upward
                 releaseClipOffset = 0
                 withAnimation(.easeInOut(duration: 2.0)) {
@@ -607,20 +604,27 @@ struct WritingView: View {
                 ZStack(alignment: .topLeading) {
                     // Auto-scrolling text editor (hidden when releasing)
 #if os(macOS)
-                    if showWrittenText {
-                        AutoScrollingTextEditor(
-                            text: $viewModel.writtenText,
-                            font: .dandelionWriting,
-                            textColor: PlatformColor(theme.text),
-                            isEditable: isWriting,
-                            scrollbarKnobStyle: appearance.colorScheme == .light ? .dark : .automatic,
-                            shouldBeFocused: $isTextEditorFocused,
-                            scrollOffset: $textScrollOffset
-                        )
-                        .frame(width: lineWidth,
-                               height: geometry.size.height)
-                        .zIndex(0)
+                    AutoScrollingTextEditor(
+                        text: $viewModel.writtenText,
+                        font: .dandelionWriting,
+                        textColor: PlatformColor(theme.text),
+                        isEditable: isWriting,
+                        scrollbarKnobStyle: appearance.colorScheme == .light ? .dark : .automatic,
+                        shouldBeFocused: $isTextEditorFocused,
+                        scrollOffset: $textScrollOffset
+                    )
+                    .frame(width: lineWidth,
+                           height: geometry.size.height)
+                    .opacity(showWrittenText ? 1 : 0)
+                    // Disable animations on state changes to ensure instant hide (matching iOS)
+                    .animation(nil, value: showWrittenText)
+                    .animation(nil, value: viewModel.writingState)
+                    .transaction { transaction in
+                        if isReleasing {
+                            transaction.animation = nil
+                        }
                     }
+                    .zIndex(0)
 #else
                     AutoScrollingTextEditor(
                         text: $viewModel.writtenText,
@@ -659,9 +663,6 @@ struct WritingView: View {
                         scrollOffset: capturedScrollOffset
                     )
                     .padding(.top, max(0, 8 - capturedScrollOffset))
-#if os(macOS)
-                    .compositingGroup()
-#else
                     // Clip mask that starts at view bounds, then expands upward to release characters
                     // Uses gradient at top edge for smooth fade-in rather than hard clip
                     .mask(
@@ -681,6 +682,8 @@ struct WritingView: View {
                             .offset(y: -releaseClipOffset)
                         }
                     )
+#if os(macOS)
+                    .compositingGroup()
 #endif
                     .opacity(showAnimatedText ? 1 : 0)
                     .allowsHitTesting(false)
