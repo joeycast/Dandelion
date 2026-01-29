@@ -196,7 +196,7 @@ struct WritingView: View {
                                 ))
                         }
                     }
-                    .zIndex(isReleasing ? 2 : 0)
+                    .zIndex(0)
 
                 // Single persistent dandelion - lives above all content, animates size and position
                 VStack {
@@ -222,6 +222,18 @@ struct WritingView: View {
             }
             .opacity(mainContentOpacity)
         }
+#if os(macOS)
+        // macOS: Render animated text as overlay to ensure it floats above dandelion
+        .overlay {
+            if showAnimatedText {
+                macOSAnimatedTextOverlay(
+                    in: geometry.size,
+                    headerSpaceHeight: layout.headerSpaceHeight,
+                    fullScreenSize: layout.fullScreenSize
+                )
+            }
+        }
+#endif
         .onChange(of: viewModel.writingState) { _, newValue in
             if WritingViewModel.debugReleaseFlow {
                 debugLog(
@@ -251,8 +263,7 @@ struct WritingView: View {
                     )
                 }
                 viewModel.beginReleaseDetachment()
-                // Show animated text and hide written text together for smooth handoff.
-                // Both platforms now use the same approach - instant swap with animations disabled.
+                // Show animated text and hide written text together for smooth handoff
                 showAnimatedText = true
                 animateLetters = true
                 logReleaseTiming("animatedText=visible")
@@ -260,7 +271,12 @@ struct WritingView: View {
                 // Start with clip at bounds, then animate it open to release characters upward
                 releaseClipOffset = 0
                 withAnimation(.easeInOut(duration: 2.0)) {
+#if os(macOS)
+                    // macOS needs more headroom for characters to float past the header
+                    releaseClipOffset = 1000
+#else
                     releaseClipOffset = 200
+#endif
                 }
             }
             // Update focus state after releasing check (so we can detect if keyboard was up)
@@ -301,6 +317,47 @@ struct WritingView: View {
             onSwipeEligibilityChange(isPromptVisible)
         }
     }
+
+#if os(macOS)
+    @ViewBuilder
+    private func macOSAnimatedTextOverlay(
+        in size: CGSize,
+        headerSpaceHeight: CGFloat,
+        fullScreenSize: CGSize
+    ) -> some View {
+        let baseHorizontalPadding = DandelionSpacing.screenEdge - 5
+        let horizontalPadding = max(
+            baseHorizontalPadding,
+            (size.width - DandelionLayout.maxWritingWidth) / 2
+        )
+        let lineWidth = size.width - (horizontalPadding * 2)
+        // Add buffer to prevent bottom row cutoff
+        let overlayVisibleHeight = (releaseVisibleHeight > 0 ? releaseVisibleHeight : lastWritingAreaHeight) + 30
+
+        AnimatableTextView(
+            text: releaseTextSnapshot,
+            font: .dandelionWriting,
+            uiFont: .dandelionWriting,
+            textColor: theme.text,
+            lineWidth: lineWidth,
+            isAnimating: animateLetters,
+            fadeOutTrigger: fadeOutLetters,
+            screenSize: fullScreenSize,
+            visibleHeight: overlayVisibleHeight,
+            scrollOffset: capturedScrollOffset
+        )
+        .padding(.top, max(0, 8 - capturedScrollOffset))
+        .allowsHitTesting(false)
+        .padding(.horizontal, horizontalPadding)
+        // Position at top of writing area:
+        // - headerSpaceHeight: space for dandelion
+        // - ~18pt: height adjustment for prompt text line
+        // - DandelionSpacing.sm: writingArea top padding
+        // - minus 500pt for the overflow built into AnimatableTextView
+        .padding(.top, headerSpaceHeight + 18 + DandelionSpacing.sm - 500)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+#endif
 
     private func releaseMessageOverlay(layout: LayoutMetrics) -> some View {
         #if os(macOS)
@@ -650,6 +707,9 @@ struct WritingView: View {
                     // Animatable text overlay - starts at the same position as the text editor
                     // Top padding matches UITextView's textContainerInset when unscrolled,
                     // but reduces to 0 when scrolled (since scrolled text appears at y=0)
+                    // Note: On macOS, this is rendered as a top-level overlay (macOSAnimatedTextOverlay)
+                    // to ensure it floats above the dandelion
+#if os(iOS)
                     AnimatableTextView(
                         text: showAnimatedText ? releaseTextSnapshot : viewModel.writtenText,
                         font: .dandelionWriting,
@@ -682,14 +742,9 @@ struct WritingView: View {
                             .offset(y: -releaseClipOffset)
                         }
                     )
-#if os(macOS)
-                    .compositingGroup()
-#endif
                     .opacity(showAnimatedText ? 1 : 0)
                     .allowsHitTesting(false)
                     .zIndex(1)
-#if os(macOS)
-                    .background(Self.debugShowReleaseLayers ? Color.yellow.opacity(0.12) : Color.clear)
 #endif
                 }
                 .padding(.horizontal, horizontalPadding)

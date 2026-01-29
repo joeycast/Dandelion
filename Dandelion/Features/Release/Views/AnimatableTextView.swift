@@ -32,8 +32,91 @@ struct AnimatableTextView: View {
     @State private var cachedKey: LayoutKey?
     @State private var containerOpacity: Double = 1
 
+#if os(macOS)
+    // Animation state for Canvas-based rendering (macOS only)
+    @State private var animationStartTime: Date?
+    @State private var glyphAnimations: [MacGlyphAnimation] = []
+
+    private struct MacGlyphAnimation {
+        let delay: Double
+        let duration: Double
+        let horizontalDrift: CGFloat
+        let verticalDrift: CGFloat
+        let finalRotation: Double
+    }
+#endif
+
+    // Extra space above text for upward animation on macOS
+    private let topOverflowForAnimation: CGFloat = 500
+
     var body: some View {
         let layout = cachedLayout
+#if os(macOS)
+        // macOS: Use Canvas + TimelineView for performance (no view creation overhead)
+        // Canvas is extended upward to allow characters to animate above the text area
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !isAnimating)) { timeline in
+            Canvas { context, size in
+                let elapsed = animationStartTime.map { timeline.date.timeIntervalSince($0) } ?? 0
+
+                for (index, glyph) in layout.glyphs.enumerated() {
+                    guard index < glyphAnimations.count else { continue }
+                    let anim = glyphAnimations[index]
+
+                    // Calculate animation progress
+                    let timeSinceStart = elapsed - anim.delay
+                    guard timeSinceStart > 0 else {
+                        // Not started yet - draw at original position (offset down by topOverflow)
+                        drawCharacter(context: context, glyph: glyph, offset: CGSize(width: 0, height: topOverflowForAnimation), rotation: 0, opacity: 1)
+                        continue
+                    }
+
+                    let progress = min(timeSinceStart / anim.duration, 1.0)
+                    let easedProgress = easeInOut(progress)
+
+                    // Interpolate values - add topOverflow to vertical position
+                    let currentOffset = CGSize(
+                        width: anim.horizontalDrift * easedProgress,
+                        height: topOverflowForAnimation + anim.verticalDrift * easedProgress
+                    )
+                    let currentRotation = anim.finalRotation * easedProgress
+                    let currentOpacity = 1.0 // Opacity handled by container fadeOut
+
+                    drawCharacter(context: context, glyph: glyph, offset: currentOffset, rotation: currentRotation, opacity: currentOpacity)
+                }
+            }
+        }
+        .frame(height: layout.totalHeight + topOverflowForAnimation)
+        .opacity(containerOpacity)
+        .onAppear {
+            updateLayoutIfNeeded()
+            // If already animating when view appears, start animations immediately
+            if isAnimating {
+                prepareAnimations(for: cachedLayout)
+                animationStartTime = Date()
+            }
+        }
+        .onChange(of: layoutKey) { _, _ in
+            updateLayoutIfNeeded()
+        }
+        .onChange(of: isAnimating) { _, newValue in
+            if newValue {
+                prepareAnimations(for: cachedLayout)
+                animationStartTime = Date()
+            } else {
+                animationStartTime = nil
+            }
+        }
+        .onChange(of: fadeOutTrigger) { _, newValue in
+            if newValue {
+                withAnimation(.easeIn(duration: 0.5)) {
+                    containerOpacity = 0
+                }
+            } else {
+                containerOpacity = 1
+            }
+        }
+#else
+        // iOS: Use CharacterView approach (works well on iOS)
         ZStack(alignment: .topLeading) {
             ForEach(layout.glyphs) { glyph in
                 CharacterView(
@@ -65,40 +148,44 @@ struct AnimatableTextView: View {
                 containerOpacity = 1
             }
         }
+#endif
     }
 
-    private struct GlyphLayout {
-        let glyphs: [Glyph]
-        let totalHeight: CGFloat
+#if os(macOS)
+    private func prepareAnimations(for layout: GlyphLayout) {
+        glyphAnimations = layout.glyphs.map { _ in
+            MacGlyphAnimation(
+                delay: Double.random(in: 0...0.3),
+                duration: Double.random(in: 4.0...6.0),
+                horizontalDrift: CGFloat.random(in: -200...200),
+                verticalDrift: CGFloat.random(in: -screenSize.height * 1.2 ... -screenSize.height * 0.6),
+                finalRotation: Double.random(in: -60...60)
+            )
+        }
     }
 
-    private struct Glyph: Identifiable {
-        let id: Int
-        let character: Character
-        let rect: CGRect
-        let lineIndex: Int
-        let charIndex: Int
+    private func easeInOut(_ t: Double) -> Double {
+        t < 0.5 ? 2 * t * t : 1 - pow(-2 * t + 2, 2) / 2
     }
 
-    private struct LayoutKey: Hashable {
-        let textHash: Int
-        let lineWidth: Int
-        let visibleHeight: Int
-        let scrollOffset: Int
-        let fontName: String
-        let fontSize: Int
-    }
-
-    private var layoutKey: LayoutKey {
-        LayoutKey(
-            textHash: text.hashValue,
-            lineWidth: Int(lineWidth.rounded()),
-            visibleHeight: Int(visibleHeight.rounded()),
-            scrollOffset: Int(scrollOffset.rounded()),
-            fontName: uiFont.fontName,
-            fontSize: Int(uiFont.pointSize.rounded())
+    private func drawCharacter(context: GraphicsContext, glyph: Glyph, offset: CGSize, rotation: Double, opacity: Double) {
+        var context = context
+        let position = CGPoint(
+            x: glyph.rect.midX + offset.width,
+            y: glyph.rect.midY + offset.height
         )
+
+        context.opacity = opacity
+        context.translateBy(x: position.x, y: position.y)
+        context.rotate(by: .degrees(rotation))
+
+        let text = Text(String(glyph.character))
+            .font(font)
+            .foregroundColor(textColor)
+
+        context.draw(text, at: .zero)
     }
+#endif
 
     private func updateLayoutIfNeeded() {
         let key = layoutKey
@@ -202,6 +289,39 @@ struct AnimatableTextView: View {
 
         let layoutHeight = isCropped ? clampedVisibleHeight : totalHeight
         return GlyphLayout(glyphs: glyphs, totalHeight: layoutHeight)
+    }
+
+    private struct GlyphLayout {
+        let glyphs: [Glyph]
+        let totalHeight: CGFloat
+    }
+
+    private struct Glyph: Identifiable {
+        let id: Int
+        let character: Character
+        let rect: CGRect
+        let lineIndex: Int
+        let charIndex: Int
+    }
+
+    private struct LayoutKey: Hashable {
+        let textHash: Int
+        let lineWidth: Int
+        let visibleHeight: Int
+        let scrollOffset: Int
+        let fontName: String
+        let fontSize: Int
+    }
+
+    private var layoutKey: LayoutKey {
+        LayoutKey(
+            textHash: text.hashValue,
+            lineWidth: Int(lineWidth.rounded()),
+            visibleHeight: Int(visibleHeight.rounded()),
+            scrollOffset: Int(scrollOffset.rounded()),
+            fontName: uiFont.fontName,
+            fontSize: Int(uiFont.pointSize.rounded())
+        )
     }
 }
 
