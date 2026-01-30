@@ -173,7 +173,8 @@ struct AnimatableTextView: View {
         glyphAnimations = layout.glyphs.map { _ in
             MacGlyphAnimation(
                 delay: Double.random(in: 0...0.3),
-                duration: Double.random(in: 4.0...6.0),
+                // Duration must exceed fade-out timing (4.0s + 0.5s fade) so letters keep moving while fading
+                duration: Double.random(in: 5.5...7.5),
                 horizontalDrift: CGFloat.random(in: -maxHorizontalDrift...maxHorizontalDrift),
                 verticalDrift: CGFloat.random(in: -screenSize.height * 1.2 ... -screenSize.height * 0.6),
                 finalRotation: Double.random(in: -60...60)
@@ -386,7 +387,8 @@ struct CharacterView: View {
 
     private func startAnimation() {
         let delay = Double.random(in: 0...0.3)
-        let duration = Double.random(in: 4.0...6.0)
+        // Duration must exceed fade-out timing (4.0s + 0.5s fade) so letters keep moving while fading
+        let duration = Double.random(in: 5.5...7.5)
 
         // Random drift direction
         let horizontalDrift = CGFloat.random(in: -200...200)

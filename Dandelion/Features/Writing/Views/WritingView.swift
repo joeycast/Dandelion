@@ -358,25 +358,6 @@ struct WritingView: View {
             horizontalOffset: horizontalPadding
         )
         .padding(.top, max(0, 8 - capturedScrollOffset))
-        // Clip mask that starts at view bounds, then expands upward to release characters
-        // Uses gradient at top edge for smooth fade-in rather than hard clip
-        .mask(
-            VStack(spacing: 0) {
-                // Soft gradient edge at top
-                LinearGradient(
-                    colors: [.clear, .black],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 0.3)
-                // Solid visible area below
-                Rectangle()
-            }
-            .frame(height: overlayVisibleHeight + releaseClipOffset)
-            // Keep bottom fixed; move mask up from the text area's top (offset by overflow)
-            .offset(y: topOverflowForAnimation - releaseClipOffset)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        )
         .allowsHitTesting(false)
         // No horizontal padding - let particles float freely across the full window
         // Position at top of writing area:
