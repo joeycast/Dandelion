@@ -198,6 +198,7 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
     var textColor: PlatformColor
     var isEditable: Bool
     var scrollbarKnobStyle: ScrollbarKnobStyle = .automatic
+    var isVisible: Bool = true
     @Binding var shouldBeFocused: Bool
     @Binding var scrollOffset: CGFloat
 
@@ -266,6 +267,8 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
         textView.font = font
         textView.textColor = textColor
         scrollView.verticalScroller?.knobStyle = scrollbarKnobStyle == .dark ? .dark : .default
+        // Hide scrollbar when view is not visible (e.g., during release animation)
+        scrollView.hasVerticalScroller = isVisible
 
         if !coordinator.isProcessingFocusChange {
             if shouldBeFocused && isEditable {

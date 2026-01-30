@@ -224,14 +224,15 @@ struct WritingView: View {
         }
 #if os(macOS)
         // macOS: Render animated text as overlay to ensure it floats above dandelion
+        // Only render when needed to avoid first-release initialization glitches
         .overlay {
-            macOSAnimatedTextOverlay(
-                in: geometry.size,
-                headerSpaceHeight: layout.headerSpaceHeight,
-                fullScreenSize: layout.fullScreenSize
-            )
-            .opacity(showAnimatedText ? 1 : 0)
-            .animation(nil, value: showAnimatedText)
+            if showAnimatedText {
+                macOSAnimatedTextOverlay(
+                    in: geometry.size,
+                    headerSpaceHeight: layout.headerSpaceHeight,
+                    fullScreenSize: layout.fullScreenSize
+                )
+            }
         }
 #endif
         .onChange(of: viewModel.writingState) { _, newValue in
@@ -353,7 +354,8 @@ struct WritingView: View {
             fadeOutTrigger: fadeOutLetters,
             screenSize: fullScreenSize,
             visibleHeight: overlayVisibleHeight,
-            scrollOffset: capturedScrollOffset
+            scrollOffset: capturedScrollOffset,
+            horizontalOffset: horizontalPadding
         )
         .padding(.top, max(0, 8 - capturedScrollOffset))
         // Clip mask that starts at view bounds, then expands upward to release characters
@@ -376,7 +378,7 @@ struct WritingView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         )
         .allowsHitTesting(false)
-        .padding(.horizontal, horizontalPadding)
+        // No horizontal padding - let particles float freely across the full window
         // Position at top of writing area:
         // - headerSpaceHeight: space for dandelion
         // - ~18pt: height adjustment for prompt text line
@@ -695,6 +697,7 @@ struct WritingView: View {
                         textColor: PlatformColor(theme.text),
                         isEditable: isWriting,
                         scrollbarKnobStyle: appearance.colorScheme == .light ? .dark : .automatic,
+                        isVisible: showWrittenText,
                         shouldBeFocused: $isTextEditorFocused,
                         scrollOffset: $textScrollOffset
                     )

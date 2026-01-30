@@ -23,6 +23,7 @@ struct AnimatableTextView: View {
     let screenSize: CGSize
     let visibleHeight: CGFloat
     let scrollOffset: CGFloat
+    var horizontalOffset: CGFloat = 0
 
     private var lineHeight: CGFloat {
         uiFont.lineHeight
@@ -50,7 +51,13 @@ struct AnimatableTextView: View {
     private let topOverflowForAnimation: CGFloat = 500
 
     var body: some View {
-        let layout = cachedLayout
+        // Compute layout synchronously on first render to avoid frame jumps
+        let layout: GlyphLayout = {
+            if cachedLayout.glyphs.isEmpty && !text.isEmpty {
+                return computeGlyphLayout()
+            }
+            return cachedLayout
+        }()
 #if os(macOS)
         // macOS: Use Canvas + TimelineView for performance (no view creation overhead)
         // Canvas is extended upward to allow characters to animate above the text area
@@ -59,7 +66,11 @@ struct AnimatableTextView: View {
                 let elapsed = animationStartTime.map { timeline.date.timeIntervalSince($0) } ?? 0
 
                 for (index, glyph) in layout.glyphs.enumerated() {
-                    guard index < glyphAnimations.count else { continue }
+                    // If animations aren't ready yet, draw at starting position
+                    guard index < glyphAnimations.count else {
+                        drawCharacter(context: context, glyph: glyph, offset: CGSize(width: 0, height: topOverflowForAnimation), rotation: 0, opacity: 1)
+                        continue
+                    }
                     let anim = glyphAnimations[index]
 
                     // Calculate animation progress
@@ -88,9 +99,13 @@ struct AnimatableTextView: View {
         .frame(height: layout.totalHeight + topOverflowForAnimation)
         .opacity(containerOpacity)
         .onAppear {
-            updateLayoutIfNeeded()
-            // If already animating when view appears, start animations immediately
-            if isAnimating {
+            // Update cached layout if needed
+            if cachedLayout.glyphs.isEmpty {
+                cachedLayout = layout
+                cachedKey = layoutKey
+            }
+            // Start animations immediately
+            if isAnimating && glyphAnimations.isEmpty {
                 prepareAnimations(for: cachedLayout)
                 animationStartTime = Date()
             }
@@ -153,11 +168,13 @@ struct AnimatableTextView: View {
 
 #if os(macOS)
     private func prepareAnimations(for layout: GlyphLayout) {
+        // Wider horizontal drift to let particles roam across the full screen
+        let maxHorizontalDrift = screenSize.width * 0.4
         glyphAnimations = layout.glyphs.map { _ in
             MacGlyphAnimation(
                 delay: Double.random(in: 0...0.3),
                 duration: Double.random(in: 4.0...6.0),
-                horizontalDrift: CGFloat.random(in: -200...200),
+                horizontalDrift: CGFloat.random(in: -maxHorizontalDrift...maxHorizontalDrift),
                 verticalDrift: CGFloat.random(in: -screenSize.height * 1.2 ... -screenSize.height * 0.6),
                 finalRotation: Double.random(in: -60...60)
             )
@@ -171,7 +188,7 @@ struct AnimatableTextView: View {
     private func drawCharacter(context: GraphicsContext, glyph: Glyph, offset: CGSize, rotation: Double, opacity: Double) {
         var context = context
         let position = CGPoint(
-            x: glyph.rect.midX + offset.width,
+            x: glyph.rect.midX + offset.width + horizontalOffset,
             y: glyph.rect.midY + offset.height
         )
 
