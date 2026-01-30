@@ -225,13 +225,13 @@ struct WritingView: View {
 #if os(macOS)
         // macOS: Render animated text as overlay to ensure it floats above dandelion
         .overlay {
-            if showAnimatedText {
-                macOSAnimatedTextOverlay(
-                    in: geometry.size,
-                    headerSpaceHeight: layout.headerSpaceHeight,
-                    fullScreenSize: layout.fullScreenSize
-                )
-            }
+            macOSAnimatedTextOverlay(
+                in: geometry.size,
+                headerSpaceHeight: layout.headerSpaceHeight,
+                fullScreenSize: layout.fullScreenSize
+            )
+            .opacity(showAnimatedText ? 1 : 0)
+            .animation(nil, value: showAnimatedText)
         }
 #endif
         .onChange(of: viewModel.writingState) { _, newValue in
@@ -270,7 +270,14 @@ struct WritingView: View {
                 showWrittenText = false
                 // Start with clip at bounds, then animate it open to release characters upward
                 releaseClipOffset = 0
-                withAnimation(.easeInOut(duration: 2.0)) {
+                let releaseClipDuration: Double = {
+#if os(macOS)
+                    return 3.2
+#else
+                    return 2.0
+#endif
+                }()
+                withAnimation(.easeInOut(duration: releaseClipDuration)) {
 #if os(macOS)
                     // macOS needs more headroom for characters to float past the header
                     releaseClipOffset = 1000
@@ -334,6 +341,8 @@ struct WritingView: View {
         // Add buffer to prevent bottom row cutoff
         let overlayVisibleHeight = (releaseVisibleHeight > 0 ? releaseVisibleHeight : lastWritingAreaHeight) + 30
 
+        let topOverflowForAnimation: CGFloat = 500
+
         AnimatableTextView(
             text: releaseTextSnapshot,
             font: .dandelionWriting,
@@ -347,6 +356,25 @@ struct WritingView: View {
             scrollOffset: capturedScrollOffset
         )
         .padding(.top, max(0, 8 - capturedScrollOffset))
+        // Clip mask that starts at view bounds, then expands upward to release characters
+        // Uses gradient at top edge for smooth fade-in rather than hard clip
+        .mask(
+            VStack(spacing: 0) {
+                // Soft gradient edge at top
+                LinearGradient(
+                    colors: [.clear, .black],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 0.3)
+                // Solid visible area below
+                Rectangle()
+            }
+            .frame(height: overlayVisibleHeight + releaseClipOffset)
+            // Keep bottom fixed; move mask up from the text area's top (offset by overflow)
+            .offset(y: topOverflowForAnimation - releaseClipOffset)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        )
         .allowsHitTesting(false)
         .padding(.horizontal, horizontalPadding)
         // Position at top of writing area:
@@ -354,7 +382,7 @@ struct WritingView: View {
         // - ~18pt: height adjustment for prompt text line
         // - DandelionSpacing.sm: writingArea top padding
         // - minus 500pt for the overflow built into AnimatableTextView
-        .padding(.top, headerSpaceHeight + 18 + DandelionSpacing.sm - 500)
+        .padding(.top, headerSpaceHeight + 18 + DandelionSpacing.sm - topOverflowForAnimation)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 #endif
