@@ -643,6 +643,9 @@ struct WritingView: View {
                 }
                 .font(.dandelionCaption)
                 .foregroundColor(theme.secondary)
+#if os(macOS)
+                .buttonStyle(.plain)
+#endif
             }
 
             Button("Begin Writing") {
