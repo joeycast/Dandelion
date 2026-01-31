@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import StoreKit
 
 #if os(macOS)
 struct MacSettingsView: View {
@@ -45,7 +46,10 @@ struct MacSettingsView: View {
 
 private struct GeneralSettingsTab: View {
     @Environment(PremiumManager.self) private var premium
+    @Environment(\.openURL) private var openURL
+    @Environment(\.requestReview) private var requestReview
     @State private var showPaywall: Bool = false
+    @AppStorage(HapticsService.settingsKey) private var hapticsEnabled: Bool = true
 
     var body: some View {
         @Bindable var premium = premium
@@ -76,6 +80,43 @@ private struct GeneralSettingsTab: View {
                 Text("Dandelion Bloom")
             }
 
+            Section {
+                Toggle("Haptics", isOn: $hapticsEnabled)
+            } header: {
+                Text("Writing")
+            }
+
+            Section {
+                Button {
+                    if let reviewURL = AppStoreConfiguration.reviewURL {
+                        openURL(reviewURL)
+                    } else {
+                        requestReview()
+                    }
+                } label: {
+                    SettingsActionRow(icon: "star", title: "Rate on the App Store")
+                }
+                .buttonStyle(.plain)
+
+                ShareLink(item: AppStoreConfiguration.shareMessage) {
+                    SettingsActionRow(icon: "square.and.arrow.up", title: "Share Dandelion")
+                }
+                .buttonStyle(.plain)
+            } header: {
+                Text("App")
+            } footer: {
+                SettingsFooterView(
+                    useThemeColors: false,
+                    useAppFont: false,
+                    usePrimaryColor: true,
+                    alignment: .center,
+                    textAlignment: .center
+                )
+                .frame(maxWidth: .infinity)
+                .padding(.top, 6)
+                .padding(.bottom, 10)
+            }
+
 #if DEBUG
             Section {
                 Toggle(isOn: $premium.debugForceBloom) {
@@ -99,3 +140,18 @@ private struct GeneralSettingsTab: View {
     }
 }
 #endif
+
+private struct SettingsActionRow: View {
+    let icon: String
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .frame(width: 18)
+            Text(title)
+            Spacer()
+        }
+        .contentShape(Rectangle())
+    }
+}

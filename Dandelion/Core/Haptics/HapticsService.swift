@@ -16,6 +16,19 @@ import AppKit
 @MainActor
 final class HapticsService {
     static let shared = HapticsService()
+    static let settingsKey = "hapticsEnabled"
+
+    var isEnabled: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: Self.settingsKey) == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: Self.settingsKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.settingsKey)
+        }
+    }
 
 #if canImport(UIKit)
     private let light = UIImpactFeedbackGenerator(style: .light)
@@ -25,6 +38,7 @@ final class HapticsService {
 #endif
 
     func tap() {
+        guard isEnabled else { return }
 #if canImport(UIKit)
         light.prepare()
         light.impactOccurred(intensity: 0.7)
@@ -34,6 +48,7 @@ final class HapticsService {
     }
 
     func playReleasePattern() async {
+        guard isEnabled else { return }
         // Seeds scattering from a dandelion:
         // - Rapid burst at the start (many seeds catching the wind)
         // - Gradually slows as remaining seeds drift away
@@ -59,6 +74,7 @@ final class HapticsService {
 
         for index in intensities.indices {
             if Task.isCancelled { return }
+            if !isEnabled { return }
 #if canImport(UIKit)
             soft.prepare()
             soft.impactOccurred(intensity: intensities[index])
@@ -74,6 +90,7 @@ final class HapticsService {
     }
 
     func playRegrowthPattern() async {
+        guard isEnabled else { return }
         // Seeds returning to the dandelion:
         // - Slow and tentative at first (first seeds finding their way back)
         // - Builds momentum as more seeds return
@@ -103,6 +120,7 @@ final class HapticsService {
 
         for index in intensities.indices {
             if Task.isCancelled { return }
+            if !isEnabled { return }
 #if canImport(UIKit)
             light.prepare()
             light.impactOccurred(intensity: intensities[index])

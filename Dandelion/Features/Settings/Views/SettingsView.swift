@@ -6,14 +6,18 @@
 //
 
 import SwiftUI
+import StoreKit
 
 struct SettingsView: View {
     let showsDoneButton: Bool
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    @Environment(\.requestReview) private var requestReview
     @Environment(PremiumManager.self) private var premium
     @Environment(AppearanceManager.self) private var appearance
     @State private var showPaywall: Bool = false
     @State private var navigationPath = NavigationPath()
+    @AppStorage(HapticsService.settingsKey) private var hapticsEnabled: Bool = true
 
     private enum Destination: Hashable {
         case prompts
@@ -73,6 +77,18 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(theme.card)
+
+                    Toggle(isOn: $hapticsEnabled) {
+                        HStack(spacing: DandelionSpacing.md) {
+                            Image(systemName: "hand.tap")
+                                .foregroundColor(theme.accent)
+                                .frame(width: 24)
+                            Text("Haptics")
+                                .foregroundColor(theme.text)
+                        }
+                    }
+                    .toggleStyle(SwitchToggleStyle(tint: theme.accent))
+                    .listRowBackground(theme.card)
                 } header: {
                     Text("Writing")
                         .foregroundColor(theme.secondary)
@@ -81,6 +97,24 @@ struct SettingsView: View {
                 Section {
                     Button { navigationPath.append(Destination.appIcon) } label: {
                         SettingsRow(icon: "app.badge", title: "App Icon")
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(theme.card)
+
+                    Button {
+                        if let reviewURL = AppStoreConfiguration.reviewURL {
+                            openURL(reviewURL)
+                        } else {
+                            requestReview()
+                        }
+                    } label: {
+                        SettingsRow(icon: "star", title: "Rate on the App Store", showsChevron: false)
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(theme.card)
+
+                    ShareLink(item: AppStoreConfiguration.shareMessage) {
+                        SettingsRow(icon: "square.and.arrow.up", title: "Share Dandelion", showsChevron: false)
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(theme.card)
@@ -118,6 +152,22 @@ struct SettingsView: View {
                         .foregroundColor(theme.secondary)
                 }
 #endif
+
+                Section {
+                    SettingsFooterView(
+                        alignment: .center,
+                        textAlignment: .center,
+                        useSmallText: true
+                    )
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(
+                            top: DandelionSpacing.md,
+                            leading: DandelionSpacing.lg,
+                            bottom: DandelionSpacing.lg,
+                            trailing: DandelionSpacing.lg
+                        ))
+                }
             }
             .dandelionListStyle()
             .scrollContentBackground(.hidden)
@@ -169,7 +219,14 @@ struct SettingsView: View {
 private struct SettingsRow: View {
     let icon: String
     let title: String
+    let showsChevron: Bool
     @Environment(AppearanceManager.self) private var appearance
+
+    init(icon: String, title: String, showsChevron: Bool = true) {
+        self.icon = icon
+        self.title = title
+        self.showsChevron = showsChevron
+    }
 
     var body: some View {
         let theme = appearance.theme
@@ -180,9 +237,11 @@ private struct SettingsRow: View {
             Text(title)
                 .foregroundColor(theme.text)
             Spacer()
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(theme.secondary)
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(theme.secondary)
+            }
         }
         .contentShape(Rectangle())
     }
