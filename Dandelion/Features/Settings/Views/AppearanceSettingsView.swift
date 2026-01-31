@@ -113,7 +113,6 @@ struct AppearanceSettingsView: View {
         .scrollContentBackground(.hidden)
         .background(theme.background)
         .navigationTitle("Appearance")
-        .tint(theme.text)
         .dandelionNavigationBarStyle(background: theme.background, colorScheme: appearance.colorScheme)
         .sheet(isPresented: $showPaywall) {
             BloomPaywallView(onClose: { showPaywall = false })

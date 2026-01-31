@@ -113,7 +113,6 @@ struct AppIconSettingsView: View {
         .scrollContentBackground(.hidden)
         .background(theme.background)
         .navigationTitle("App Icon")
-        .tint(theme.text)
         .dandelionNavigationBarStyle(background: theme.background, colorScheme: appearance.colorScheme)
         .onAppear {
             selectedIcon = AppIconOption.current

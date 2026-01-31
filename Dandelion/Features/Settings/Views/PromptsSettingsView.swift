@@ -37,7 +37,6 @@ struct PromptsSettingsView: View {
             .scrollContentBackground(.hidden)
             .background(theme.background)
             .navigationTitle("Prompts")
-            .tint(theme.text)
             .dandelionNavigationBarStyle(background: theme.background, colorScheme: appearance.colorScheme)
 #endif
     }
