@@ -9,7 +9,10 @@ import SwiftUI
 
 #if os(macOS)
 struct MacSettingsView: View {
+    @Environment(PremiumManager.self) private var premium
+
     var body: some View {
+        let isBloomLocked = !premium.isBloomUnlocked
         TabView {
             GeneralSettingsTab()
                 .tabItem {
@@ -17,16 +20,19 @@ struct MacSettingsView: View {
                 }
 
             PromptsSettingsView()
+                .disabled(isBloomLocked)
                 .tabItem {
                     Label("Prompts", systemImage: "text.quote")
                 }
 
             AppearanceSettingsView()
+                .disabled(isBloomLocked)
                 .tabItem {
                     Label("Appearance", systemImage: "paintpalette")
                 }
 
             SoundSettingsView()
+                .disabled(isBloomLocked)
                 .tabItem {
                     Label("Sounds", systemImage: "speaker.wave.2")
                 }
@@ -74,6 +80,9 @@ private struct GeneralSettingsTab: View {
             Section {
                 Toggle(isOn: $premium.debugForceBloom) {
                     Label("Debug: Bloom Unlocked", systemImage: "ladybug")
+                }
+                Toggle(isOn: $premium.debugForceBloomLocked) {
+                    Label("Debug: Force Bloom Locked", systemImage: "lock.fill")
                 }
 
                 Label("CloudKit: Enabled", systemImage: "icloud")

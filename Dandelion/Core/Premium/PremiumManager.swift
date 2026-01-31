@@ -17,6 +17,7 @@ final class PremiumManager {
     private let cacheKey = "com.dandelion.bloom.cachedEntitlement"
     #if DEBUG
     private let debugOverrideKey = "com.dandelion.bloom.debugOverride"
+    private let debugForceLockedKey = "com.dandelion.bloom.debugForceLocked"
     #endif
 
     private(set) var product: Product?
@@ -29,10 +30,16 @@ final class PremiumManager {
             UserDefaults.standard.set(debugForceBloom, forKey: debugOverrideKey)
         }
     }
+    var debugForceBloomLocked: Bool = false {
+        didSet {
+            UserDefaults.standard.set(debugForceBloomLocked, forKey: debugForceLockedKey)
+        }
+    }
     #endif
 
     var isBloomUnlocked: Bool {
         #if DEBUG
+        if debugForceBloomLocked { return false }
         if debugForceBloom { return true }
         #endif
         return cachedEntitlement
@@ -46,6 +53,7 @@ final class PremiumManager {
         cachedEntitlement = UserDefaults.standard.bool(forKey: cacheKey)
         #if DEBUG
         debugForceBloom = UserDefaults.standard.bool(forKey: debugOverrideKey)
+        debugForceBloomLocked = UserDefaults.standard.bool(forKey: debugForceLockedKey)
         #endif
         Task {
             await refreshEntitlement()
