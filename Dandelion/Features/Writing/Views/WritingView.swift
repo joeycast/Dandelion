@@ -636,7 +636,9 @@ struct WritingView: View {
             // Only show shuffle button if there are 2+ prompts to cycle through
             if viewModel.availablePromptCount > 1 {
                 Button("New Prompt") {
+#if !os(macOS)
                     HapticsService.shared.tap()
+#endif
                     viewModel.newPrompt()
                 }
                 .font(.dandelionCaption)
@@ -644,7 +646,9 @@ struct WritingView: View {
             }
 
             Button("Begin Writing") {
+#if !os(macOS)
                 HapticsService.shared.tap()
+#endif
                 viewModel.startWriting()
             }
             .buttonStyle(.dandelion)
