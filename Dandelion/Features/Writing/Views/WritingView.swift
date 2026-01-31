@@ -952,6 +952,9 @@ struct WritingView: View {
                             .font(.system(size: 20))
                             .foregroundColor(theme.secondary)
                     }
+#if os(macOS)
+                    .buttonStyle(.plain)
+#endif
 
                     // Manual release button
                     Button {
@@ -976,6 +979,9 @@ struct WritingView: View {
                     }
                     .disabled(!viewModel.canRelease)
                     .opacity(viewModel.canRelease ? 1.0 : 0.5)
+#if os(macOS)
+                    .buttonStyle(.plain)
+#endif
                 }
                 .padding(.horizontal, DandelionSpacing.md)
                 .opacity(isWriting ? 1 : 0)
