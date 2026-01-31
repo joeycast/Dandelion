@@ -37,7 +37,7 @@ struct PromptsSettingsView: View {
             .scrollContentBackground(.hidden)
             .background(theme.background)
             .navigationTitle("Prompts")
-            .tint(theme.primary)
+            .tint(theme.text)
             .dandelionNavigationBarStyle(background: theme.background, colorScheme: appearance.colorScheme)
 #endif
     }
@@ -306,6 +306,7 @@ struct PromptsSettingsView: View {
                 onSave: savePrompt,
                 onCancel: { showEditor = false }
             )
+            .preferredColorScheme(appearance.colorScheme)
         }
         .sheet(isPresented: $showPaywall) {
             BloomPaywallView(onClose: { showPaywall = false })

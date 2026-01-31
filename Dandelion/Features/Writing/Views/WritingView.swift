@@ -150,6 +150,7 @@ struct WritingView: View {
         }
         .sheet(isPresented: $isSettingsPresented) {
             SettingsView()
+                .preferredColorScheme(appearance.colorScheme)
         }
         .onChange(of: isSettingsPresented) { _, isPresented in
             if !isPresented {

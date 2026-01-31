@@ -123,6 +123,7 @@ struct SettingsView: View {
             .scrollContentBackground(.hidden)
             .background(theme.background)
             .navigationTitle("Settings")
+            .tint(theme.text)
             .dandelionNavigationBarStyle(background: theme.background, colorScheme: appearance.colorScheme)
             .toolbar {
                 if showsDoneButton {
@@ -156,7 +157,9 @@ struct SettingsView: View {
                 }
             }
         }
+        .tint(theme.text)
         .dandelionSettingsSheetDetents()
+        .preferredColorScheme(appearance.colorScheme)
         .sheet(isPresented: $showPaywall) {
             BloomPaywallView(onClose: { showPaywall = false })
         }
