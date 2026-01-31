@@ -107,7 +107,6 @@ struct AppearanceSettingsView: View {
                     .foregroundColor(theme.secondary)
             } footer: {
                 Text("Disables the dandelion wind animation to reduce motion and battery usage. Automatically enabled when system Reduce Motion or Low Power Mode is on.")
-                    .foregroundColor(theme.secondary)
             }
         }
         .dandelionListStyle()
