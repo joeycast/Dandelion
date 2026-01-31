@@ -1159,7 +1159,7 @@ struct WritingView: View {
                 showBloomPaywall = true
             }
         } label: {
-            Image(systemName: ambientSound.isEnabled ? "speaker.wave.2.fill" : "speaker.wave.2")
+            Image(systemName: ambientSound.isEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
                 .font(.system(size: 16, weight: .regular))
                 .foregroundColor(premium.isBloomUnlocked ? theme.secondary : theme.subtle)
                 .accessibilityLabel("Ambient sound")
