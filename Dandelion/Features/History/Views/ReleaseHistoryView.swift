@@ -70,7 +70,6 @@ struct ReleaseHistoryView: View {
                     } label: {
                         Image(systemName: "xmark")
                     }
-                    .modifier(LiquidGlassToolbarButtonModifier())
                 }
 #endif
                 if showsTabs {
