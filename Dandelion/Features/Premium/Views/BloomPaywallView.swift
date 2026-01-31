@@ -112,6 +112,11 @@ struct BloomPaywallView: View {
                         description: "Choose from alternate icons to personalize your home screen"
                     )
                     FeatureRow(
+                        icon: "laptopcomputer",
+                        title: "Dandelion for Mac",
+                        description: "Use Dandelion Bloom on your Mac with full access included"
+                    )
+                    FeatureRow(
                         icon: "square.and.arrow.up",
                         title: "Export",
                         description: "Share or export your release history"
