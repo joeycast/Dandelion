@@ -207,6 +207,7 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
         textView.delegate = context.coordinator
         textView.font = font
         textView.textColor = textColor
+        textView.insertionPointColor = textColor
         textView.drawsBackground = false
         textView.isEditable = isEditable
         textView.isSelectable = true
@@ -266,6 +267,7 @@ struct AutoScrollingTextEditor: NSViewRepresentable {
         textView.isEditable = isEditable
         textView.font = font
         textView.textColor = textColor
+        textView.insertionPointColor = textColor
         scrollView.verticalScroller?.knobStyle = scrollbarKnobStyle == .dark ? .dark : .default
         // Hide scrollbar when view is not visible (e.g., during release animation)
         scrollView.hasVerticalScroller = isVisible
