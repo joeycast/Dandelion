@@ -65,7 +65,6 @@ struct InsightsView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 exportMenu(insights: insights)
-                    .modifier(LiquidGlassToolbarButtonModifier())
             }
         }
 #endif
