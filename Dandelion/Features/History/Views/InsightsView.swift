@@ -21,6 +21,8 @@ struct InsightsView: View {
     @State private var csvDocument = ReleaseHistoryCSVDocument(csv: "")
     @State private var selectedReleaseMonthIndex: Int?
     @State private var selectedWordsMonthIndex: Int?
+    @State private var hoveredReleaseMonthIndex: Int?
+    @State private var hoveredWordsMonthIndex: Int?
 
     init(releases: [Release]) {
         self.releases = releases
@@ -289,13 +291,15 @@ struct InsightsView: View {
                     summaries: summaries,
                     metric: .releases,
                     label: "Releases",
-                    selectedIndex: $selectedReleaseMonthIndex
+                    selectedIndex: $selectedReleaseMonthIndex,
+                    hoveredIndex: $hoveredReleaseMonthIndex
                 )
                 monthlyChart(
                     summaries: summaries,
                     metric: .words,
                     label: "Words",
-                    selectedIndex: $selectedWordsMonthIndex
+                    selectedIndex: $selectedWordsMonthIndex,
+                    hoveredIndex: $hoveredWordsMonthIndex
                 )
             }
             .padding(DandelionSpacing.lg)
@@ -310,11 +314,13 @@ struct InsightsView: View {
         summaries: [MonthlySummary],
         metric: MonthlyMetric,
         label: String,
-        selectedIndex: Binding<Int?>
+        selectedIndex: Binding<Int?>,
+        hoveredIndex: Binding<Int?>
     ) -> some View {
         let theme = appearance.theme
         let values = summaries.map { metric == .releases ? $0.releaseCount : $0.wordCount }
         let maxValue = max(values.max() ?? 1, 1)
+        let activeIndex = hoveredIndex.wrappedValue ?? selectedIndex.wrappedValue
 
         return VStack(alignment: .leading, spacing: DandelionSpacing.sm) {
             Text(label)
@@ -325,8 +331,8 @@ struct InsightsView: View {
                 ForEach(Array(summaries.enumerated()), id: \.offset) { index, summary in
                     let value = metric == .releases ? summary.releaseCount : summary.wordCount
                     let height = max(4, CGFloat(value) / CGFloat(maxValue) * 60)
-                    let isSelected = selectedIndex.wrappedValue == index
-                    let hasSelection = selectedIndex.wrappedValue != nil
+                    let isSelected = activeIndex == index
+                    let hasSelection = activeIndex != nil
                     let barOpacity = hasSelection && !isSelected ? 0.25 : 1.0
 
                     VStack(spacing: 4) {
@@ -355,6 +361,17 @@ struct InsightsView: View {
                             selectedIndex.wrappedValue = isSelected ? nil : index
                         }
                     }
+#if os(macOS)
+                    .onHover { isHovering in
+                        withAnimation(.easeInOut(duration: 0.12)) {
+                            if isHovering {
+                                hoveredIndex.wrappedValue = index
+                            } else if hoveredIndex.wrappedValue == index {
+                                hoveredIndex.wrappedValue = nil
+                            }
+                        }
+                    }
+#endif
                 }
             }
             .frame(height: 80)
