@@ -934,7 +934,6 @@ struct WritingView: View {
             ZStack {
                 // Background stays visible during release
                 theme.background
-                    .shadow(color: .black.opacity(0.05), radius: 10, y: -5)
                     .ignoresSafeArea(edges: .bottom)
 
                 // Content hides during release
