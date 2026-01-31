@@ -392,6 +392,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = LaunchScreen.storyboard;
 				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_FILE[sdk=macosx*]" = "Info-macOS.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Dandelion;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
@@ -448,6 +449,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = LaunchScreen.storyboard;
 				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_FILE[sdk=macosx*]" = "Info-macOS.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Dandelion;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";

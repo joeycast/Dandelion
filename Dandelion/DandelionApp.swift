@@ -7,6 +7,9 @@
 
 import SwiftUI
 import SwiftData
+#if os(macOS)
+import AppKit
+#endif
 
 @main
 struct DandelionApp: App {
@@ -28,6 +31,10 @@ struct DandelionApp: App {
                 for: schema,
                 configurations: [modelConfiguration]
             )
+
+#if os(macOS)
+            NSHelpManager.shared.registerBooks(in: .main)
+#endif
 
             // DEBUG: Seed mock release for testing
             #if DEBUG
