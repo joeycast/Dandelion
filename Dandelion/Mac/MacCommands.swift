@@ -17,13 +17,13 @@ struct MacCommands: Commands {
             Button("Toggle History") {
                 togglePanelAction?(.history)
             }
-            .keyboardShortcut("h", modifiers: [.command, .shift])
+            .keyboardShortcut("1", modifiers: [.command, .shift])
             .disabled(togglePanelAction == nil)
 
             Button("Toggle Insights") {
                 togglePanelAction?(.insights)
             }
-            .keyboardShortcut("i", modifiers: [.command, .shift])
+            .keyboardShortcut("2", modifiers: [.command, .shift])
             .disabled(togglePanelAction == nil)
         }
     }
