@@ -13,13 +13,6 @@ struct MacCommands: Commands {
     @FocusedValue(\.togglePanelAction) var togglePanelAction
 
     var body: some Commands {
-        CommandGroup(replacing: .appSettings) {
-            Button("Settings…") {
-                openSettings()
-            }
-            .keyboardShortcut(",", modifiers: .command)
-        }
-
         CommandMenu("View") {
             Button("Toggle History") {
                 togglePanelAction?(.history)
