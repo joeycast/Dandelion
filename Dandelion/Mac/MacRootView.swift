@@ -44,19 +44,21 @@ struct MacRootView: View {
         .background(appearance.theme.background.ignoresSafeArea())
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    togglePanel(.history)
-                } label: {
-                    Image(systemName: "calendar")
-                }
-                .help("History (Cmd+Shift+H)")
+                if !isMacBloomLocked {
+                    Button {
+                        togglePanel(.history)
+                    } label: {
+                        Image(systemName: "calendar")
+                    }
+                    .help("History (Cmd+Shift+H)")
 
-                Button {
-                    togglePanel(.insights)
-                } label: {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
+                    Button {
+                        togglePanel(.insights)
+                    } label: {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                    }
+                    .help("Insights (Cmd+Shift+I)")
                 }
-                .help("Insights (Cmd+Shift+I)")
 
                 Button {
                     openSettings()
