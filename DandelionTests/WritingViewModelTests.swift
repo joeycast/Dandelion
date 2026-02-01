@@ -103,9 +103,13 @@ final class WritingViewModelTests: XCTestCase {
         XCTAssertTrue(sut.writtenText.isEmpty, "Text should be cleared after release")
     }
 
-    func testReleaseCompleteTransitionsToPrompt() {
-        sut.writingState = .releasing
+    func testReleaseCompleteTransitionsToPrompt() async {
+        sut.writtenText = "Some text"
+        sut.manualRelease()
         sut.releaseComplete()
+        XCTAssertEqual(sut.writingState, .complete, "Should transition to complete state immediately")
+
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
         XCTAssertEqual(sut.writingState, .prompt, "Should transition back to prompt state")
     }
 
