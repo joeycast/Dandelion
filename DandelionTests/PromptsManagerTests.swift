@@ -87,16 +87,11 @@ final class PromptsManagerTests: XCTestCase {
 
     func testCustomPromptsAvailableWithPremium() {
         let custom = [WritingPrompt(text: "Custom prompt")]
-        sut.updatePrompts(customPrompts: custom, disabledDefaultIds: [], isPremiumUnlocked: true)
+        let allDefaultIds = Set(WritingPrompt.defaults.map { $0.id })
+        sut.updatePrompts(customPrompts: custom, disabledDefaultIds: allDefaultIds, isPremiumUnlocked: true)
 
-        var found = false
-        for _ in 0..<20 {
-            if let prompt = sut.randomPrompt(), prompt.text == "Custom prompt" {
-                found = true
-                break
-            }
-        }
-        XCTAssertTrue(found, "Custom prompt should be available with premium")
+        let prompt = sut.randomPrompt()
+        XCTAssertEqual(prompt?.text, "Custom prompt", "Custom prompt should be available with premium")
     }
 
     func testDisabledDefaultPromptsAreSkipped() {

@@ -11,10 +11,11 @@ import SwiftData
 @MainActor
 final class ReleaseHistoryService {
     private let modelContext: ModelContext
-    private let calendar = Calendar.current
+    private let calendar: Calendar
 
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, calendar: Calendar = .current) {
         self.modelContext = modelContext
+        self.calendar = calendar
     }
 
     // MARK: - Recording
@@ -35,31 +36,59 @@ final class ReleaseHistoryService {
 
     /// Get all unique dates with releases for a specific year
     func releaseDates(for year: Int, from releases: [Release]) -> Set<Date> {
-        let releasesInYear = releases.filter { isDate($0.timestamp, in: year) }
-        return Set(releasesInYear.map { calendar.startOfDay(for: $0.timestamp) })
+        Self.releaseDates(for: year, from: releases, calendar: calendar)
     }
 
     /// Total number of releases for a year
     func totalReleases(for year: Int, from releases: [Release]) -> Int {
-        releases.filter { isDate($0.timestamp, in: year) }.count
+        Self.totalReleases(for: year, from: releases, calendar: calendar)
     }
 
     /// Total words released in a year
     func totalWords(for year: Int, from releases: [Release]) -> Int {
-        releases
-            .filter { isDate($0.timestamp, in: year) }
-            .reduce(0) { $0 + $1.wordCount }
+        Self.totalWords(for: year, from: releases, calendar: calendar)
     }
 
     /// Calculate current streak (consecutive days ending today or yesterday)
     func currentStreak(from releases: [Release]) -> Int {
+        Self.currentStreak(from: releases, calendar: calendar, now: Date())
+    }
+
+    /// Longest streak ever achieved
+    func longestStreak(from releases: [Release]) -> Int {
+        Self.longestStreak(from: releases, calendar: calendar)
+    }
+
+    // MARK: - Private Helpers
+
+    private static func isDate(_ date: Date, in year: Int, calendar: Calendar) -> Bool {
+        calendar.component(.year, from: date) == year
+    }
+
+    // MARK: - Static Helpers (testable without SwiftData)
+
+    static func releaseDates(for year: Int, from releases: [Release], calendar: Calendar = .current) -> Set<Date> {
+        let releasesInYear = releases.filter { isDate($0.timestamp, in: year, calendar: calendar) }
+        return Set(releasesInYear.map { calendar.startOfDay(for: $0.timestamp) })
+    }
+
+    static func totalReleases(for year: Int, from releases: [Release], calendar: Calendar = .current) -> Int {
+        releases.filter { isDate($0.timestamp, in: year, calendar: calendar) }.count
+    }
+
+    static func totalWords(for year: Int, from releases: [Release], calendar: Calendar = .current) -> Int {
+        releases
+            .filter { isDate($0.timestamp, in: year, calendar: calendar) }
+            .reduce(0) { $0 + $1.wordCount }
+    }
+
+    static func currentStreak(from releases: [Release], calendar: Calendar = .current, now: Date = Date()) -> Int {
         guard !releases.isEmpty else { return 0 }
 
         let uniqueDays = Set(releases.map { calendar.startOfDay(for: $0.timestamp) })
-        let today = calendar.startOfDay(for: Date())
+        let today = calendar.startOfDay(for: now)
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
 
-        // Start from today or yesterday
         guard let startDate = uniqueDays.contains(today) ? today :
               (uniqueDays.contains(yesterday) ? yesterday : nil) else {
             return 0
@@ -77,8 +106,7 @@ final class ReleaseHistoryService {
         return streak
     }
 
-    /// Longest streak ever achieved
-    func longestStreak(from releases: [Release]) -> Int {
+    static func longestStreak(from releases: [Release], calendar: Calendar = .current) -> Int {
         let sortedDays = Set(releases.map { calendar.startOfDay(for: $0.timestamp) })
             .sorted()
 
@@ -99,11 +127,5 @@ final class ReleaseHistoryService {
         }
 
         return longest
-    }
-
-    // MARK: - Private Helpers
-
-    private func isDate(_ date: Date, in year: Int) -> Bool {
-        calendar.component(.year, from: date) == year
     }
 }
