@@ -23,6 +23,7 @@ struct WritingView: View {
     @Environment(AppearanceManager.self) private var appearance
     @Environment(PremiumManager.self) private var premium
     @Environment(AmbientSoundService.self) private var ambientSound
+    @Environment(\.openURL) private var openURL
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \CustomPrompt.createdAt) private var customPrompts: [CustomPrompt]
     @Query private var defaultPromptSettings: [DefaultPromptSetting]
@@ -1026,13 +1027,26 @@ struct WritingView: View {
                 Image(systemName: "mic.fill")
                     .font(.system(size: 11))
                     .foregroundColor(theme.accent)
-                Text("Tap Let Go, or simply blow to release")
+                Text("Or blow gently into your microphone")
                     .font(.system(size: 13))
                     .foregroundColor(theme.secondary)
             }
         } else {
-            // Permission denied - no hint needed, button is clear
-            EmptyView()
+            // Permission denied - offer Settings link
+            HStack(spacing: 4) {
+                Image(systemName: "mic.slash")
+                    .font(.system(size: 11))
+                    .foregroundColor(theme.secondary)
+                Text("Microphone access is off.")
+                    .font(.system(size: 13))
+                    .foregroundColor(theme.secondary)
+                Button("Open Settings") {
+                    openAppSettings()
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(theme.accent)
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -1091,9 +1105,38 @@ struct WritingView: View {
                             .font(.system(size: 16))
                             .foregroundColor(theme.accent)
                             .frame(width: 24)
-                        Text("Or blow gently into your microphone")
-                            .font(.system(size: 16, design: .serif))
-                            .foregroundColor(theme.text)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Or blow gently into your microphone")
+                                .font(.system(size: 16, design: .serif))
+                                .foregroundColor(theme.text)
+                            if viewModel.blowDetection.permissionDetermined && !viewModel.blowDetection.hasPermission {
+                                HStack(spacing: 6) {
+                                    Text("Microphone access is off.")
+                                        .font(.system(size: 12, design: .serif))
+                                        .foregroundColor(theme.secondary)
+                                    Button("Open Settings") {
+                                        openAppSettings()
+                                    }
+                                    .font(.system(size: 12, weight: .semibold, design: .serif))
+                                    .foregroundColor(theme.accent)
+                                    .buttonStyle(.plain)
+                                }
+                            } else if !viewModel.blowDetection.permissionDetermined {
+                                HStack(spacing: 6) {
+                                    Text("Microphone access is required to blow and release.")
+                                        .font(.system(size: 12, design: .serif))
+                                        .foregroundColor(theme.secondary)
+                                    Button("Enable Microphone") {
+                                        Task {
+                                            await viewModel.requestMicrophonePermission()
+                                        }
+                                    }
+                                    .font(.system(size: 12, weight: .semibold, design: .serif))
+                                    .foregroundColor(theme.accent)
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -1161,6 +1204,18 @@ struct WritingView: View {
 #endif
             }
             .allowsHitTesting(false)
+    }
+
+    private func openAppSettings() {
+#if os(iOS)
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+#elseif os(macOS)
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+            openURL(url)
+        }
+#endif
     }
 
     private var ambientToggleButton: some View {

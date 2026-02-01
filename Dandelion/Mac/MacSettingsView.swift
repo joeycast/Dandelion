@@ -48,8 +48,10 @@ private struct GeneralSettingsTab: View {
     @Environment(PremiumManager.self) private var premium
     @Environment(\.openURL) private var openURL
     @Environment(\.requestReview) private var requestReview
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showPaywall: Bool = false
     @AppStorage(HapticsService.settingsKey) private var hapticsEnabled: Bool = true
+    @State private var micPermission: MicrophonePermissionState = .unknown
 
     var body: some View {
         @Bindable var premium = premium
@@ -82,8 +84,11 @@ private struct GeneralSettingsTab: View {
 
             Section {
                 Toggle("Haptics", isOn: $hapticsEnabled)
+                microphonePermissionRow
             } header: {
                 Text("Writing")
+            } footer: {
+                Text("Microphone access lets you blow to release your writing, like dandelion seeds blowing away in the wind.")
             }
 
             Section {
@@ -137,6 +142,59 @@ private struct GeneralSettingsTab: View {
         .sheet(isPresented: $showPaywall) {
             BloomPaywallView(onClose: { showPaywall = false })
         }
+        .onAppear {
+            refreshMicrophonePermission()
+        }
+        .onChange(of: scenePhase) { _, newValue in
+            if newValue == .active {
+                refreshMicrophonePermission()
+            }
+        }
+    }
+
+    private var microphonePermissionRow: some View {
+        HStack {
+            Label("Microphone", systemImage: micPermission.iconName)
+            Spacer()
+            Text(micPermission.statusText)
+                .foregroundColor(.secondary)
+            if micPermission.isActionEnabled {
+                Button(micPermission.actionTitle) {
+                    handleMicrophoneAction()
+                }
+            }
+        }
+    }
+
+    private func refreshMicrophonePermission() {
+        let status = WritingViewModel.permissionStatus()
+        if !status.determined {
+            micPermission = .notDetermined
+        } else if status.granted {
+            micPermission = .granted
+        } else {
+            micPermission = .denied
+        }
+    }
+
+    private func handleMicrophoneAction() {
+        switch micPermission {
+        case .notDetermined:
+            Task {
+                _ = await WritingViewModel.requestMicrophonePermission()
+                refreshMicrophonePermission()
+            }
+        case .denied:
+            openAppSettings()
+        case .granted, .unknown:
+            break
+        }
+    }
+
+    private func openAppSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+            openURL(url)
+        }
     }
 }
 #endif
@@ -153,5 +211,58 @@ private struct SettingsActionRow: View {
             Spacer()
         }
         .contentShape(Rectangle())
+    }
+}
+
+private enum MicrophonePermissionState {
+    case unknown
+    case notDetermined
+    case granted
+    case denied
+
+    var statusText: String {
+        switch self {
+        case .unknown:
+            return "Checking status…"
+        case .notDetermined:
+            return "Not granted"
+        case .granted:
+            return "Enabled"
+        case .denied:
+            return "Disabled in Settings"
+        }
+    }
+
+    var actionTitle: String {
+        switch self {
+        case .notDetermined:
+            return "Enable"
+        case .denied:
+            return "Open Settings"
+        case .granted, .unknown:
+            return ""
+        }
+    }
+
+    var isActionEnabled: Bool {
+        switch self {
+        case .granted, .unknown:
+            return false
+        case .notDetermined, .denied:
+            return true
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .granted:
+            return "mic.fill"
+        case .notDetermined:
+            return "mic"
+        case .denied:
+            return "mic.slash"
+        case .unknown:
+            return "mic"
+        }
     }
 }

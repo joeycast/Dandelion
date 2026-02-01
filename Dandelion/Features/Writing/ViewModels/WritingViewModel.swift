@@ -6,6 +6,10 @@
 //
 
 import SwiftUI
+import AVFoundation
+#if os(macOS)
+import AVFAudio
+#endif
 
 /// The current state of the writing flow
 enum WritingState: Equatable {
@@ -166,6 +170,28 @@ final class WritingViewModel {
         if granted {
             blowDetection.startListening()
         }
+    }
+
+    static func permissionStatus() -> (determined: Bool, granted: Bool) {
+#if os(iOS)
+        let status = AVAudioApplication.shared.recordPermission
+        return (status != .undetermined, status == .granted)
+#elseif os(macOS)
+        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        return (status != .notDetermined, status == .authorized)
+#else
+        return (true, false)
+#endif
+    }
+
+    static func requestMicrophonePermission() async -> Bool {
+#if os(iOS)
+        return await AVAudioApplication.requestRecordPermission()
+#elseif os(macOS)
+        return await AVCaptureDevice.requestAccess(for: .audio)
+#else
+        return false
+#endif
     }
 
     /// Trigger release via manual action
