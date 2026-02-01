@@ -265,7 +265,7 @@ struct WritingView: View {
                         "[ReleaseFlow] release heights snapshot area=\(lastWritingAreaHeight) visible=\(releaseVisibleHeight)"
                     )
                 }
-                viewModel.beginReleaseDetachment()
+                // Note: Seed detachment is now handled in triggerRelease() for atomic state update
                 // Show animated text and hide written text together for smooth handoff
                 showAnimatedText = true
                 animateLetters = true

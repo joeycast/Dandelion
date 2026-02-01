@@ -210,7 +210,7 @@ final class WritingViewModel {
         releaseHapticsTask?.cancel()
         releaseHapticsTask = nil
         if Self.debugReleaseFlow {
-            debugLog("[ReleaseFlow] releaseComplete")
+            debugLog("[ReleaseFlow] releaseComplete: detached=\(detachedSeedTimes.count), restoreTime=\(seedRestoreStartTime != nil)")
         }
 
         withAnimation(.easeInOut(duration: dandelionReturnDuration)) {
@@ -220,6 +220,9 @@ final class WritingViewModel {
         // Clear the text (it's gone forever!)
         writtenText = ""
         releaseStartTime = nil
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] releaseComplete: calling beginSeedRestore")
+        }
         beginSeedRestore()
         // Avoid swapping prompts twice if a reset already completed.
         if activeReleaseID != nil {
@@ -346,12 +349,20 @@ final class WritingViewModel {
         promptResetTask?.cancel()
         promptResetTask = nil
         if Self.debugReleaseFlow {
-            debugLog("[ReleaseFlow] triggerRelease")
+            debugLog("[ReleaseFlow] triggerRelease: BEFORE detached=\(detachedSeedTimes.count), restoreTime=\(seedRestoreStartTime != nil), returning=\(isDandelionReturning)")
         }
 
         isDandelionReturning = false
         writingState = .releasing
         releaseStartTime = Date().timeIntervalSinceReferenceDate
+        // Detach all seeds immediately with fresh timestamps.
+        // This is done here (not in the View's onChange) to ensure atomic state update.
+        prepareDetachmentOrder()
+        detachAllSeeds()
+
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] triggerRelease: AFTER detached=\(detachedSeedTimes.count), restoreTime=\(seedRestoreStartTime != nil)")
+        }
 
         // Record the release asynchronously to avoid blocking the animation start.
         let releaseText = writtenText
@@ -394,6 +405,9 @@ final class WritingViewModel {
     }
 
     private func cancelSeedRestore() {
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] cancelSeedRestore: task=\(seedRestoreTask != nil), restoreTime=\(seedRestoreStartTime != nil)")
+        }
         seedRestoreTask?.cancel()
         seedRestoreTask = nil
         seedRestoreStartTime = nil
@@ -401,14 +415,25 @@ final class WritingViewModel {
 
     private func beginSeedRestore() {
         // Skip if restore is already in progress (started by startSeedRestoreNow)
-        guard seedRestoreStartTime == nil else { return }
+        guard seedRestoreStartTime == nil else {
+            if Self.debugReleaseFlow {
+                debugLog("[ReleaseFlow] beginSeedRestore: SKIPPED (restore already in progress)")
+            }
+            return
+        }
 
         guard !detachedSeedTimes.isEmpty else {
+            if Self.debugReleaseFlow {
+                debugLog("[ReleaseFlow] beginSeedRestore: SKIPPED (no detached seeds)")
+            }
             prepareDetachmentOrder()
             stopDetachingSeeds()
             return
         }
 
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] beginSeedRestore: starting with \(detachedSeedTimes.count) detached seeds")
+        }
         cancelSeedRestore()
 
         // Delay regrowth until after dandelion returns to default position
@@ -421,7 +446,11 @@ final class WritingViewModel {
             // Now start the regrowth animation
             await MainActor.run {
                 guard let self else { return }
-                self.seedRestoreStartTime = Date().timeIntervalSinceReferenceDate
+                let now = Date().timeIntervalSinceReferenceDate
+                if Self.debugReleaseFlow {
+                    debugLog("[ReleaseFlow] beginSeedRestore: setting seedRestoreStartTime=\(String(format: "%.3f", now))")
+                }
+                self.seedRestoreStartTime = now
                 self.regrowHapticsTask?.cancel()
                 self.regrowHapticsTask = Task { [haptics = self.haptics] in
                     await haptics.playRegrowthPattern()
@@ -430,8 +459,13 @@ final class WritingViewModel {
 
             // Wait for regrowth to complete
             try? await Task.sleep(nanoseconds: UInt64(restoreDuration * 1_000_000_000))
+            // Check if cancelled before cleanup - cancellation happens when a new release starts
+            guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard let self else { return }
+                if Self.debugReleaseFlow {
+                    debugLog("[ReleaseFlow] beginSeedRestore: COMPLETE, clearing detachedSeedTimes")
+                }
                 self.detachedSeedTimes = [:]
                 self.seedRestoreStartTime = nil
                 self.prepareDetachmentOrder()
@@ -481,6 +515,9 @@ final class WritingViewModel {
         for id in 0..<dandelionSeedCount {
             updated[id] = timestamp
         }
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] detachAllSeeds: setting \(updated.count) seeds at time \(String(format: "%.3f", timestamp))")
+        }
         detachedSeedTimes = updated
         detachmentCursor = detachmentOrder.count
         stopDetachingSeeds()
@@ -512,14 +549,24 @@ final class WritingViewModel {
 
     /// Start the seed restore animation immediately (called when release message starts fading)
     func startSeedRestoreNow() {
-        guard seedRestoreStartTime == nil else { return }
-        guard !detachedSeedTimes.isEmpty else { return }
+        guard seedRestoreStartTime == nil else {
+            if Self.debugReleaseFlow {
+                debugLog("[ReleaseFlow] startSeedRestoreNow: SKIPPED (already restoring)")
+            }
+            return
+        }
+        guard !detachedSeedTimes.isEmpty else {
+            if Self.debugReleaseFlow {
+                debugLog("[ReleaseFlow] startSeedRestoreNow: SKIPPED (no detached seeds)")
+            }
+            return
+        }
         if Self.debugReleaseFlow {
             if let releaseStartTime {
                 let elapsed = Date().timeIntervalSinceReferenceDate - releaseStartTime
-                debugLog(String(format: "[ReleaseFlow] startSeedRestoreNow +%.3fs", elapsed))
+                debugLog(String(format: "[ReleaseFlow] startSeedRestoreNow +%.3fs, detached=\(detachedSeedTimes.count)", elapsed))
             } else {
-                debugLog("[ReleaseFlow] startSeedRestoreNow")
+                debugLog("[ReleaseFlow] startSeedRestoreNow detached=\(detachedSeedTimes.count)")
             }
         }
 
@@ -528,7 +575,11 @@ final class WritingViewModel {
         schedulePromptReset()
 
         let restoreDuration = seedRestoreDuration
-        seedRestoreStartTime = Date().timeIntervalSinceReferenceDate
+        let now = Date().timeIntervalSinceReferenceDate
+        if Self.debugReleaseFlow {
+            debugLog("[ReleaseFlow] startSeedRestoreNow: setting seedRestoreStartTime=\(String(format: "%.3f", now))")
+        }
+        seedRestoreStartTime = now
         regrowHapticsTask?.cancel()
         regrowHapticsTask = Task { [haptics] in
             await haptics.playRegrowthPattern()
@@ -537,8 +588,13 @@ final class WritingViewModel {
         seedRestoreTask = Task { [weak self] in
             // Wait for regrowth animation to complete
             try? await Task.sleep(nanoseconds: UInt64(restoreDuration * 1_000_000_000))
+            // Check if cancelled before cleanup - cancellation happens when a new release starts
+            guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard let self else { return }
+                if Self.debugReleaseFlow {
+                    debugLog("[ReleaseFlow] startSeedRestoreNow: COMPLETE, clearing detachedSeedTimes")
+                }
                 self.detachedSeedTimes = [:]
                 self.seedRestoreStartTime = nil
                 self.prepareDetachmentOrder()

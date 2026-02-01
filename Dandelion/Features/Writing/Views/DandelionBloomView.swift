@@ -84,6 +84,15 @@ struct DandelionBloomView: View {
             }
         }
         .accessibilityHidden(true)
+        .onChange(of: detachedSeedTimes.count) { oldCount, newCount in
+            debugLog("[DandelionBloom] detachedSeedTimes.count: \(oldCount) -> \(newCount)")
+        }
+        .onChange(of: seedRestoreStartTime) { oldValue, newValue in
+            debugLog("[DandelionBloom] seedRestoreStartTime: \(oldValue.map { String(format: "%.3f", $0) } ?? "nil") -> \(newValue.map { String(format: "%.3f", $0) } ?? "nil")")
+        }
+        .onChange(of: isAnimating) { oldValue, newValue in
+            debugLog("[DandelionBloom] isAnimating: \(oldValue) -> \(newValue)")
+        }
     }
 }
 
