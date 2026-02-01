@@ -85,7 +85,9 @@ final class PromptsManager {
     private(set) var isPremiumUnlocked: Bool
     private(set) var releaseMessages: [ReleaseMessage]
     private var usedPromptIds: Set<String> = []
+    private var usedPromptOrder: [String] = []
     private var usedMessageIds: Set<String> = []
+    private var usedMessageOrder: [String] = []
     private var lastPromptId: String?
 
     /// Active default prompts (excluding disabled ones)
@@ -139,17 +141,21 @@ final class PromptsManager {
         if unusedPrompts.isEmpty {
             // Reset tracking if we've used all eligible prompts
             usedPromptIds.removeAll()
+            usedPromptOrder.removeAll()
             prompt = eligiblePrompts.randomElement() ?? prompts[0]
         } else {
             prompt = unusedPrompts.randomElement() ?? eligiblePrompts[0]
         }
 
-        usedPromptIds.insert(prompt.id)
+        if usedPromptIds.insert(prompt.id).inserted {
+            usedPromptOrder.append(prompt.id)
+        }
         lastPromptId = prompt.id
 
         // Keep only last 5 to allow some variety
-        if usedPromptIds.count > 5 {
-            usedPromptIds.removeFirst()
+        while usedPromptOrder.count > 5 {
+            let evictedId = usedPromptOrder.removeFirst()
+            usedPromptIds.remove(evictedId)
         }
 
         return prompt
@@ -162,15 +168,19 @@ final class PromptsManager {
         // Reset if we've used them all
         if availableMessages.isEmpty {
             usedMessageIds.removeAll()
+            usedMessageOrder.removeAll()
             return releaseMessages.randomElement() ?? ReleaseMessage(text: "Released.")
         }
 
         let message = availableMessages.randomElement() ?? releaseMessages[0]
-        usedMessageIds.insert(message.id)
+        if usedMessageIds.insert(message.id).inserted {
+            usedMessageOrder.append(message.id)
+        }
 
         // Keep only last 3 to allow some variety
-        if usedMessageIds.count > 3 {
-            usedMessageIds.removeFirst()
+        while usedMessageOrder.count > 3 {
+            let evictedId = usedMessageOrder.removeFirst()
+            usedMessageIds.remove(evictedId)
         }
 
         return message
@@ -186,5 +196,6 @@ final class PromptsManager {
         self.disabledDefaultIds = disabledDefaultIds
         self.isPremiumUnlocked = isPremiumUnlocked
         usedPromptIds.removeAll()
+        usedPromptOrder.removeAll()
     }
 }
