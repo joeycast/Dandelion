@@ -571,7 +571,8 @@ struct WritingView: View {
                 settingsButton
             }
             .padding(.horizontal, DandelionSpacing.screenEdge)
-            .frame(height: 32)
+            .padding(.top, UIDevice.current.userInterfaceIdiom == .pad ? 65 : 0)
+            .frame(height: UIDevice.current.userInterfaceIdiom == .pad ? 42 : 32)
 #else
             Color.clear.frame(height: 0)
 #endif
