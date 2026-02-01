@@ -42,6 +42,13 @@ final class BlowDetectionService {
         return true
     }
 
+    #if DEBUG
+    /// Overrides permission request for tests.
+    @ObservationIgnored var permissionRequestOverride: (() async -> Bool)?
+    /// Overrides startListening for tests.
+    @ObservationIgnored var startListeningOverride: (() -> Void)?
+    #endif
+
     // MARK: - Callbacks
 
     /// Called when a complete blow is detected (sustained airflow)
@@ -108,6 +115,14 @@ final class BlowDetectionService {
 
     /// Request microphone permission
     func requestPermission() async -> Bool {
+        #if DEBUG
+        if let permissionRequestOverride {
+            let granted = await permissionRequestOverride()
+            hasPermission = granted
+            permissionDetermined = true
+            return granted
+        }
+        #endif
         #if os(iOS)
         let status = AVAudioApplication.shared.recordPermission
 
@@ -175,6 +190,13 @@ final class BlowDetectionService {
 
     /// Start listening for blows
     func startListening() {
+        #if DEBUG
+        if let startListeningOverride {
+            startListeningOverride()
+            isListening = true
+            return
+        }
+        #endif
         guard hasPermission, !isListening else { return }
 
         do {

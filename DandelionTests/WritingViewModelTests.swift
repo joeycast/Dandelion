@@ -130,4 +130,25 @@ final class WritingViewModelTests: XCTestCase {
         sut.startNewSession()
         XCTAssertEqual(sut.writingState, .prompt, "Should transition to prompt state")
     }
+
+    // MARK: - Microphone Permission Tests
+
+    func testRequestMicrophonePermissionStartsListeningWhenGranted() async {
+        let blowDetection = BlowDetectionService()
+        var startListeningCalled = false
+        blowDetection.permissionRequestOverride = { true }
+        blowDetection.startListeningOverride = { startListeningCalled = true }
+
+        sut = WritingViewModel(
+            promptsManager: PromptsManager(),
+            blowDetection: blowDetection,
+            haptics: .shared
+        )
+
+        await sut.requestMicrophonePermission()
+
+        XCTAssertTrue(blowDetection.permissionDetermined, "Permission should be determined after request")
+        XCTAssertTrue(blowDetection.hasPermission, "Permission should be granted after request")
+        XCTAssertTrue(startListeningCalled, "Should start listening after permission is granted")
+    }
 }
