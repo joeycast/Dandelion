@@ -40,27 +40,30 @@ struct MonthlySummary: Identifiable {
 
 enum ReleaseInsightsCalculator {
     private static let calendar = Calendar.current
+    // Injectable clock for deterministic tests.
+    static var nowProvider: () -> Date = Date.init
 
     static func calculate(releases: [Release]) -> ReleaseInsights {
+        let now = nowProvider()
         let sorted = releases.sorted { $0.timestamp < $1.timestamp }
         let totalReleases = releases.count
         let totalWords = releases.reduce(0) { $0 + $1.wordCount }
 
         let journeyStart = sorted.first?.timestamp
-        let daysOnJourney = journeyStart.map { daysBetween(start: $0, end: Date()) } ?? 0
+        let daysOnJourney = journeyStart.map { daysBetween(start: $0, end: now) } ?? 0
         let activeDays = Set(releases.map { calendar.startOfDay(for: $0.timestamp) }).count
 
         let currentStreak = currentStreak(from: releases)
         let longestStreak = longestStreak(from: releases)
 
-        let releasesLast7Days = releasesCount(inLastDays: 7, releases: releases)
-        let releasesPerWeekAverage = averageWeeklyReleases(releases: releases)
+        let releasesLast7Days = releasesCount(inLastDays: 7, releases: releases, now: now)
+        let releasesPerWeekAverage = averageWeeklyReleases(releases: releases, now: now)
 
-        let last30DaysReleases = releasesCount(inLastDays: 30, releases: releases)
-        let prev30DaysReleases = releasesCount(inDaysRange: 31...60, releases: releases)
+        let last30DaysReleases = releasesCount(inLastDays: 30, releases: releases, now: now)
+        let prev30DaysReleases = releasesCount(inDaysRange: 30...59, releases: releases, now: now)
 
-        let last30DaysWords = wordsCount(inLastDays: 30, releases: releases)
-        let prev30DaysWords = wordsCount(inDaysRange: 31...60, releases: releases)
+        let last30DaysWords = wordsCount(inLastDays: 30, releases: releases, now: now)
+        let prev30DaysWords = wordsCount(inDaysRange: 30...59, releases: releases, now: now)
 
         let averageWordsPerRelease = totalReleases > 0 ? Double(totalWords) / Double(totalReleases) : 0
         let medianWordsPerRelease = medianWordCount(releases: releases)
@@ -105,40 +108,44 @@ enum ReleaseInsightsCalculator {
         return max(0, days + 1)
     }
 
-    private static func releasesCount(inLastDays days: Int, releases: [Release]) -> Int {
-        guard let startDate = calendar.date(byAdding: .day, value: -days + 1, to: calendar.startOfDay(for: Date())) else {
+    private static func releasesCount(inLastDays days: Int, releases: [Release], now: Date) -> Int {
+        guard let startDate = calendar.date(byAdding: .day, value: -days + 1, to: calendar.startOfDay(for: now)) else {
             return 0
         }
         return releases.filter { $0.timestamp >= startDate }.count
     }
 
-    private static func releasesCount(inDaysRange range: ClosedRange<Int>, releases: [Release]) -> Int {
-        guard let endDate = calendar.date(byAdding: .day, value: -(range.lowerBound), to: calendar.startOfDay(for: Date())),
-              let startDate = calendar.date(byAdding: .day, value: -(range.upperBound), to: calendar.startOfDay(for: Date())) else {
+    private static func releasesCount(inDaysRange range: ClosedRange<Int>, releases: [Release], now: Date) -> Int {
+        let todayStart = calendar.startOfDay(for: now)
+        // Inclusive window: N days ago through M days ago.
+        guard let startDate = calendar.date(byAdding: .day, value: -range.upperBound, to: todayStart),
+              let endDate = calendar.date(byAdding: .day, value: -range.lowerBound + 1, to: todayStart) else {
             return 0
         }
         return releases.filter { $0.timestamp >= startDate && $0.timestamp < endDate }.count
     }
 
-    private static func wordsCount(inLastDays days: Int, releases: [Release]) -> Int {
-        guard let startDate = calendar.date(byAdding: .day, value: -days + 1, to: calendar.startOfDay(for: Date())) else {
+    private static func wordsCount(inLastDays days: Int, releases: [Release], now: Date) -> Int {
+        guard let startDate = calendar.date(byAdding: .day, value: -days + 1, to: calendar.startOfDay(for: now)) else {
             return 0
         }
         return releases.filter { $0.timestamp >= startDate }.reduce(0) { $0 + $1.wordCount }
     }
 
-    private static func wordsCount(inDaysRange range: ClosedRange<Int>, releases: [Release]) -> Int {
-        guard let endDate = calendar.date(byAdding: .day, value: -(range.lowerBound), to: calendar.startOfDay(for: Date())),
-              let startDate = calendar.date(byAdding: .day, value: -(range.upperBound), to: calendar.startOfDay(for: Date())) else {
+    private static func wordsCount(inDaysRange range: ClosedRange<Int>, releases: [Release], now: Date) -> Int {
+        let todayStart = calendar.startOfDay(for: now)
+        // Inclusive window: N days ago through M days ago.
+        guard let startDate = calendar.date(byAdding: .day, value: -range.upperBound, to: todayStart),
+              let endDate = calendar.date(byAdding: .day, value: -range.lowerBound + 1, to: todayStart) else {
             return 0
         }
         return releases.filter { $0.timestamp >= startDate && $0.timestamp < endDate }.reduce(0) { $0 + $1.wordCount }
     }
 
-    private static func averageWeeklyReleases(releases: [Release]) -> Double {
+    private static func averageWeeklyReleases(releases: [Release], now: Date) -> Double {
         guard !releases.isEmpty else { return 0 }
         let weeks = 4
-        let total = releasesCount(inLastDays: weeks * 7, releases: releases)
+        let total = releasesCount(inLastDays: weeks * 7, releases: releases, now: now)
         return Double(total) / Double(weeks)
     }
 
