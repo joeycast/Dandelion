@@ -1,0 +1,6 @@
+#include "Secrets.xcconfig"
+
+TEAM_ID =
+APP_BUNDLE_ID = com.example.Dandelion
+TESTS_BUNDLE_ID = com.example.DandelionTests
+ICLOUD_CONTAINER_ID = iCloud.com.example.Dandelion

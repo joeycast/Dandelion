@@ -5,7 +5,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleIdentifier</key>
-    <string>$(APP_BUNDLE_ID).help</string>
+    <string>com.example.Dandelion.help</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
