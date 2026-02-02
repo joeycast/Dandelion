@@ -70,18 +70,21 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(theme.card)
+                    .accessibilityHint("Customize writing prompts")
 
                     Button { navigationPath.append(Destination.appearance) } label: {
                         SettingsRow(icon: "paintpalette", title: "Appearance")
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(theme.card)
+                    .accessibilityHint("Change colors and visual style")
 
                     Button { navigationPath.append(Destination.sounds) } label: {
                         SettingsRow(icon: "speaker.wave.2", title: "Sounds")
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(theme.card)
+                    .accessibilityHint("Configure ambient sounds")
 
                     Toggle(isOn: $hapticsEnabled) {
                         HStack(spacing: DandelionSpacing.md) {
@@ -94,6 +97,7 @@ struct SettingsView: View {
                     }
                     .toggleStyle(SwitchToggleStyle(tint: theme.accent))
                     .listRowBackground(theme.card)
+                    .accessibilityHint("Enable or disable vibration feedback")
 
                     microphonePermissionRow
                         .listRowBackground(theme.card)
@@ -110,6 +114,7 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(theme.card)
+                    .accessibilityHint("Choose a different app icon")
 
                     Button {
                         if let reviewURL = AppStoreConfiguration.reviewURL {
@@ -122,12 +127,14 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(theme.card)
+                    .accessibilityHint("Open the App Store to leave a review")
 
                     ShareLink(item: AppStoreConfiguration.shareMessage) {
                         SettingsRow(icon: "square.and.arrow.up", title: "Share Dandelion", showsChevron: false)
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(theme.card)
+                    .accessibilityHint("Share Dandelion with others")
                 } header: {
                     Text("App")
                         .foregroundColor(theme.secondary)
@@ -237,6 +244,7 @@ struct SettingsView: View {
             Image(systemName: micPermission.iconName)
                 .foregroundColor(theme.accent)
                 .frame(width: 24)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Microphone")
                     .foregroundColor(theme.text)
@@ -253,6 +261,9 @@ struct SettingsView: View {
                 .foregroundColor(theme.accent)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Microphone, \(micPermission.statusText)")
+        .accessibilityHint(micPermission.isActionEnabled ? "Tap to \(micPermission.actionTitle.lowercased())" : "")
     }
 
     private func refreshMicrophonePermission() {

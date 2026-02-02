@@ -119,12 +119,16 @@ struct SoundSettingsView: View {
                                         Image(systemName: "checkmark")
                                             .font(.system(size: 14, weight: .semibold))
                                             .foregroundColor(theme.accent)
+                                            .accessibilityHidden(true)
                                     }
                                 }
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .listRowBackground(theme.card)
+                            .accessibilityLabel("\(sound.displayName)\(ambientSound.selectedSound == sound ? ", selected" : "")")
+                            .accessibilityHint("Tap to select and preview")
+                            .accessibilityAddTraits(ambientSound.selectedSound == sound ? .isSelected : [])
                         }
                     } header: {
                         Text("Sound")
@@ -137,14 +141,18 @@ struct SoundSettingsView: View {
                                 Image(systemName: "speaker.fill")
                                     .font(.system(size: 12))
                                     .foregroundColor(theme.secondary)
+                                    .accessibilityHidden(true)
                                 Slider(value: Binding(
                                     get: { Double(ambientSound.volume) },
                                     set: { ambientSound.volume = Float($0) }
                                 ), in: 0...1)
                                 .tint(theme.accent)
+                                .accessibilityLabel("Volume")
+                                .accessibilityValue("\(Int(ambientSound.volume * 100)) percent")
                                 Image(systemName: "speaker.wave.3.fill")
                                     .font(.system(size: 12))
                                     .foregroundColor(theme.secondary)
+                                    .accessibilityHidden(true)
                             }
                         }
                         .listRowBackground(theme.card)
@@ -166,11 +174,14 @@ struct SoundSettingsView: View {
                                 Image(systemName: "lock.fill")
                                     .font(.system(size: 12))
                                     .foregroundColor(theme.secondary)
+                                    .accessibilityHidden(true)
                             }
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .listRowBackground(theme.card)
+                        .accessibilityLabel("\(sound.displayName), requires Dandelion Bloom")
+                        .accessibilityHint("Tap to unlock with Dandelion Bloom")
                     }
                 } header: {
                     Text("Sounds")

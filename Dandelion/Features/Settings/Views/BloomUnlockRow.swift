@@ -71,6 +71,9 @@ struct BloomUnlockRow: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Unlock Dandelion Bloom, the full Dandelion experience")
+        .accessibilityHint("View premium features and pricing")
         .onAppear {
             withAnimation(
                 .easeInOut(duration: 2.0)

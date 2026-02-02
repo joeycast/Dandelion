@@ -165,6 +165,7 @@ private struct MacPaletteRow: View {
                 RoundedRectangle(cornerRadius: 6)
                     .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
             )
+            .accessibilityHidden(true)
 
             Text(palette.displayName)
 
@@ -174,12 +175,18 @@ private struct MacPaletteRow: View {
                 Image(systemName: "checkmark")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.accentColor)
+                    .accessibilityHidden(true)
             } else if isLocked {
                 Image(systemName: "lock.fill")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
+                    .accessibilityHidden(true)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(palette.displayName) color palette\(isSelected ? ", selected" : "")\(isLocked ? ", requires Dandelion Bloom" : "")")
+        .accessibilityHint(isLocked ? "Unlock with Dandelion Bloom" : (isSelected ? "" : "Tap to select"))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 #endif
@@ -208,6 +215,7 @@ private struct PaletteRow: View {
                 RoundedRectangle(cornerRadius: 6)
                     .stroke(theme.subtle, lineWidth: 1)
             )
+            .accessibilityHidden(true)
 
             Text(palette.displayName)
                 .foregroundColor(theme.text)
@@ -218,12 +226,18 @@ private struct PaletteRow: View {
                 Image(systemName: "checkmark")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(theme.accent)
+                    .accessibilityHidden(true)
             } else if isLocked {
                 Image(systemName: "lock.fill")
                     .font(.system(size: 12))
                     .foregroundColor(theme.secondary)
+                    .accessibilityHidden(true)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(palette.displayName) color palette\(isSelected ? ", selected" : "")\(isLocked ? ", requires Dandelion Bloom" : "")")
+        .accessibilityHint(isLocked ? "Unlock with Dandelion Bloom" : (isSelected ? "" : "Tap to select"))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

@@ -36,6 +36,8 @@ struct AppIconSettingsView: View {
             if UIApplication.shared.supportsAlternateIcons {
                 Section {
                     ForEach(availableOptions) { option in
+                        let isSelected = selectedIcon == option
+                        let isLocked = option != .default && !premium.isBloomUnlocked
                         Button {
                             select(option)
                         } label: {
@@ -50,20 +52,23 @@ struct AppIconSettingsView: View {
                                         RoundedRectangle(cornerRadius: 10)
                                             .stroke(theme.subtle, lineWidth: 0.5)
                                     )
+                                    .accessibilityHidden(true)
 
                                 Text(option.displayName)
                                     .foregroundColor(theme.text)
 
                                 Spacer()
 
-                                if selectedIcon == option {
+                                if isSelected {
                                     Image(systemName: "checkmark")
                                         .font(.system(size: 14, weight: .semibold))
                                         .foregroundColor(theme.accent)
-                                } else if option != .default && !premium.isBloomUnlocked {
+                                        .accessibilityHidden(true)
+                                } else if isLocked {
                                     Image(systemName: "lock.fill")
                                         .font(.system(size: 12))
                                         .foregroundColor(theme.secondary)
+                                        .accessibilityHidden(true)
                                 }
                             }
                             .contentShape(Rectangle())
@@ -71,6 +76,9 @@ struct AppIconSettingsView: View {
                         .buttonStyle(.plain)
                         .disabled(isUpdatingIcon)
                         .listRowBackground(theme.card)
+                        .accessibilityLabel("\(option.displayName) icon\(isSelected ? ", selected" : "")\(isLocked ? ", requires Dandelion Bloom" : "")")
+                        .accessibilityHint(isLocked ? "Unlock with Dandelion Bloom" : (isSelected ? "" : "Tap to select"))
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
                     }
                 } header: {
                     Text("App Icon")

@@ -102,6 +102,8 @@ struct InsightsView: View {
                         .font(.dandelionCaption)
                         .foregroundColor(theme.secondary)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(insights.totalReleases) total releases")
 
                 VStack(spacing: DandelionSpacing.xs) {
                     Text(formatNumber(insights.totalWords))
@@ -111,6 +113,8 @@ struct InsightsView: View {
                         .font(.dandelionCaption)
                         .foregroundColor(theme.secondary)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(insights.totalWords) words let go")
             }
 
             // Journey duration
@@ -119,6 +123,7 @@ struct InsightsView: View {
                     .font(.dandelionCaption)
                     .foregroundColor(theme.secondary)
                     .padding(.top, DandelionSpacing.xs)
+                    .accessibilityLabel("Your journey started on \(formatDateLong(start))")
             }
         }
         .frame(maxWidth: .infinity)
@@ -181,6 +186,8 @@ struct InsightsView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(theme.card)
             )
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Current streak: \(insights.currentStreak) \(insights.currentStreak == 1 ? "day" : "days")")
 
             // Longest streak
             VStack(spacing: DandelionSpacing.xs) {
@@ -202,6 +209,8 @@ struct InsightsView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(theme.card)
             )
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Longest streak: \(insights.longestStreak) \(insights.longestStreak == 1 ? "day" : "days")")
         }
     }
 
@@ -460,6 +469,8 @@ struct InsightsView: View {
                 .foregroundColor(theme.text)
         }
         .padding(.vertical, DandelionSpacing.sm)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 
     // MARK: - Privacy Note
@@ -522,6 +533,7 @@ struct InsightsView: View {
                 isAnimating: appearance.isWindAnimationAllowed && !reduceMotion
             )
                 .frame(height: 160)
+                .accessibilityHidden(true)
 
             VStack(spacing: DandelionSpacing.sm) {
                 Text("Your journey awaits")
@@ -537,6 +549,8 @@ struct InsightsView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, DandelionSpacing.xxl)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Your journey awaits. Write your first entry and let it go to begin tracking your progress here.")
     }
 
     // MARK: - Export Menu

@@ -205,22 +205,27 @@ struct PromptsSettingsView: View {
                 // Default prompts section with toggles
                 Section {
                     ForEach(WritingPrompt.defaults) { prompt in
+                        let isEnabled = isDefaultPromptEnabled(prompt)
                         Button {
                             toggleDefaultPrompt(prompt)
                         } label: {
                             HStack {
                                 Text(prompt.text)
                                     .font(.dandelionSecondary)
-                                    .foregroundColor(isDefaultPromptEnabled(prompt) ? theme.text : theme.secondary)
+                                    .foregroundColor(isEnabled ? theme.text : theme.secondary)
                                     .lineLimit(2)
                                 Spacer()
-                                Image(systemName: isDefaultPromptEnabled(prompt) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundColor(isDefaultPromptEnabled(prompt) ? theme.accent : theme.subtle)
+                                Image(systemName: isEnabled ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(isEnabled ? theme.accent : theme.subtle)
+                                    .accessibilityHidden(true)
                             }
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .listRowBackground(theme.card)
+                        .accessibilityLabel(prompt.text)
+                        .accessibilityValue(isEnabled ? "Enabled" : "Disabled")
+                        .accessibilityHint("Tap to \(isEnabled ? "disable" : "enable") this prompt")
                     }
                 } header: {
                     HStack {
@@ -233,6 +238,7 @@ struct PromptsSettingsView: View {
                         .font(.dandelionCaption)
                         .foregroundColor(theme.accent)
                         .buttonStyle(.plain)
+                        .accessibilityHint("Toggle all curated prompts at once")
                     }
                 } footer: {
                     Text("Disable prompts you don't want to see")
@@ -297,6 +303,8 @@ struct PromptsSettingsView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
+                .accessibilityLabel("Add custom prompt")
+                .accessibilityHint(premium.isBloomUnlocked ? "Create a new custom prompt" : "Unlock with Dandelion Bloom")
             }
         }
         .sheet(isPresented: $showEditor) {

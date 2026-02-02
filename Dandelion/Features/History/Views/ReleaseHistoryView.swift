@@ -70,6 +70,8 @@ struct ReleaseHistoryView: View {
                     } label: {
                         Image(systemName: "xmark")
                     }
+                    .accessibilityLabel("Close")
+                    .accessibilityHint("Return to writing")
                 }
 #endif
                 if showsTabs {
@@ -81,6 +83,7 @@ struct ReleaseHistoryView: View {
                         }
                         .pickerStyle(.segmented)
                         .frame(width: 180)
+                        .accessibilityLabel("View selector")
                     }
                 }
             }
@@ -167,10 +170,14 @@ struct ReleaseHistoryView: View {
             .foregroundColor(appearance.theme.primary)
             .opacity(canGoBack ? 1 : 0)
             .disabled(!canGoBack)
+            .accessibilityLabel("Previous year")
+            .accessibilityHint(canGoBack ? "Go to \(selectedYear - 1)" : "")
+            .accessibilityHidden(!canGoBack)
 
             Text(verbatim: String(selectedYear))
                 .font(.system(size: 20, weight: .semibold, design: .serif))
                 .foregroundColor(appearance.theme.primary)
+                .accessibilityLabel("Year \(selectedYear)")
 
             // Right chevron or invisible placeholder to maintain layout
             Button {
@@ -182,6 +189,9 @@ struct ReleaseHistoryView: View {
             .foregroundColor(appearance.theme.primary)
             .opacity(canGoForward ? 1 : 0)
             .disabled(!canGoForward)
+            .accessibilityLabel("Next year")
+            .accessibilityHint(canGoForward ? "Go to \(selectedYear + 1)" : "")
+            .accessibilityHidden(!canGoForward)
         }
         .padding(.vertical, DandelionSpacing.sm)
     }

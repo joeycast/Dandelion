@@ -197,12 +197,15 @@ struct BloomPaywallView: View {
                     }
                     .buttonStyle(.dandelion)
                     .disabled(premium.isLoading)
+                    .accessibilityLabel(premium.isLoading ? "Processing purchase" : "Unlock Dandelion Bloom for \(premium.priceDisplay)")
+                    .accessibilityHint("Purchase lifetime access to all premium features")
 
                     Button("Restore Purchases") {
                         Task { await premium.restorePurchases() }
                     }
                     .font(.dandelionCaption)
                     .foregroundColor(theme.secondary)
+                    .accessibilityHint("Restore a previous purchase from your Apple ID")
                 }
 #if os(macOS)
                 .frame(maxWidth: 360)
@@ -290,6 +293,7 @@ private struct FeatureRow: View {
 #endif
                 .foregroundColor(theme.accent)
                 .frame(width: 28)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -313,6 +317,8 @@ private struct FeatureRow: View {
             Spacer()
         }
         .padding(.vertical, DandelionSpacing.sm)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title): \(description)")
     }
 }
 

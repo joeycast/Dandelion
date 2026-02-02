@@ -62,6 +62,7 @@ struct BloomUnlockCallout: View {
             }
             .buttonStyle(.dandelion)
             .frame(maxWidth: .infinity)
+            .accessibilityHint("View premium features and pricing")
         }
         .frame(maxWidth: .infinity)
         .padding(DandelionSpacing.lg)

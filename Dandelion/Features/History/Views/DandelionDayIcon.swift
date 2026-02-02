@@ -27,6 +27,7 @@ struct DandelionDayIcon: View {
             }
         }
         .frame(width: size, height: size)
+        .accessibilityHidden(true)
     }
 
     private func drawStem(

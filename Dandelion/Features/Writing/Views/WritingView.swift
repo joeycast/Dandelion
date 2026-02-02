@@ -587,6 +587,8 @@ struct WritingView: View {
                 .font(.system(size: 20, weight: .regular))
                 .foregroundColor(theme.secondary)
         }
+        .accessibilityLabel("Release history")
+        .accessibilityHint("View your calendar of past releases")
         .opacity(isPromptVisible ? 0.8 : 0)
         .animation(DandelionAnimation.gentle, value: isPromptVisible)
         .allowsHitTesting(isPromptVisible)
@@ -600,6 +602,8 @@ struct WritingView: View {
                 .font(.system(size: 18, weight: .regular))
                 .foregroundColor(theme.secondary)
         }
+        .accessibilityLabel("Settings")
+        .accessibilityHint("Customize prompts, appearance, sounds, and more")
         .opacity(isPromptVisible ? 0.8 : 0)
         .animation(DandelionAnimation.gentle, value: isPromptVisible)
         .allowsHitTesting(isPromptVisible)
@@ -645,6 +649,7 @@ struct WritingView: View {
                 }
                 .font(.dandelionCaption)
                 .foregroundColor(theme.secondary)
+                .accessibilityHint("Show a different writing prompt")
 #if os(macOS)
                 .buttonStyle(.plain)
 #endif
@@ -657,6 +662,7 @@ struct WritingView: View {
                 viewModel.startWriting()
             }
             .buttonStyle(.dandelion)
+            .accessibilityHint("Start writing your thoughts")
         }
     }
 
@@ -962,6 +968,8 @@ struct WritingView: View {
                             .font(.system(size: 20))
                             .foregroundColor(theme.secondary)
                     }
+                    .accessibilityLabel("Help")
+                    .accessibilityHint("Learn how to release your writing")
 #if os(macOS)
                     .buttonStyle(.plain)
 #endif
@@ -987,6 +995,9 @@ struct WritingView: View {
                                 .fill(theme.primary)
                         )
                     }
+                    .accessibilityLabel("Let Go")
+                    .accessibilityHint("Release your writing and watch it drift away like dandelion seeds")
+                    .accessibilityAddTraits(viewModel.canRelease ? [] : .isStaticText)
                     .disabled(!viewModel.canRelease)
                     .opacity(viewModel.canRelease ? 1.0 : 0.5)
 #if os(macOS)
@@ -1069,6 +1080,7 @@ struct WritingView: View {
                 .fill(theme.primary.opacity(0.5))
         )
         .transition(.opacity.combined(with: .scale))
+        .accessibilityLabel("Keep blowing into the microphone to release your writing")
     }
 
     // MARK: - Let Go Hint Overlay
@@ -1162,6 +1174,8 @@ struct WritingView: View {
                                 .fill(theme.primary)
                         )
                 }
+                .accessibilityLabel("Got it")
+                .accessibilityHint("Dismiss this help dialog")
                 .padding(.top, DandelionSpacing.sm)
             }
             .padding(DandelionSpacing.xl)
@@ -1170,6 +1184,9 @@ struct WritingView: View {
                     .fill(theme.card)
             )
             .padding(.horizontal, DandelionSpacing.xl)
+            .accessibilityElement(children: .contain)
+            .accessibilityAddTraits(.isModal)
+            .accessibilityLabel("How to let go of your writing")
         }
         .transition(.opacity)
     }
@@ -1231,8 +1248,10 @@ struct WritingView: View {
             Image(systemName: ambientSound.isEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
                 .font(.system(size: 16, weight: .regular))
                 .foregroundColor(premium.isBloomUnlocked ? theme.secondary : theme.subtle)
-                .accessibilityLabel("Ambient sound")
         }
+        .accessibilityLabel("Ambient sound")
+        .accessibilityValue(ambientSound.isEnabled ? "On" : "Off")
+        .accessibilityHint(premium.isBloomUnlocked ? "Toggle calming background sounds" : "Unlock Dandelion Bloom for ambient sounds")
         .buttonStyle(.plain)
     }
 

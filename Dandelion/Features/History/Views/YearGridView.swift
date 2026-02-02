@@ -14,6 +14,7 @@ struct YearGridView: View {
     @Environment(AppearanceManager.self) private var appearance
     private let calendar = Calendar.current
     private let monthLabels = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]
+    private let monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
     var body: some View {
         GeometryReader { proxy in
             let theme = appearance.theme
@@ -32,6 +33,7 @@ struct YearGridView: View {
                             .font(.dandelionCaption)
                             .foregroundColor(theme.secondary)
                             .frame(width: cellWidth, height: labelHeight)
+                            .accessibilityLabel(monthNames[month])
                     }
                 }
                 .padding(.bottom, DandelionSpacing.xs)
@@ -41,19 +43,32 @@ struct YearGridView: View {
                     HStack(spacing: 0) {
                         ForEach(1...12, id: \.self) { month in
                             let date = dateFor(year: year, month: month, day: day)
+                            let hasRelease = date.map { releaseDates.contains($0) } ?? false
                             DayCell(
                                 date: date,
-                                hasRelease: date.map { releaseDates.contains($0) } ?? false,
+                                hasRelease: hasRelease,
                                 isValidDay: date != nil,
                                 cellSize: iconSize
                             )
                             .frame(width: cellWidth, height: cellHeight)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(accessibilityLabel(for: date, month: month, day: day, hasRelease: hasRelease))
+                            .accessibilityHidden(date == nil)
                         }
                     }
                     .frame(height: cellHeight)
                 }
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Release calendar for \(year)")
+    }
+
+    private func accessibilityLabel(for date: Date?, month: Int, day: Int, hasRelease: Bool) -> String {
+        guard date != nil else { return "" }
+        let monthName = monthNames[month - 1]
+        let status = hasRelease ? "released" : "no release"
+        return "\(monthName) \(day), \(status)"
     }
 
     private func dateFor(year: Int, month: Int, day: Int) -> Date? {

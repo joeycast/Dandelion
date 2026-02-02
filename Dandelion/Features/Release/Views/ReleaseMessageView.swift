@@ -34,6 +34,8 @@ struct ReleaseMessageView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, DandelionSpacing.xl)
                         .frame(height: messageAreaHeight, alignment: .top)
+                        .accessibilityLabel(releaseMessage)
+                        .accessibilityAddTraits(.updatesFrequently)
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -43,6 +45,7 @@ struct ReleaseMessageView: View {
         .onAppear {
             startSequence()
         }
+        .accessibilityElement(children: .contain)
     }
 
     private var messageAreaHeight: CGFloat {
