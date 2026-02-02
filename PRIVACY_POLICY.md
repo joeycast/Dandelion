@@ -1,6 +1,6 @@
 # Privacy Policy for Dandelion
 
-**Effective Date:** January 4, 2026
+**Effective Date:** February 2, 2026
 
 ## Our Promise
 
@@ -8,11 +8,18 @@ Dandelion is built on a simple principle: your thoughts are yours to release, no
 
 ## What We Don't Collect
 
-**Your Writing:** Nothing you write in Dandelion is ever saved, stored, transmitted, or seen by anyone but you. When you release your words, they're gone forever. We have no servers storing your journal entries, no databases with your thoughts, no backups of your writing. It simply doesn't exist once you let it go.
+**Your Writing:** The text you write is never uploaded to any server, account, or cloud service. When you release your words, the writing is discarded. We do not keep or transmit your journal text.
 
-## What We Do Collect
+## What We Do Store (On Your Device Only)
 
-**Nothing.** Dandelion works entirely on your device without requiring an account, login, or any personal information.
+To make the app work, Dandelion stores a small amount of data locally on your device:
+
+- **Release history metadata:** timestamps and word counts for each release.
+- **Prompt preferences:** your custom prompts and which default prompts are enabled.
+- **Settings:** app preferences such as appearance and haptics.
+- **Purchase state:** whether premium is unlocked.
+
+This information stays on your device. We do not operate any servers that receive this data.
 
 ## In-App Purchases
 
@@ -36,7 +43,7 @@ The only permission Dandelion requests is microphone access for the blow-to-rele
 
 ## Third-Party Services
 
-Dandelion currently uses no third-party analytics, advertising, or tracking services. Your experience is private and unmonitored.
+Dandelion uses no third-party analytics, advertising, or tracking services. Your experience is private and unmonitored.
 
 ## Children's Privacy
 
@@ -44,13 +51,12 @@ Dandelion does not knowingly collect any information from anyone, including chil
 
 ## Data Security
 
-Since we don't collect or store your writing or personal information, there's no data to secure or breach. Your words exist only in the moment you write them, then disappear when released.
+Since your writing is not uploaded or stored remotely, there is no server-side data to secure or breach. The limited metadata and settings described above remain on your device.
 
 ## Your Rights
 
 You have complete control over your experience:
-- Nothing is collected without your knowledge
-- You can delete Dandelion at any time
+- You can delete Dandelion at any time to remove its on-device data
 - No account means nothing to close or data to request
 
 ## Changes to This Policy
