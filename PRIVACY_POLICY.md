@@ -10,16 +10,16 @@ Dandelion is built on a simple principle: your thoughts are yours to release, no
 
 **Your Writing:** The text you write is never uploaded to any server, account, or cloud service. When you release your words, the writing is discarded. We do not keep or transmit your journal text.
 
-## What We Do Store (On Your Device Only)
+## What We Do Store (On Your Device and in iCloud, if enabled)
 
-To make the app work, Dandelion stores a small amount of data locally on your device:
+To make the app work, Dandelion stores a small amount of data locally on your device. If you are signed in to iCloud and iCloud Drive is enabled for Dandelion, this data can also sync through Apple’s CloudKit to your other devices:
 
 - **Release history metadata:** timestamps and word counts for each release.
 - **Prompt preferences:** your custom prompts and which default prompts are enabled.
 - **Settings:** app preferences such as appearance and haptics.
 - **Purchase state:** whether premium is unlocked.
 
-This information stays on your device. We do not operate any servers that receive this data.
+This information stays on your device and in your personal iCloud account (if enabled). We do not operate any servers that receive this data.
 
 ## In-App Purchases
 
@@ -45,13 +45,21 @@ The only permission Dandelion requests is microphone access for the blow-to-rele
 
 Dandelion uses no third-party analytics, advertising, or tracking services. Your experience is private and unmonitored.
 
+## iCloud Sync
+
+If you are signed in to iCloud, Dandelion uses Apple’s CloudKit to sync the on-device metadata described above across your devices. This data is:
+
+- Stored in your personal iCloud account
+- Encrypted and protected by Apple’s iCloud security
+- Not accessible to us
+
 ## Children's Privacy
 
 Dandelion does not knowingly collect any information from anyone, including children under 13. Since we don't collect data at all, the app is safe for all ages.
 
 ## Data Security
 
-Since your writing is not uploaded or stored remotely, there is no server-side data to secure or breach. The limited metadata and settings described above remain on your device.
+Since your writing is not uploaded or stored remotely, there is no server-side data to secure or breach related to your text. The limited metadata and settings described above remain on your device and, if enabled, in your iCloud account.
 
 ## Your Rights
 
