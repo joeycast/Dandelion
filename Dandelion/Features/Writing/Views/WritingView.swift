@@ -1174,6 +1174,7 @@ struct WritingView: View {
                                 .fill(theme.primary)
                         )
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel("Got it")
                 .accessibilityHint("Dismiss this help dialog")
                 .padding(.top, DandelionSpacing.sm)
