@@ -2,9 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleHelpBookFolder</key>
-    <string>DandelionHelp.help</string>
-    <key>CFBundleHelpBookName</key>
-    <string>Dandelion Help</string>
+	<key>CFBundleHelpBookFolder</key>
+	<string>DandelionHelp.help</string>
+	<key>CFBundleHelpBookName</key>
+	<string>Dandelion Help</string>
 </dict>
 </plist>

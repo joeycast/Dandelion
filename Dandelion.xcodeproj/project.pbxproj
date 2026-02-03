@@ -22,9 +22,9 @@
 
 /* Begin PBXFileReference section */
 		167879A904D429898A59586E /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
-		F6B3D6F72F0AB7F1007A5235 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Base.xcconfig; sourceTree = "<group>"; };
 		BDFA397584F34DF20DC898A4 /* DandelionTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DandelionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6B3D6DE2F0AB7F0007A5235 /* Dandelion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dandelion.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6B3D6F72F0AB7F1007A5235 /* Config/Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Base.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -70,7 +70,7 @@
 		F6B3D6D52F0AB7F0007A5235 = {
 			isa = PBXGroup;
 			children = (
-				F6B3D6F72F0AB7F1007A5235 /* Base.xcconfig */,
+				F6B3D6F72F0AB7F1007A5235 /* Config/Base.xcconfig */,
 				F6B3D6E02F0AB7F0007A5235 /* Dandelion */,
 				42CEEFCE3A8191578CBCF087 /* DandelionTests */,
 				F6B3D6DF2F0AB7F0007A5235 /* Products */,
@@ -218,7 +218,7 @@
 /* Begin XCBuildConfiguration section */
 		0826194231BFA43B05C10F09 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Base.xcconfig */;
+			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Config/Base.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				DEVELOPMENT_TEAM = "$(TEAM_ID)";
@@ -241,7 +241,7 @@
 		};
 		C9A6CFFB0A9A960A38181729 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Base.xcconfig */;
+			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Config/Base.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				DEVELOPMENT_TEAM = "$(TEAM_ID)";
@@ -264,7 +264,7 @@
 		};
 		F6B3D6E72F0AB7F1007A5235 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Base.xcconfig */;
+			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Config/Base.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -327,7 +327,7 @@
 		};
 		F6B3D6E82F0AB7F1007A5235 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Base.xcconfig */;
+			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Config/Base.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -382,7 +382,7 @@
 		};
 		F6B3D6EA2F0AB7F1007A5235 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Base.xcconfig */;
+			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Config/Base.xcconfig */;
 			buildSettings = {
 				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=iphoneos*]" = "AppIcon-Watercolor AppIcon-LineArt AppIcon-Dawn AppIcon-Twilight AppIcon-Forest";
 				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=iphonesimulator*]" = "AppIcon-Watercolor AppIcon-LineArt AppIcon-Dawn AppIcon-Twilight AppIcon-Forest";
@@ -391,7 +391,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = Dandelion/Dandelion.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = "$(TEAM_ID)";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -440,7 +440,7 @@
 		};
 		F6B3D6EB2F0AB7F1007A5235 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Base.xcconfig */;
+			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Config/Base.xcconfig */;
 			buildSettings = {
 				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=iphoneos*]" = "AppIcon-Watercolor AppIcon-LineArt AppIcon-Dawn AppIcon-Twilight AppIcon-Forest";
 				"ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES[sdk=iphonesimulator*]" = "AppIcon-Watercolor AppIcon-LineArt AppIcon-Dawn AppIcon-Twilight AppIcon-Forest";
@@ -449,7 +449,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = Dandelion/Dandelion.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = "$(TEAM_ID)";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
