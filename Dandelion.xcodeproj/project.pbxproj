@@ -391,7 +391,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = Dandelion/Dandelion.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = "$(TEAM_ID)";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -400,8 +400,8 @@
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = LaunchScreen.storyboard;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_FILE[sdk=macosx*]" = "Info-macOS.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = Dandelion;
 				INFOPLIST_KEY_AppStoreID = 6757363901;
+				INFOPLIST_KEY_CFBundleDisplayName = Dandelion;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Dandelion uses the microphone to detect when you blow, allowing you to release your thoughts like dandelion seeds in the wind.";
@@ -450,7 +450,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = Dandelion/Dandelion.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = "$(TEAM_ID)";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -459,8 +459,8 @@
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = LaunchScreen.storyboard;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_FILE[sdk=macosx*]" = "Info-macOS.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = Dandelion;
 				INFOPLIST_KEY_AppStoreID = 6757363901;
+				INFOPLIST_KEY_CFBundleDisplayName = Dandelion;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Dandelion uses the microphone to detect when you blow, allowing you to release your thoughts like dandelion seeds in the wind.";
