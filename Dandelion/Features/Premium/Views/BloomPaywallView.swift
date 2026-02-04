@@ -114,7 +114,7 @@ struct BloomPaywallView: View {
                     FeatureRow(
                         icon: "laptopcomputer",
                         title: "Dandelion for Mac",
-                        description: "Use Dandelion Bloom on your Mac with full access included"
+                        description: "Use Dandelion on your Mac with full access included"
                     )
                     FeatureRow(
                         icon: "square.and.arrow.up",
