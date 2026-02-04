@@ -117,11 +117,13 @@ struct SettingsView: View {
                     .accessibilityHint("Choose a different app icon")
 
                     Button {
+#if os(iOS)
+                        requestReview()
+#else
                         if let reviewURL = AppStoreConfiguration.reviewURL {
                             openURL(reviewURL)
-                        } else {
-                            requestReview()
                         }
+#endif
                     } label: {
                         SettingsRow(icon: "star", title: "Rate on the App Store", showsChevron: false)
                     }

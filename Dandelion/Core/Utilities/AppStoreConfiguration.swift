@@ -24,7 +24,13 @@ enum AppStoreConfiguration {
 
     static var reviewURL: URL? {
         guard let appStoreID, !appStoreID.isEmpty else { return nil }
+#if os(iOS)
+        return URL(string: "itms-apps://itunes.apple.com/app/id\(appStoreID)?action=write-review")
+#elseif os(macOS)
+        return URL(string: "macappstore://itunes.apple.com/app/id\(appStoreID)?action=write-review")
+#else
         return URL(string: "https://apps.apple.com/app/id\(appStoreID)?action=write-review")
+#endif
     }
 
     static var shareMessage: String {
