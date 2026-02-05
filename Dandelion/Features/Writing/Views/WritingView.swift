@@ -56,7 +56,6 @@ struct WritingView: View {
     @State private var showLetGoHint: Bool = false
     @AppStorage("hasSeenLetGoHint") private var hasSeenLetGoHint: Bool = false
     @AppStorage("hasUsedPromptTap") private var hasUsedPromptTap: Bool = false
-    @AppStorage("lastAppOpenDate") private var lastAppOpenDate: Double = 0
     private static var hasCheckedHintReset = false
     @Namespace private var promptNamespace
     @State private var hasShownInitialPrompt: Bool = false
@@ -879,17 +878,12 @@ struct WritingView: View {
         guard !Self.hasCheckedHintReset else { return }
         Self.hasCheckedHintReset = true
 
-        let now = Date().timeIntervalSince1970
-        let fourWeeksInSeconds: Double = 60 * 60 * 24 * 7 * 4
-
-        // If user hasn't opened app in 4+ weeks, reset hints
-        if lastAppOpenDate > 0 && (now - lastAppOpenDate) > fourWeeksInSeconds {
+        let manager = HintResetManager()
+        if manager.checkAndResetHintsIfNeeded() {
+            // Sync @AppStorage properties with UserDefaults changes
             hasUsedPromptTap = false
             hasSeenLetGoHint = false
         }
-
-        // Update last open date
-        lastAppOpenDate = now
     }
 
     private func syncCustomPrompts() {
