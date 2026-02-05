@@ -23,9 +23,6 @@ struct SettingsView: View {
     @State private var navigationPath = NavigationPath()
     @AppStorage(HapticsService.settingsKey) private var hapticsEnabled: Bool = true
     @State private var micPermission: MicrophonePermissionState = .unknown
-#if DEBUG
-    @AppStorage("promptLayoutStyle") private var promptLayoutStyle: Int = 0
-#endif
 
     private enum Destination: Hashable {
         case prompts
@@ -157,22 +154,6 @@ struct SettingsView: View {
                         }
                     }
                     .toggleStyle(SwitchToggleStyle(tint: theme.accent))
-                    .listRowBackground(theme.card)
-
-                    VStack(alignment: .leading, spacing: DandelionSpacing.sm) {
-                        HStack {
-                            Image(systemName: "rectangle.3.group")
-                                .foregroundColor(theme.secondary)
-                                .frame(width: 24)
-                            Text("Debug: Prompt Layout")
-                                .foregroundColor(theme.text)
-                        }
-                        Picker("Prompt Layout", selection: $promptLayoutStyle) {
-                            Text("Under Prompt").tag(0)
-                            Text("Bottom Buttons").tag(1)
-                        }
-                        .pickerStyle(.segmented)
-                    }
                     .listRowBackground(theme.card)
 #if os(macOS)
                     HStack {

@@ -55,10 +55,8 @@ struct WritingView: View {
     @State private var isSettingsPresented: Bool = false
     @State private var showLetGoHint: Bool = false
     @AppStorage("hasSeenLetGoHint") private var hasSeenLetGoHint: Bool = false
+    @AppStorage("hasSeenPromptTapHint") private var hasSeenPromptTapHint: Bool = false
     @Namespace private var promptNamespace
-#if DEBUG
-    @AppStorage("promptLayoutStyle") private var promptLayoutStyle: Int = 0
-#endif
     @State private var hasShownInitialPrompt: Bool = false
     @State private var isDandelionWindAnimating: Bool = true
     @State private var dandelionWindAnimationTask: Task<Void, Never>?
@@ -549,9 +547,9 @@ struct WritingView: View {
                 headerView(in: size)
                     .animation(suppressPromptLayoutAnimation ? nil : .easeInOut(duration: 1.6), value: isPromptState)
 
-                if isPromptState && isPromptVisible && promptLayout == .underPromptText {
-                    newPromptButton
-                        .padding(.top, DandelionSpacing.md)
+                if isPromptState && isPromptVisible && !hasSeenPromptTapHint && viewModel.availablePromptCount > 1 {
+                    promptTapHint
+                        .padding(.top, DandelionSpacing.sm)
                         .transition(.opacity)
                 }
 
@@ -643,35 +641,22 @@ struct WritingView: View {
             .padding(.top, isPromptState ? 0 : DandelionSpacing.xs)
             .opacity(isPromptHeaderVisible && !isReleasing ? (isPromptVisible ? promptOpacity : 1) : 0)
             .animation(.easeInOut(duration: 1.0), value: isReleasing)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard isPromptState, viewModel.availablePromptCount > 1 else { return }
+#if !os(macOS)
+                HapticsService.shared.tap()
+#endif
+                viewModel.newPrompt()
+                hasSeenPromptTapHint = true
+            }
+            .accessibilityHint(isPromptState && viewModel.availablePromptCount > 1 ? "Tap to see another prompt" : "")
         }
     }
 
     private var promptButtons: some View {
         VStack(spacing: DandelionSpacing.md) {
-            if promptLayout == .bottomButtons {
-                newPromptButton
-            }
-
             beginWritingButton
-        }
-    }
-
-    private var newPromptButton: some View {
-        Group {
-            if viewModel.availablePromptCount > 1 {
-                Button("New Prompt") {
-#if !os(macOS)
-                    HapticsService.shared.tap()
-#endif
-                    viewModel.newPrompt()
-                }
-                .font(.dandelionCaption)
-                .foregroundColor(theme.secondary)
-                .accessibilityHint("Show a different writing prompt")
-#if os(macOS)
-                .buttonStyle(.plain)
-#endif
-            }
         }
     }
 
@@ -686,17 +671,13 @@ struct WritingView: View {
         .accessibilityHint("Start writing your thoughts")
     }
 
-    private var promptLayout: PromptLayoutStyle {
-#if DEBUG
-        return PromptLayoutStyle(rawValue: promptLayoutStyle) ?? .underPromptText
-#else
-        return .underPromptText
-#endif
-    }
-
-    private enum PromptLayoutStyle: Int {
-        case underPromptText = 0
-        case bottomButtons = 1
+    private var promptTapHint: some View {
+        Text("Tap the prompt to see another.")
+            .font(.dandelionSecondary)
+            .foregroundColor(theme.secondary)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, DandelionSpacing.xl)
+            .accessibilityLabel("Tap the prompt to see another")
     }
 
     private func writingArea(fullScreenSize: CGSize) -> some View {
