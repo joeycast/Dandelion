@@ -22,6 +22,7 @@ struct SettingsView: View {
     @State private var showPaywall: Bool = false
     @State private var navigationPath = NavigationPath()
     @AppStorage(HapticsService.settingsKey) private var hapticsEnabled: Bool = true
+    @AppStorage("globalCountEnabled") private var globalCountEnabled: Bool = true
     @State private var micPermission: MicrophonePermissionState = .unknown
 
     private enum Destination: Hashable {
@@ -101,11 +102,24 @@ struct SettingsView: View {
 
                     microphonePermissionRow
                         .listRowBackground(theme.card)
+
+                    Toggle(isOn: $globalCountEnabled) {
+                        HStack(spacing: DandelionSpacing.md) {
+                            Image(systemName: "globe")
+                                .foregroundColor(theme.accent)
+                                .frame(width: 24)
+                            Text("Global release count")
+                                .foregroundColor(theme.text)
+                        }
+                    }
+                    .toggleStyle(SwitchToggleStyle(tint: theme.accent))
+                    .listRowBackground(theme.card)
+                    .accessibilityHint("Share anonymous release counts to show a global total")
                 } header: {
                     Text("Writing")
                         .foregroundColor(theme.secondary)
                 } footer: {
-                    Text("Microphone access lets you blow to release your writing, like dandelion seeds blowing away in the wind.")
+                    Text("Microphone access lets you blow to release your writing, like dandelion seeds blowing away in the wind. The global count shares anonymous release totals only—never your words.")
                 }
 
                 Section {

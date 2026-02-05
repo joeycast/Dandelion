@@ -54,11 +54,14 @@ struct WritingView: View {
     @State private var showBloomPaywall: Bool = false
     @State private var isSettingsPresented: Bool = false
     @State private var showLetGoHint: Bool = false
+    @AppStorage("globalCountEnabled") private var globalCountEnabled: Bool = true
     @AppStorage("hasSeenLetGoHint") private var hasSeenLetGoHint: Bool = false
     @Namespace private var promptNamespace
     @State private var hasShownInitialPrompt: Bool = false
     @State private var isDandelionWindAnimating: Bool = true
     @State private var dandelionWindAnimationTask: Task<Void, Never>?
+    @State private var globalReleaseCounts: GlobalReleaseCounts?
+    @State private var globalReleaseService = GlobalReleaseCountService()
 
     private struct LayoutMetrics {
         let safeAreaTop: CGFloat
@@ -546,6 +549,12 @@ struct WritingView: View {
                 headerView(in: size)
                     .animation(suppressPromptLayoutAnimation ? nil : .easeInOut(duration: 1.6), value: isPromptState)
 
+                if isPromptState && isPromptVisible && globalCountEnabled {
+                    globalReleaseCountView
+                        .padding(.top, DandelionSpacing.sm)
+                        .transition(.opacity)
+                }
+
                 if isPromptState {
                     Spacer(minLength: 0)
                 } else {
@@ -563,6 +572,10 @@ struct WritingView: View {
 #if os(macOS)
         .background(Self.debugShowReleaseLayers ? Color.blue.opacity(0.08) : Color.clear)
 #endif
+        .task(id: globalCountEnabled) {
+            guard globalCountEnabled else { return }
+            globalReleaseCounts = await globalReleaseService.loadCounts()
+        }
         .safeAreaInset(edge: .top, spacing: 0) {
 #if os(iOS)
             HStack {
@@ -665,6 +678,28 @@ struct WritingView: View {
             .accessibilityHint("Start writing your thoughts")
         }
     }
+
+    private var globalReleaseCountView: some View {
+        Group {
+            if let counts = globalReleaseCounts {
+                Text("\(formatCount(counts.today)) releases today • \(formatCount(counts.total)) all-time")
+                    .font(.system(size: 12, design: .serif))
+                    .foregroundColor(theme.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, DandelionSpacing.xl)
+            }
+        }
+    }
+
+    private func formatCount(_ count: Int) -> String {
+        Self.countFormatter.string(from: NSNumber(value: count)) ?? "\(count)"
+    }
+
+    private static let countFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return formatter
+    }()
 
     private func writingArea(fullScreenSize: CGSize) -> some View {
         VStack(spacing: 0) {
@@ -852,9 +887,20 @@ struct WritingView: View {
     }
 
     private func setupReleaseTracking() {
-        viewModel.onReleaseTriggered = { [modelContext] wordCount in
+        viewModel.onReleaseTriggered = { [modelContext, globalReleaseService] wordCount in
             let service = ReleaseHistoryService(modelContext: modelContext)
             service.recordRelease(wordCount: wordCount)
+
+            if globalCountEnabled {
+                if let cached = globalReleaseCounts {
+                    let updated = cached.incremented()
+                    globalReleaseCounts = updated
+                    globalReleaseService.updateCachedCounts(updated)
+                }
+                Task {
+                    await globalReleaseService.incrementCountsIfEnabled(globalCountEnabled)
+                }
+            }
         }
     }
 
