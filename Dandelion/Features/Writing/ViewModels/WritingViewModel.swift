@@ -158,7 +158,7 @@ final class WritingViewModel {
         // Check permission and start listening if granted
         Task {
             blowDetection.checkPermission()
-            if blowDetection.hasPermission {
+            if blowDetection.hasPermission && blowDetection.isEnabled {
                 blowDetection.startListening()
             }
         }
@@ -168,7 +168,9 @@ final class WritingViewModel {
     func requestMicrophonePermission() async {
         let granted = await blowDetection.requestPermission()
         if granted {
-            blowDetection.startListening()
+            if blowDetection.isEnabled {
+                blowDetection.startListening()
+            }
         }
     }
 

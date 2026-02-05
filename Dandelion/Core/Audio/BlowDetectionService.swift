@@ -18,6 +18,91 @@ import AVFAudio
 /// - Dominated by low frequencies (wind noise below 500Hz)
 /// - Flat, noise-like spectrum (unlike speech with harmonic peaks)
 /// - High zero-crossing rate (characteristic of noise)
+enum BlowDetectionSensitivity {
+    static let settingsKey = "blowSensitivity"
+    static let enabledKey = "blowDetectionEnabled"
+    static let minValue: Double = 0.8
+    static let maxValue: Double = 1.2
+    static let step: Double = 0.1
+    static let defaultValue: Double = 1.0
+    static let maxIndex: Int = 4
+
+    static func clamped(_ value: Double) -> Double {
+        min(max(value, minValue), maxValue)
+    }
+
+    static func snapped(_ value: Double) -> Double {
+        let clampedValue = clamped(value)
+        let index = (clampedValue - minValue) / step
+        let roundedIndex = (index).rounded()
+        return minValue + (roundedIndex * step)
+    }
+
+    static func ensureDefaultExists() {
+        if UserDefaults.standard.object(forKey: settingsKey) == nil {
+            UserDefaults.standard.set(defaultValue, forKey: settingsKey)
+        }
+        if UserDefaults.standard.object(forKey: enabledKey) == nil {
+            UserDefaults.standard.set(true, forKey: enabledKey)
+        }
+    }
+
+    static func presetIndex(for value: Double) -> Int {
+        let snappedValue = snapped(value)
+        let rawIndex = (snappedValue - minValue) / step
+        let roundedIndex = Int(rawIndex.rounded())
+        return min(max(roundedIndex, 0), maxIndex)
+    }
+
+    static func value(for index: Int) -> Double {
+        let clampedIndex = min(max(index, 0), maxIndex)
+        return minValue + (Double(clampedIndex) * step)
+    }
+
+    static func label(for value: Double) -> String {
+        let index = presetIndex(for: value)
+        switch index {
+        case 0: return "Lowest"
+        case 1: return "Low"
+        case 2: return "Default"
+        case 3: return "High"
+        default: return "Highest"
+        }
+    }
+
+    static func duration(for value: Double) -> TimeInterval {
+        let index = presetIndex(for: value)
+        switch index {
+        case 0: return 0.5
+        case 1: return 0.45
+        case 2: return 0.4
+        case 3: return 0.35
+        default: return 0.3
+        }
+    }
+
+    static func frames(for value: Double) -> Int {
+        let index = presetIndex(for: value)
+        switch index {
+        case 0: return 4
+        case 1: return 3
+        case 2: return 3
+        case 3: return 2
+        default: return 2
+        }
+    }
+
+    static func currentValue() -> Double {
+        ensureDefaultExists()
+        return snapped(UserDefaults.standard.double(forKey: settingsKey))
+    }
+
+    static func isEnabled() -> Bool {
+        ensureDefaultExists()
+        return UserDefaults.standard.bool(forKey: enabledKey)
+    }
+}
+
 @Observable
 final class BlowDetectionService {
     // MARK: - Public State
@@ -39,6 +124,9 @@ final class BlowDetectionService {
 
     /// Whether a blow is currently being detected
     private(set) var isBlowing = false
+
+    /// Whether blow detection is enabled in settings
+    private(set) var isEnabled = BlowDetectionSensitivity.isEnabled()
 
     /// Whether blow detection is available on this platform
     var isAvailable: Bool {
@@ -76,18 +164,22 @@ final class BlowDetectionService {
     private let fftSize: Int = 1024
 
     /// Minimum overall level to consider (filters out silence)
-    private let minimumLevel: Float = 0.03
+    private let minimumLevel: Float = 0.05
 
     /// How much low-frequency energy must dominate for it to be a blow
     /// Higher = more strict (fewer false positives from speech)
-    private let lowFrequencyDominanceRatio: Float = 2.7
+    private let lowFrequencyDominanceRatio: Float = 3.5
 
     /// How long (in seconds) the blow must be sustained
-    private let requiredBlowDuration: TimeInterval = 0.25
+    private var requiredBlowDuration: TimeInterval {
+        BlowDetectionSensitivity.duration(for: sensitivity)
+    }
 
     /// Number of consecutive "blow-like" frames required before triggering
     /// This prevents single words from flashing the indicator
-    private let requiredConsecutiveFrames: Int = 2
+    private var requiredConsecutiveFrames: Int {
+        BlowDetectionSensitivity.frames(for: sensitivity)
+    }
 
     /// Counter for consecutive blow-like frames
     private var consecutiveBlowFrames: Int = 0
@@ -100,22 +192,44 @@ final class BlowDetectionService {
 
     /// Whether blow threshold has been met
     private var blowThresholdMet = false
+    private var sensitivity: Double = BlowDetectionSensitivity.currentValue()
+    private var sensitivityObserver: NSObjectProtocol?
 
     // MARK: - Initialization
 
     init() {
+        BlowDetectionSensitivity.ensureDefaultExists()
         // Create FFT setup for frequency analysis
         fftSetup = vDSP_DFT_zop_CreateSetup(
             nil,
             vDSP_Length(fftSize),
             .FORWARD
         )
+
+        sensitivityObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.sensitivity = BlowDetectionSensitivity.currentValue()
+            let enabled = BlowDetectionSensitivity.isEnabled()
+            if self.isEnabled != enabled {
+                self.isEnabled = enabled
+                if !enabled {
+                    self.stopListening()
+                }
+            }
+        }
     }
 
     deinit {
         stopListening()
         if let setup = fftSetup {
             vDSP_DFT_DestroySetup(setup)
+        }
+        if let sensitivityObserver {
+            NotificationCenter.default.removeObserver(sensitivityObserver)
         }
     }
 
@@ -205,7 +319,7 @@ final class BlowDetectionService {
             return
         }
         #endif
-        guard hasPermission, !isListening else { return }
+        guard isEnabled, hasPermission, !isListening else { return }
 
         do {
             #if os(iOS)
@@ -369,7 +483,7 @@ final class BlowDetectionService {
             durationProgress = min(Float(duration / requiredBlowDuration), 1)
         }
 
-        blowProgress = isBlowDetected ? max(frameProgress, durationProgress) : 0
+        blowProgress = isBlowDetected ? min(frameProgress, durationProgress) : 0
 
         // Only consider it a real blow after enough consecutive frames
         let isConfirmedBlow = consecutiveBlowFrames >= requiredConsecutiveFrames

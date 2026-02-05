@@ -12,6 +12,14 @@ final class BlowDetectionServiceTests: XCTestCase {
 
         now = Date(timeIntervalSinceReferenceDate: 0.2)
         service.debugUpdateBlowState(isBlowDetected: true, level: 0.5)
+        XCTAssertLessThan(service.blowProgress, 1)
+
+        now = Date(timeIntervalSinceReferenceDate: 0.35)
+        service.debugUpdateBlowState(isBlowDetected: true, level: 0.5)
+        XCTAssertLessThan(service.blowProgress, 1)
+
+        now = Date(timeIntervalSinceReferenceDate: 0.5)
+        service.debugUpdateBlowState(isBlowDetected: true, level: 0.5)
         XCTAssertEqual(service.blowProgress, 1)
 
         service.debugUpdateBlowState(isBlowDetected: false, level: 0.1)

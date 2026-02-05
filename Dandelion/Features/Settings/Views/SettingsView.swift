@@ -7,28 +7,24 @@
 
 import SwiftUI
 import StoreKit
-#if canImport(UIKit)
-import UIKit
-#endif
 
 struct SettingsView: View {
     let showsDoneButton: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.requestReview) private var requestReview
-    @Environment(\.scenePhase) private var scenePhase
     @Environment(PremiumManager.self) private var premium
     @Environment(AppearanceManager.self) private var appearance
     @State private var showPaywall: Bool = false
     @State private var navigationPath = NavigationPath()
     @AppStorage(HapticsService.settingsKey) private var hapticsEnabled: Bool = true
-    @State private var micPermission: MicrophonePermissionState = .unknown
 
     private enum Destination: Hashable {
         case prompts
         case appearance
         case sounds
         case appIcon
+        case blowDetection
     }
 
     init(showsDoneButton: Bool = true) {
@@ -86,6 +82,13 @@ struct SettingsView: View {
                     .listRowBackground(theme.card)
                     .accessibilityHint("Configure ambient sounds")
 
+                    Button { navigationPath.append(Destination.blowDetection) } label: {
+                        SettingsRow(icon: "wind", title: "Blow Detection")
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(theme.card)
+                    .accessibilityHint("Configure blow detection")
+
                     Toggle(isOn: $hapticsEnabled) {
                         HStack(spacing: DandelionSpacing.md) {
                             Image(systemName: "hand.tap")
@@ -98,14 +101,11 @@ struct SettingsView: View {
                     .toggleStyle(SwitchToggleStyle(tint: theme.accent))
                     .listRowBackground(theme.card)
                     .accessibilityHint("Enable or disable vibration feedback")
-
-                    microphonePermissionRow
-                        .listRowBackground(theme.card)
                 } header: {
                     Text("Writing")
                         .foregroundColor(theme.secondary)
                 } footer: {
-                    Text("Microphone access lets you blow to release your writing, like dandelion seeds blowing away in the wind.")
+                    Text("Customize your writing experience.")
                 }
 
                 Section {
@@ -193,14 +193,6 @@ struct SettingsView: View {
             .background(theme.background)
             .navigationTitle("Settings")
             .dandelionNavigationBarStyle(background: theme.background, colorScheme: appearance.colorScheme)
-            .onAppear {
-                refreshMicrophonePermission()
-            }
-            .onChange(of: scenePhase) { _, newValue in
-                if newValue == .active {
-                    refreshMicrophonePermission()
-                }
-            }
             .toolbar {
                 if showsDoneButton {
 #if os(iOS)
@@ -230,6 +222,8 @@ struct SettingsView: View {
                     SoundSettingsView()
                 case .appIcon:
                     AppIconSettingsView()
+                case .blowDetection:
+                    BlowDetectionSettingsView()
                 }
             }
         }
@@ -240,127 +234,6 @@ struct SettingsView: View {
         }
     }
 
-    private var microphonePermissionRow: some View {
-        let theme = appearance.theme
-        return HStack(spacing: DandelionSpacing.md) {
-            Image(systemName: micPermission.iconName)
-                .foregroundColor(theme.accent)
-                .frame(width: 24)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Microphone")
-                    .foregroundColor(theme.text)
-                Text(micPermission.statusText)
-                    .font(.dandelionCaption)
-                    .foregroundColor(theme.secondary)
-            }
-            Spacer()
-            if micPermission.isActionEnabled {
-                Button(micPermission.actionTitle) {
-                    handleMicrophoneAction()
-                }
-                .font(.dandelionCaption)
-                .foregroundColor(theme.accent)
-            }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Microphone, \(micPermission.statusText)")
-        .accessibilityHint(micPermission.isActionEnabled ? "Tap to \(micPermission.actionTitle.lowercased())" : "")
-    }
-
-    private func refreshMicrophonePermission() {
-        let status = WritingViewModel.permissionStatus()
-        if !status.determined {
-            micPermission = .notDetermined
-        } else if status.granted {
-            micPermission = .granted
-        } else {
-            micPermission = .denied
-        }
-    }
-
-    private func handleMicrophoneAction() {
-        switch micPermission {
-        case .notDetermined:
-            Task {
-                _ = await WritingViewModel.requestMicrophonePermission()
-                refreshMicrophonePermission()
-            }
-        case .denied:
-            openAppSettings()
-        case .granted, .unknown:
-            break
-        }
-    }
-
-    private func openAppSettings() {
-#if os(iOS)
-        if let url = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(url)
-        }
-#elseif os(macOS)
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
-            openURL(url)
-        }
-#endif
-    }
-}
-
-private enum MicrophonePermissionState {
-    case unknown
-    case notDetermined
-    case granted
-    case denied
-
-    var statusText: String {
-        switch self {
-        case .unknown:
-            return "Checking status…"
-        case .notDetermined:
-            return "Not granted"
-        case .granted:
-            return "Enabled"
-        case .denied:
-            return "Disabled in Settings"
-        }
-    }
-
-    var actionTitle: String {
-        switch self {
-        case .notDetermined:
-            return "Enable"
-        case .denied:
-            return "Open Settings"
-        case .granted:
-            return "Enabled"
-        case .unknown:
-            return "Enable"
-        }
-    }
-
-    var isActionEnabled: Bool {
-        switch self {
-        case .granted:
-            return false
-        case .unknown:
-            return false
-        case .notDetermined, .denied:
-            return true
-        }
-    }
-
-    var iconName: String {
-        switch self {
-        case .granted:
-            return "mic.fill"
-        case .notDetermined:
-            return "mic"
-        case .denied:
-            return "mic.slash"
-        case .unknown:
-            return "mic"
-        }
-    }
 }
 
 private struct SettingsRow: View {
