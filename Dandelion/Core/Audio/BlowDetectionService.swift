@@ -34,6 +34,9 @@ final class BlowDetectionService {
     /// Current detected audio level (0-1)
     private(set) var currentLevel: Float = 0
 
+    /// Progress toward a confirmed blow (0-1)
+    private(set) var blowProgress: Float = 0
+
     /// Whether a blow is currently being detected
     private(set) var isBlowing = false
 
@@ -47,6 +50,8 @@ final class BlowDetectionService {
     @ObservationIgnored var permissionRequestOverride: (() async -> Bool)?
     /// Overrides startListening for tests.
     @ObservationIgnored var startListeningOverride: (() -> Void)?
+    /// Overrides the current time for tests.
+    @ObservationIgnored var nowProvider: (() -> Date) = Date.init
     #endif
 
     // MARK: - Callbacks
@@ -71,21 +76,24 @@ final class BlowDetectionService {
     private let fftSize: Int = 1024
 
     /// Minimum overall level to consider (filters out silence)
-    private let minimumLevel: Float = 0.05
+    private let minimumLevel: Float = 0.03
 
     /// How much low-frequency energy must dominate for it to be a blow
     /// Higher = more strict (fewer false positives from speech)
-    private let lowFrequencyDominanceRatio: Float = 3.5
+    private let lowFrequencyDominanceRatio: Float = 2.7
 
     /// How long (in seconds) the blow must be sustained
-    private let requiredBlowDuration: TimeInterval = 0.5
+    private let requiredBlowDuration: TimeInterval = 0.25
 
     /// Number of consecutive "blow-like" frames required before triggering
     /// This prevents single words from flashing the indicator
-    private let requiredConsecutiveFrames: Int = 4
+    private let requiredConsecutiveFrames: Int = 2
 
     /// Counter for consecutive blow-like frames
     private var consecutiveBlowFrames: Int = 0
+
+    /// Timer tracking tentative blow duration (before confirmation)
+    private var blowCandidateStartTime: Date?
 
     /// Timer tracking blow duration
     private var blowStartTime: Date?
@@ -249,6 +257,8 @@ final class BlowDetectionService {
         blowStartTime = nil
         blowThresholdMet = false
         consecutiveBlowFrames = 0
+        blowCandidateStartTime = nil
+        blowProgress = 0
     }
 
     // MARK: - Audio Processing
@@ -336,9 +346,30 @@ final class BlowDetectionService {
         // Track consecutive blow-like frames to filter out spurious detections
         if isBlowDetected {
             consecutiveBlowFrames += 1
+            if blowCandidateStartTime == nil {
+#if DEBUG
+                blowCandidateStartTime = nowProvider()
+#else
+                blowCandidateStartTime = Date()
+#endif
+            }
         } else {
             consecutiveBlowFrames = 0
+            blowCandidateStartTime = nil
         }
+
+        let frameProgress = min(Float(consecutiveBlowFrames) / Float(requiredConsecutiveFrames), 1)
+        var durationProgress: Float = 0
+        if let candidateStart = blowCandidateStartTime {
+#if DEBUG
+            let duration = nowProvider().timeIntervalSince(candidateStart)
+#else
+            let duration = Date().timeIntervalSince(candidateStart)
+#endif
+            durationProgress = min(Float(duration / requiredBlowDuration), 1)
+        }
+
+        blowProgress = isBlowDetected ? max(frameProgress, durationProgress) : 0
 
         // Only consider it a real blow after enough consecutive frames
         let isConfirmedBlow = consecutiveBlowFrames >= requiredConsecutiveFrames
@@ -349,14 +380,23 @@ final class BlowDetectionService {
         if isBlowing {
             if !wasBlowing {
                 // Blow just started (confirmed)
+                #if DEBUG
+                blowStartTime = nowProvider()
+                #else
                 blowStartTime = Date()
+                #endif
                 blowThresholdMet = false
                 onBlowStarted?()
             } else if let startTime = blowStartTime {
                 // Check if blow has been sustained long enough
+                #if DEBUG
+                let duration = nowProvider().timeIntervalSince(startTime)
+                #else
                 let duration = Date().timeIntervalSince(startTime)
+                #endif
                 if duration >= requiredBlowDuration && !blowThresholdMet {
                     blowThresholdMet = true
+                    blowProgress = 1
                     onBlowDetected?()
                 }
             }
@@ -369,6 +409,15 @@ final class BlowDetectionService {
                 blowStartTime = nil
                 blowThresholdMet = false
             }
+            if !isBlowDetected {
+                blowProgress = 0
+            }
         }
     }
+
+#if DEBUG
+    func debugUpdateBlowState(isBlowDetected: Bool, level: Float) {
+        updateBlowState(isBlowDetected: isBlowDetected, level: level)
+    }
+#endif
 }

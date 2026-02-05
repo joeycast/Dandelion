@@ -940,9 +940,8 @@ struct WritingView: View {
 
     private func bottomBar(bottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
-            // Blow indicator - appears above the bar (only when writing)
-            if viewModel.showBlowIndicator && isWriting {
-                blowIndicator
+            if isWriting && viewModel.blowDetection.hasPermission {
+                blowProgressBar
                     .padding(.bottom, DandelionSpacing.md)
             }
 
@@ -1081,6 +1080,33 @@ struct WritingView: View {
         )
         .transition(.opacity.combined(with: .scale))
         .accessibilityLabel("Keep blowing into the microphone to release your writing")
+    }
+
+    private var blowProgressBar: some View {
+        let progress = CGFloat(max(0, min(1, viewModel.blowDetection.blowProgress)))
+        return VStack(spacing: DandelionSpacing.xs) {
+            Text("Blow to release")
+                .font(.dandelionSecondary)
+                .foregroundColor(theme.secondary)
+
+            GeometryReader { geometry in
+                let width = max(0, geometry.size.width)
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(theme.primary.opacity(0.2))
+                    Capsule()
+                        .fill(theme.accent)
+                        .frame(width: width * progress)
+                        .animation(.easeOut(duration: 0.15), value: progress)
+                }
+            }
+            .frame(height: 6)
+        }
+        .frame(maxWidth: 240)
+        .opacity(progress > 0 ? 1 : 0.6)
+        .transition(.opacity)
+        .accessibilityLabel("Blow progress")
+        .accessibilityValue("\(Int(progress * 100)) percent")
     }
 
     // MARK: - Let Go Hint Overlay
