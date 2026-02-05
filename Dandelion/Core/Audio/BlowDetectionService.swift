@@ -312,6 +312,7 @@ final class BlowDetectionService {
 
     /// Start listening for blows
     func startListening() {
+        guard isEnabled, hasPermission, !isListening else { return }
         #if DEBUG
         if let startListeningOverride {
             startListeningOverride()
@@ -319,7 +320,6 @@ final class BlowDetectionService {
             return
         }
         #endif
-        guard isEnabled, hasPermission, !isListening else { return }
 
         do {
             #if os(iOS)

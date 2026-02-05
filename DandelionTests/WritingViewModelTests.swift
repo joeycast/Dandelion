@@ -12,13 +12,20 @@ import XCTest
 final class WritingViewModelTests: XCTestCase {
 
     var sut: WritingViewModel!
+    private var originalBlowDetectionEnabled: Any?
 
     override func setUp() {
         super.setUp()
+        originalBlowDetectionEnabled = UserDefaults.standard.object(forKey: BlowDetectionSensitivity.enabledKey)
         sut = WritingViewModel()
     }
 
     override func tearDown() {
+        if let originalBlowDetectionEnabled {
+            UserDefaults.standard.set(originalBlowDetectionEnabled, forKey: BlowDetectionSensitivity.enabledKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: BlowDetectionSensitivity.enabledKey)
+        }
         sut = nil
         super.tearDown()
     }
@@ -134,6 +141,7 @@ final class WritingViewModelTests: XCTestCase {
     // MARK: - Microphone Permission Tests
 
     func testRequestMicrophonePermissionStartsListeningWhenGranted() async {
+        UserDefaults.standard.set(true, forKey: BlowDetectionSensitivity.enabledKey)
         let blowDetection = BlowDetectionService()
         var startListeningCalled = false
         blowDetection.permissionRequestOverride = { true }
@@ -150,5 +158,25 @@ final class WritingViewModelTests: XCTestCase {
         XCTAssertTrue(blowDetection.permissionDetermined, "Permission should be determined after request")
         XCTAssertTrue(blowDetection.hasPermission, "Permission should be granted after request")
         XCTAssertTrue(startListeningCalled, "Should start listening after permission is granted")
+    }
+
+    func testRequestMicrophonePermissionDoesNotStartListeningWhenDisabled() async {
+        UserDefaults.standard.set(false, forKey: BlowDetectionSensitivity.enabledKey)
+        let blowDetection = BlowDetectionService()
+        var startListeningCalled = false
+        blowDetection.permissionRequestOverride = { true }
+        blowDetection.startListeningOverride = { startListeningCalled = true }
+
+        sut = WritingViewModel(
+            promptsManager: PromptsManager(),
+            blowDetection: blowDetection,
+            haptics: .shared
+        )
+
+        await sut.requestMicrophonePermission()
+
+        XCTAssertTrue(blowDetection.permissionDetermined, "Permission should be determined after request")
+        XCTAssertTrue(blowDetection.hasPermission, "Permission should still be granted after request")
+        XCTAssertFalse(startListeningCalled, "Should not start listening when blow detection is disabled")
     }
 }
