@@ -14,6 +14,8 @@ import AppKit
 #endif
 
 struct WritingView: View {
+    static let privacyHintText = "Your words are never saved or shared. Only release counts and dates stay on your device (and in iCloud if enabled)."
+
     let topSafeArea: CGFloat
     let bottomSafeArea: CGFloat
     let onShowHistory: () -> Void
@@ -1167,6 +1169,12 @@ struct WritingView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                     VStack(spacing: isCompact ? DandelionSpacing.md : DandelionSpacing.lg) {
+                        Text(Self.privacyHintText)
+                            .font(.system(size: 13, design: .serif))
+                            .foregroundColor(theme.secondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+
                         Text("Your words will scatter like dandelion seeds.")
                             .font(.system(size: 14, design: .serif))
                             .foregroundColor(theme.secondary)
