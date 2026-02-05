@@ -22,10 +22,8 @@ struct SettingsView: View {
     @State private var showPaywall: Bool = false
     @State private var navigationPath = NavigationPath()
     @AppStorage(HapticsService.settingsKey) private var hapticsEnabled: Bool = true
-#if DEBUG
-    @AppStorage("hasSeenPromptTapHint") private var hasSeenPromptTapHint: Bool = false
-    @AppStorage("debugPromptHintStyle") private var debugPromptHintStyle: Int = 0
-#endif
+    @AppStorage("hasUsedPromptTap") private var hasUsedPromptTap: Bool = false
+    @AppStorage("hasSeenLetGoHint") private var hasSeenLetGoHint: Bool = false
     @State private var micPermission: MicrophonePermissionState = .unknown
 
     private enum Destination: Hashable {
@@ -141,6 +139,16 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                     .listRowBackground(theme.card)
                     .accessibilityHint("Share Dandelion with others")
+
+                    Button {
+                        hasUsedPromptTap = false
+                        hasSeenLetGoHint = false
+                    } label: {
+                        SettingsRow(icon: "lightbulb", title: "Reset Hints", showsChevron: false)
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(theme.card)
+                    .accessibilityHint("Show helpful hints again")
                 } header: {
                     Text("App")
                         .foregroundColor(theme.secondary)
@@ -158,37 +166,6 @@ struct SettingsView: View {
                         }
                     }
                     .toggleStyle(SwitchToggleStyle(tint: theme.accent))
-                    .listRowBackground(theme.card)
-
-                    Button {
-                        hasSeenPromptTapHint = false
-                    } label: {
-                        HStack {
-                            Image(systemName: "arrow.counterclockwise")
-                                .foregroundColor(theme.secondary)
-                                .frame(width: 24)
-                            Text("Debug: Reset Prompt Hint")
-                                .foregroundColor(theme.text)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .listRowBackground(theme.card)
-
-                    Picker(selection: $debugPromptHintStyle) {
-                        Text("I: Simple Hint").tag(0)
-                        Text("E: Dots").tag(1)
-                        Text("F: Counter").tag(2)
-                        Text("G: Question").tag(3)
-                        Text("H: Pulse").tag(4)
-                    } label: {
-                        HStack {
-                            Image(systemName: "sparkles")
-                                .foregroundColor(theme.secondary)
-                                .frame(width: 24)
-                            Text("Debug: Hint Style")
-                                .foregroundColor(theme.text)
-                        }
-                    }
                     .listRowBackground(theme.card)
 #if os(macOS)
                     HStack {

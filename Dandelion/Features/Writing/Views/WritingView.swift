@@ -55,12 +55,9 @@ struct WritingView: View {
     @State private var isSettingsPresented: Bool = false
     @State private var showLetGoHint: Bool = false
     @AppStorage("hasSeenLetGoHint") private var hasSeenLetGoHint: Bool = false
-    @AppStorage("hasSeenPromptTapHint") private var hasSeenPromptTapHint: Bool = false
-#if DEBUG
-    @AppStorage("debugPromptHintStyle") private var debugPromptHintStyle: Int = 0
-#endif
-    @State private var promptHintAutoHideTask: Task<Void, Never>?
-    @State private var showPromptShimmer: Bool = false
+    @AppStorage("hasUsedPromptTap") private var hasUsedPromptTap: Bool = false
+    @AppStorage("lastAppOpenDate") private var lastAppOpenDate: Double = 0
+    private static var hasCheckedHintReset = false
     @Namespace private var promptNamespace
     @State private var hasShownInitialPrompt: Bool = false
     @State private var isDandelionWindAnimating: Bool = true
@@ -111,6 +108,7 @@ struct WritingView: View {
             }
             setupReleaseTracking()
             syncCustomPrompts()
+            checkHintResetForReturningUser()
             onSwipeEligibilityChange(isPromptVisible)
         }
         .onChange(of: customPrompts) { _, _ in
@@ -552,7 +550,7 @@ struct WritingView: View {
                 headerView(in: size)
                     .animation(suppressPromptLayoutAnimation ? nil : .easeInOut(duration: 1.6), value: isPromptState)
 
-                if isPromptState && isPromptVisible && !hasSeenPromptTapHint && viewModel.availablePromptCount > 1 {
+                if isPromptState && isPromptVisible && !hasUsedPromptTap && viewModel.availablePromptCount > 1 {
                     promptTapCallout
                         .padding(.top, DandelionSpacing.sm)
                         .transition(.opacity)
@@ -653,7 +651,7 @@ struct WritingView: View {
                 HapticsService.shared.tap()
 #endif
                 viewModel.newPrompt()
-                hasSeenPromptTapHint = true
+                hasUsedPromptTap = true
             }
             .accessibilityHint(isPromptState && viewModel.availablePromptCount > 1 ? "Tap to see another prompt" : "")
         }
@@ -676,148 +674,11 @@ struct WritingView: View {
         .accessibilityHint("Start writing your thoughts")
     }
 
-    @ViewBuilder
     private var promptTapCallout: some View {
-#if DEBUG
-        switch debugPromptHintStyle {
-        case 0:
-            promptHintStyleI
-        case 1:
-            promptHintStyleE
-        case 2:
-            promptHintStyleF
-        case 3:
-            promptHintStyleG
-        case 4:
-            promptHintStyleH
-        default:
-            promptHintStyleI
-        }
-#else
-        promptHintStyleI
-#endif
-    }
-
-    // MARK: - Option I: Simple Hint Text
-    // Clear and direct — just tells you what to do
-    private var promptHintStyleI: some View {
         Text("Hint: tap the prompt to see another")
             .font(.system(size: 13, design: .serif))
             .foregroundColor(theme.secondary)
             .multilineTextAlignment(.center)
-            .onTapGesture {
-                hasSeenPromptTapHint = true
-            }
-            .accessibilityLabel("Tap the prompt to see another")
-    }
-
-    // MARK: - Option E: Pagination Dots
-    // Familiar pattern — dots suggest "there's more" without words
-    private var promptHintStyleE: some View {
-        HStack(spacing: 6) {
-            ForEach(0..<min(5, viewModel.availablePromptCount), id: \.self) { index in
-                Circle()
-                    .fill(index == 0 ? theme.accent : theme.secondary.opacity(0.3))
-                    .frame(width: 6, height: 6)
-            }
-            if viewModel.availablePromptCount > 5 {
-                Text("...")
-                    .font(.system(size: 10))
-                    .foregroundColor(theme.secondary.opacity(0.5))
-            }
-        }
-        .onAppear {
-            promptHintAutoHideTask?.cancel()
-            promptHintAutoHideTask = Task { @MainActor in
-                try? await Task.sleep(for: .seconds(8))
-                guard !Task.isCancelled else { return }
-                withAnimation(.easeOut(duration: 0.6)) {
-                    hasSeenPromptTapHint = true
-                }
-            }
-        }
-        .onDisappear {
-            promptHintAutoHideTask?.cancel()
-        }
-        .accessibilityLabel("\(viewModel.availablePromptCount) prompts available. Tap to see another.")
-    }
-
-    // MARK: - Option F: Elegant Counter
-    // Understated "1 of 12" style — informative but quiet
-    private var promptHintStyleF: some View {
-        Text("1 of \(viewModel.availablePromptCount)")
-            .font(.system(size: 11, weight: .regular, design: .serif))
-            .foregroundColor(theme.secondary.opacity(0.5))
-            .onAppear {
-                promptHintAutoHideTask?.cancel()
-                promptHintAutoHideTask = Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(6))
-                    guard !Task.isCancelled else { return }
-                    withAnimation(.easeOut(duration: 0.6)) {
-                        hasSeenPromptTapHint = true
-                    }
-                }
-            }
-            .onDisappear {
-                promptHintAutoHideTask?.cancel()
-            }
-            .accessibilityLabel("Prompt 1 of \(viewModel.availablePromptCount). Tap to see another.")
-    }
-
-    // MARK: - Option G: Gentle Question
-    // Inviting, conversational — feels like part of the experience
-    private var promptHintStyleG: some View {
-        Text("Not this one?")
-            .font(.system(size: 13, weight: .regular, design: .serif))
-            .foregroundColor(theme.secondary.opacity(0.6))
-            .italic()
-            .onTapGesture {
-                hasSeenPromptTapHint = true
-                viewModel.newPrompt()
-            }
-            .onAppear {
-                promptHintAutoHideTask?.cancel()
-                promptHintAutoHideTask = Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(7))
-                    guard !Task.isCancelled else { return }
-                    withAnimation(.easeOut(duration: 0.6)) {
-                        hasSeenPromptTapHint = true
-                    }
-                }
-            }
-            .onDisappear {
-                promptHintAutoHideTask?.cancel()
-            }
-            .accessibilityLabel("Not this prompt? Tap to see another.")
-    }
-
-    // MARK: - Option H: Animated Tap Hint
-    // A gentle bouncing dot that draws the eye, then fades
-    private var promptHintStyleH: some View {
-        Circle()
-            .fill(theme.accent.opacity(0.6))
-            .frame(width: 8, height: 8)
-            .scaleEffect(showPromptShimmer ? 1.3 : 0.9)
-            .opacity(showPromptShimmer ? 0.8 : 0.4)
-            .animation(
-                .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
-                value: showPromptShimmer
-            )
-            .onAppear {
-                showPromptShimmer = true
-                promptHintAutoHideTask?.cancel()
-                promptHintAutoHideTask = Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(5))
-                    guard !Task.isCancelled else { return }
-                    withAnimation(.easeOut(duration: 0.5)) {
-                        hasSeenPromptTapHint = true
-                    }
-                }
-            }
-            .onDisappear {
-                showPromptShimmer = false
-                promptHintAutoHideTask?.cancel()
-            }
             .accessibilityLabel("Tap the prompt to see another")
     }
 
@@ -1011,6 +872,24 @@ struct WritingView: View {
             let service = ReleaseHistoryService(modelContext: modelContext)
             service.recordRelease(wordCount: wordCount)
         }
+    }
+
+    private func checkHintResetForReturningUser() {
+        // Only check once per app session
+        guard !Self.hasCheckedHintReset else { return }
+        Self.hasCheckedHintReset = true
+
+        let now = Date().timeIntervalSince1970
+        let fourWeeksInSeconds: Double = 60 * 60 * 24 * 7 * 4
+
+        // If user hasn't opened app in 4+ weeks, reset hints
+        if lastAppOpenDate > 0 && (now - lastAppOpenDate) > fourWeeksInSeconds {
+            hasUsedPromptTap = false
+            hasSeenLetGoHint = false
+        }
+
+        // Update last open date
+        lastAppOpenDate = now
     }
 
     private func syncCustomPrompts() {
