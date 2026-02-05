@@ -1088,131 +1088,110 @@ struct WritingView: View {
     // MARK: - Let Go Hint Overlay
 
     private var letGoHintOverlay: some View {
-        GeometryReader { geometry in
-            let isCompact = geometry.size.height < 700
-
-            ZStack {
-                // Dimmed background
-                Color.black.opacity(0.5)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            showLetGoHint = false
-                        }
-                    }
-
-                // Hint card
-                VStack(spacing: isCompact ? DandelionSpacing.lg : DandelionSpacing.xl) {
-                    // Title - large and prominent
-                    Text("When you're ready to let go")
-                        .font(.system(size: isCompact ? 22 : 26, weight: .medium, design: .serif))
-                        .foregroundColor(theme.text)
-                        .multilineTextAlignment(.center)
-
-                    // Instructions
-                    VStack(alignment: .leading, spacing: isCompact ? DandelionSpacing.md : DandelionSpacing.lg) {
-                        // Tap instruction
-                        HStack(alignment: .firstTextBaseline, spacing: DandelionSpacing.sm) {
-                            Image(systemName: "hand.tap")
-                                .font(.system(size: 16))
-                                .foregroundColor(theme.accent)
-                                .frame(width: 24)
-                            Text("Tap the **Let Go** button")
-                                .font(.system(size: isCompact ? 16 : 18, design: .serif))
-                                .foregroundColor(theme.text)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-
-                        // Blow instruction with mic permission below
-                        VStack(alignment: .leading, spacing: DandelionSpacing.sm) {
-                            HStack(alignment: .firstTextBaseline, spacing: DandelionSpacing.sm) {
-                                Image(systemName: "mic.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(theme.accent)
-                                    .frame(width: 24)
-                                Text("Or blow gently into your microphone")
-                                    .font(.system(size: isCompact ? 16 : 18, design: .serif))
-                                    .foregroundColor(theme.text)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-
-                            // Mic permission - smaller, secondary text
-                            if viewModel.blowDetection.permissionDetermined && !viewModel.blowDetection.hasPermission {
-                                HStack(spacing: 4) {
-                                    Text("Microphone is off.")
-                                        .foregroundColor(theme.secondary)
-                                    Button("Open Settings") {
-                                        openAppSettings()
-                                    }
-                                    .foregroundColor(theme.accent)
-                                    .buttonStyle(.plain)
-                                }
-                                .font(.system(size: 12, design: .serif))
-                                .padding(.leading, 24 + DandelionSpacing.sm)
-                            } else if !viewModel.blowDetection.permissionDetermined {
-                                HStack(spacing: 4) {
-                                    Text("Requires microphone.")
-                                        .foregroundColor(theme.secondary)
-                                    Button("Enable") {
-                                        Task {
-                                            await viewModel.requestMicrophonePermission()
-                                        }
-                                    }
-                                    .foregroundColor(theme.accent)
-                                    .buttonStyle(.plain)
-                                }
-                                .font(.system(size: 12, design: .serif))
-                                .padding(.leading, 24 + DandelionSpacing.sm)
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    VStack(spacing: isCompact ? DandelionSpacing.md : DandelionSpacing.lg) {
-                        Text(Self.privacyHintText)
-                            .font(.system(size: 13, design: .serif))
-                            .foregroundColor(theme.secondary)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        Text("Your words will scatter like dandelion seeds.")
-                            .font(.system(size: 14, design: .serif))
-                            .foregroundColor(theme.secondary)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        Button {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                showLetGoHint = false
-                            }
-                        } label: {
-                            Text("Got it")
-                                .font(.system(size: 16, weight: .medium, design: .serif))
-                                .foregroundColor(theme.background)
-                                .padding(.horizontal, DandelionSpacing.xl)
-                                .padding(.vertical, DandelionSpacing.sm)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(theme.primary)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Got it")
-                        .accessibilityHint("Dismiss this help dialog")
+        ZStack {
+            // Dimmed background
+            Color.black.opacity(0.5)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showLetGoHint = false
                     }
                 }
-                .padding(.horizontal, isCompact ? DandelionSpacing.md : DandelionSpacing.xl)
-                .padding(.vertical, isCompact ? DandelionSpacing.xl : DandelionSpacing.xxl)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(theme.card)
-                )
-                .frame(maxWidth: 420)
-                .padding(.horizontal, DandelionSpacing.lg)
-                .accessibilityElement(children: .contain)
-                .accessibilityAddTraits(.isModal)
-                .accessibilityLabel("How to let go of your writing")
+
+            // Hint card
+            VStack(spacing: DandelionSpacing.lg) {
+                // Title
+                Text("When you're ready,\nlet go")
+                    .font(.system(size: 26, weight: .medium, design: .serif))
+                    .foregroundColor(theme.text)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+
+                // Combined instruction and privacy message
+                VStack(alignment: .leading, spacing: DandelionSpacing.md) {
+                    HStack(alignment: .top, spacing: DandelionSpacing.sm) {
+                        Image(systemName: "wind")
+                            .font(.system(size: 16))
+                            .foregroundColor(theme.accent)
+                            .frame(width: 20)
+                        Text("Tap **Let Go** or blow gently into the microphone.")
+                            .font(.system(size: 16, design: .serif))
+                            .foregroundColor(theme.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    HStack(alignment: .top, spacing: DandelionSpacing.sm) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(theme.accent)
+                            .frame(width: 20)
+                        Text("Your words will drift away—never saved, never shared.")
+                            .font(.system(size: 16, design: .serif))
+                            .foregroundColor(theme.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Mic permission - only show when needed
+                if viewModel.blowDetection.permissionDetermined && !viewModel.blowDetection.hasPermission {
+                    HStack(spacing: 4) {
+                        Text("Microphone is off.")
+                        Button("Open Settings") {
+                            openAppSettings()
+                        }
+                        .foregroundColor(theme.accent)
+                        .buttonStyle(.plain)
+                    }
+                    .font(.system(size: 13, design: .serif))
+                    .foregroundColor(theme.secondary)
+                } else if !viewModel.blowDetection.permissionDetermined {
+                    HStack(spacing: 4) {
+                        Text("Microphone required to blow.")
+                        Button("Enable") {
+                            Task {
+                                await viewModel.requestMicrophonePermission()
+                            }
+                        }
+                        .foregroundColor(theme.accent)
+                        .buttonStyle(.plain)
+                    }
+                    .font(.system(size: 13, design: .serif))
+                    .foregroundColor(theme.secondary)
+                }
+
+                // Button
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showLetGoHint = false
+                    }
+                } label: {
+                    Text("Got it")
+                        .font(.system(size: 16, weight: .medium, design: .serif))
+                        .foregroundColor(theme.background)
+                        .padding(.horizontal, DandelionSpacing.xl)
+                        .padding(.vertical, DandelionSpacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(theme.primary)
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Got it")
+                .accessibilityHint("Dismiss this help dialog")
             }
+            .padding(.horizontal, DandelionSpacing.xl)
+            .padding(.vertical, DandelionSpacing.xxl)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(theme.card)
+            )
+            .frame(maxWidth: 340)
+            .padding(.horizontal, DandelionSpacing.lg)
+            .accessibilityElement(children: .contain)
+            .accessibilityAddTraits(.isModal)
+            .accessibilityLabel("How to let go of your writing")
         }
         .transition(.opacity)
     }
