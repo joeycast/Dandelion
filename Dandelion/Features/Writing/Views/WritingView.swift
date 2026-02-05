@@ -821,18 +821,14 @@ struct WritingView: View {
                     .onAppear {
                         guard !isReleasing else { return }
                         let height = size.height
-                        DispatchQueue.main.async {
-                            if lastWritingAreaHeight != height {
-                                lastWritingAreaHeight = height
-                            }
+                        if abs(lastWritingAreaHeight - height) > 0.5 {
+                            lastWritingAreaHeight = height
                         }
                     }
                     .onChange(of: size.height) { _, newValue in
                         guard !isReleasing else { return }
-                        DispatchQueue.main.async {
-                            if lastWritingAreaHeight != newValue {
-                                lastWritingAreaHeight = newValue
-                            }
+                        if abs(lastWritingAreaHeight - newValue) > 0.5 {
+                            lastWritingAreaHeight = newValue
                         }
                     }
                     .onChange(of: isReleasing) { _, newValue in
@@ -970,10 +966,13 @@ struct WritingView: View {
 
     private func bottomBar(bottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
-            // Blow indicator - appears above the bar (only when writing)
-            if viewModel.showBlowIndicator && isWriting {
-                blowIndicator
+            if (isWriting || isReleasing)
+                && viewModel.blowDetection.hasPermission
+                && viewModel.blowDetection.isEnabled {
+                blowProgressBar
                     .padding(.bottom, DandelionSpacing.md)
+                    .opacity(isWriting ? 1 : 0)
+                    .animation(.easeOut(duration: 0.2), value: isWriting)
             }
 
             // Bottom bar with persistent background
@@ -1111,6 +1110,33 @@ struct WritingView: View {
         )
         .transition(.opacity.combined(with: .scale))
         .accessibilityLabel("Keep blowing into the microphone to release your writing")
+    }
+
+    private var blowProgressBar: some View {
+        let progress = CGFloat(max(0, min(1, viewModel.blowDetection.blowProgress)))
+        return VStack(spacing: DandelionSpacing.xs) {
+            Text("Blow to release")
+                .font(.dandelionSecondary)
+                .foregroundColor(theme.secondary)
+
+            GeometryReader { geometry in
+                let width = max(0, geometry.size.width)
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(theme.primary.opacity(0.2))
+                    Capsule()
+                        .fill(theme.accent)
+                        .frame(width: width * progress)
+                        .animation(.easeOut(duration: 0.15), value: progress)
+                }
+            }
+            .frame(height: 6)
+        }
+        .frame(maxWidth: 240)
+        .opacity(progress > 0 ? 1 : 0.6)
+        .transition(.opacity)
+        .accessibilityLabel("Blow progress")
+        .accessibilityValue("\(Int(progress * 100)) percent")
     }
 
     // MARK: - Let Go Hint Overlay
