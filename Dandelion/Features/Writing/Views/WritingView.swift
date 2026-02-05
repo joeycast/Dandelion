@@ -56,6 +56,9 @@ struct WritingView: View {
     @State private var showLetGoHint: Bool = false
     @AppStorage("hasSeenLetGoHint") private var hasSeenLetGoHint: Bool = false
     @Namespace private var promptNamespace
+#if DEBUG
+    @AppStorage("promptLayoutStyle") private var promptLayoutStyle: Int = 0
+#endif
     @State private var hasShownInitialPrompt: Bool = false
     @State private var isDandelionWindAnimating: Bool = true
     @State private var dandelionWindAnimationTask: Task<Void, Never>?
@@ -546,6 +549,12 @@ struct WritingView: View {
                 headerView(in: size)
                     .animation(suppressPromptLayoutAnimation ? nil : .easeInOut(duration: 1.6), value: isPromptState)
 
+                if isPromptState && isPromptVisible && promptLayout == .underPromptText {
+                    newPromptButton
+                        .padding(.top, DandelionSpacing.md)
+                        .transition(.opacity)
+                }
+
                 if isPromptState {
                     Spacer(minLength: 0)
                 } else {
@@ -639,7 +648,16 @@ struct WritingView: View {
 
     private var promptButtons: some View {
         VStack(spacing: DandelionSpacing.md) {
-            // Only show shuffle button if there are 2+ prompts to cycle through
+            if promptLayout == .bottomButtons {
+                newPromptButton
+            }
+
+            beginWritingButton
+        }
+    }
+
+    private var newPromptButton: some View {
+        Group {
             if viewModel.availablePromptCount > 1 {
                 Button("New Prompt") {
 #if !os(macOS)
@@ -654,16 +672,31 @@ struct WritingView: View {
                 .buttonStyle(.plain)
 #endif
             }
-
-            Button("Begin Writing") {
-#if !os(macOS)
-                HapticsService.shared.tap()
-#endif
-                viewModel.startWriting()
-            }
-            .buttonStyle(.dandelion)
-            .accessibilityHint("Start writing your thoughts")
         }
+    }
+
+    private var beginWritingButton: some View {
+        Button("Begin Writing") {
+#if !os(macOS)
+            HapticsService.shared.tap()
+#endif
+            viewModel.startWriting()
+        }
+        .buttonStyle(.dandelion)
+        .accessibilityHint("Start writing your thoughts")
+    }
+
+    private var promptLayout: PromptLayoutStyle {
+#if DEBUG
+        return PromptLayoutStyle(rawValue: promptLayoutStyle) ?? .underPromptText
+#else
+        return .underPromptText
+#endif
+    }
+
+    private enum PromptLayoutStyle: Int {
+        case underPromptText = 0
+        case bottomButtons = 1
     }
 
     private func writingArea(fullScreenSize: CGSize) -> some View {
