@@ -22,6 +22,10 @@ struct SettingsView: View {
     @State private var showPaywall: Bool = false
     @State private var navigationPath = NavigationPath()
     @AppStorage(HapticsService.settingsKey) private var hapticsEnabled: Bool = true
+#if DEBUG
+    @AppStorage("hasSeenPromptTapHint") private var hasSeenPromptTapHint: Bool = false
+    @AppStorage("debugPromptHintStyle") private var debugPromptHintStyle: Int = 0
+#endif
     @State private var micPermission: MicrophonePermissionState = .unknown
 
     private enum Destination: Hashable {
@@ -154,6 +158,37 @@ struct SettingsView: View {
                         }
                     }
                     .toggleStyle(SwitchToggleStyle(tint: theme.accent))
+                    .listRowBackground(theme.card)
+
+                    Button {
+                        hasSeenPromptTapHint = false
+                    } label: {
+                        HStack {
+                            Image(systemName: "arrow.counterclockwise")
+                                .foregroundColor(theme.secondary)
+                                .frame(width: 24)
+                            Text("Debug: Reset Prompt Hint")
+                                .foregroundColor(theme.text)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(theme.card)
+
+                    Picker(selection: $debugPromptHintStyle) {
+                        Text("I: Simple Hint").tag(0)
+                        Text("E: Dots").tag(1)
+                        Text("F: Counter").tag(2)
+                        Text("G: Question").tag(3)
+                        Text("H: Pulse").tag(4)
+                    } label: {
+                        HStack {
+                            Image(systemName: "sparkles")
+                                .foregroundColor(theme.secondary)
+                                .frame(width: 24)
+                            Text("Debug: Hint Style")
+                                .foregroundColor(theme.text)
+                        }
+                    }
                     .listRowBackground(theme.card)
 #if os(macOS)
                     HStack {
