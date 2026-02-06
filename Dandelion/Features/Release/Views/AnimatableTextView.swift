@@ -250,7 +250,10 @@ struct AnimatableTextView: View {
         // Actual visible text height is smaller than container due to insets
         let actualVisibleHeight = visibleHeight - textContainerTopInset - textContainerBottomInset
 
-        let clampedVisibleHeight = max(0, min(actualVisibleHeight, totalHeight))
+        // Add a small bottom bleed so the last visible line isn't clipped at descenders
+        // during the release snapshot handoff.
+        let bottomBleed = max(2, ceil(abs(uiFont.descender)) + 2)
+        let clampedVisibleHeight = max(0, min(actualVisibleHeight + bottomBleed, totalHeight))
         let isCropped = clampedVisibleHeight > 0 && clampedVisibleHeight < totalHeight
 
         // The visible region based on scroll position
