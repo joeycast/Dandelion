@@ -61,8 +61,15 @@ struct PromptsSettingsView: View {
 
                     if isAddingPrompt {
                         HStack {
-                            TextField("Enter your prompt...", text: $newPromptText)
-                                .textFieldStyle(.plain)
+                            TextField(
+                                "",
+                                text: $newPromptText,
+                                prompt: Text("Enter your prompt...")
+                            )
+                                .labelsHidden()
+                                .textFieldStyle(.roundedBorder)
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                                 .focused($isNewPromptFocused)
                                 .onSubmit {
                                     saveNewPrompt()
@@ -411,8 +418,15 @@ private struct MacPromptRow: View {
     var body: some View {
         HStack {
             if isEditing {
-                TextField("Edit prompt...", text: $editText)
-                    .textFieldStyle(.plain)
+                TextField(
+                    "",
+                    text: $editText,
+                    prompt: Text("Edit prompt...")
+                )
+                    .labelsHidden()
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .focused($isEditFocused)
                     .onSubmit {
                         saveEdit()
