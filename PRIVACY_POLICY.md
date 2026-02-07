@@ -1,6 +1,6 @@
 # Privacy Policy for Dandelion
 
-**Effective Date:** February 2, 2026
+**Effective Date:** February 7, 2026
 
 ## Our Promise
 
@@ -10,17 +10,22 @@ Dandelion is built on a simple principle: your thoughts are yours to release, no
 
 **Your Writing:** The text you write is never uploaded to any server, account, or cloud service. When you release your words, the writing is discarded. We do not keep or transmit your journal text.
 
-## What We Do Store (On Your Device and in iCloud, if enabled)
+## What We Store (On Your Device, in iCloud, and as Anonymous Aggregates)
 
-To make the app work, Dandelion stores a small amount of data locally on your device. If you are signed in to iCloud and iCloud Drive is enabled for Dandelion, this data can also sync through Apple’s CloudKit to your other devices:
+To make the app work, Dandelion stores a small amount of data locally on your device. If you are signed in to iCloud and iCloud Sync is enabled in Dandelion, the following can sync through Apple’s CloudKit to your other devices:
 
 - **Release history metadata:** timestamps and word counts for each release.
 - **Prompt preferences:** your custom prompts and which default prompts are enabled.
-- **Settings:** app preferences such as appearance and haptics.
-- **Reminder preferences:** whether daily reminders are enabled and your chosen reminder time.
-- **Purchase state:** whether premium is unlocked.
 
-This information stays on your device and in your personal iCloud account (if enabled). We do not operate any servers that receive this data.
+Other preferences (such as appearance, haptics, and reminder settings) are stored locally on each device. Bloom purchase state is handled by Apple App Store entitlements.
+
+Separately, if **Contribute to Global Stats** is enabled (enabled by default when iCloud is available, opt-out in Settings), Dandelion writes anonymous aggregate usage data to CloudKit's public database:
+
+- How many releases happened
+- How many words were released
+- The hour window when those totals occurred
+
+This global stats data does **not** include your writing text, prompts, account identifiers, device identifiers, or release content.
 
 ## In-App Purchases
 
@@ -48,28 +53,39 @@ You can use Dandelion without granting either permission.
 
 ## Third-Party Services
 
-Dandelion uses no third-party analytics, advertising, or tracking services. Your experience is private and unmonitored.
+Dandelion uses no third-party analytics, advertising, or tracking SDKs. Cloud storage and sync are provided by Apple CloudKit.
 
-## iCloud Sync
+## iCloud and Global Stats
 
-If you are signed in to iCloud, Dandelion uses Apple’s CloudKit to sync the on-device metadata described above across your devices. This data is:
+If you are signed in to iCloud, Dandelion uses Apple’s CloudKit for:
+
+1. **Private sync data** (release history metadata and prompt preferences) in your iCloud account for cross-device sync.
+2. **Anonymous global aggregates** (release and word-count totals) in CloudKit public database records.
+
+Private sync data is:
 
 - Stored in your personal iCloud account
 - Encrypted and protected by Apple’s iCloud security
-- Not accessible to us
+- Not accessible to the Dandelion team
+- Not used for analytics or advertising
+
+Anonymous global aggregate records are used only to calculate global totals shown in the app.
+
+If iCloud is unavailable on your device, global stats contribution is disabled until iCloud becomes available.
 
 ## Children's Privacy
 
-Dandelion does not knowingly collect any information from anyone, including children under 13. Since we don't collect data at all, the app is safe for all ages.
+Dandelion does not knowingly collect personal information from children under 13. The app stores only the limited metadata described in this policy and optional anonymous global aggregate counters.
 
 ## Data Security
 
-Since your writing is not uploaded or stored remotely, there is no server-side data to secure or breach related to your text. The limited metadata and settings described above remain on your device and, if enabled, in your iCloud account.
+Since your writing is not uploaded or stored remotely, there is no server-side data to secure or breach related to your text. The limited metadata and settings described above remain on your device and, if enabled, in your iCloud account. Anonymous global aggregate counters are stored in CloudKit public database records.
 
 ## Your Rights
 
 You have complete control over your experience:
 - You can delete Dandelion at any time to remove its on-device data
+- You can opt out of anonymous global stats contribution in Settings at any time
 - No account means nothing to close or data to request
 
 ## Changes to This Policy

@@ -31,35 +31,43 @@
       The ephemeral nature of Dandelion is by design. It lets you write without self-censorship, knowing that your words won't come back to haunt you or be discovered by anyone.
     </div>
 
-    <h2>What We Do Store</h2>
-    <p>To provide History, Insights, and prompt customization features, Dandelion stores minimal metadata on your device:</p>
+    <h2>What We Store</h2>
+    <p>To provide History, Insights, and prompt customization features, Dandelion stores minimal metadata on your device. If iCloud Sync is enabled in Dandelion, this data can sync across your devices:</p>
     <ul>
       <li><strong>Timestamp</strong> — When the release happened</li>
       <li><strong>Word count</strong> — How many words you wrote</li>
       <li><strong>Prompt preferences</strong> — Your custom prompts and which default prompts are enabled</li>
-      <li><strong>Settings</strong> — App preferences like appearance and haptics</li>
-      <li><strong>Reminder preferences</strong> — Whether daily reminders are enabled and your selected reminder time</li>
-      <li><strong>Purchase state</strong> — Whether premium is unlocked</li>
     </ul>
-    <p>That's it. This data is stored locally on your device and synced via iCloud to your other devices (if you use iCloud).</p>
+    <p>This sync data stays on your device and in your personal iCloud account.</p>
+    <p>Other preferences (like appearance, haptics, and reminder settings) are stored locally per device. Bloom purchase state is handled by Apple App Store entitlements.</p>
 
-    <h2>No Servers</h2>
-    <p>Dandelion has no backend servers. We don't:</p>
+    <h2>Anonymous Global Stats</h2>
+    <p>If <strong>Contribute to Global Stats</strong> is enabled (enabled by default when iCloud is available, opt-out in Settings), Dandelion writes anonymous aggregate usage totals to CloudKit's public database so the app can show community totals.</p>
+    <ul>
+      <li><strong>How many releases happened</strong></li>
+      <li><strong>How many words were released</strong></li>
+      <li><strong>The hour window when those totals occurred</strong></li>
+    </ul>
+    <p>These records do not include your writing text, prompt content, account identifiers, or device identifiers.</p>
+
+    <h2>No Third-Party Tracking</h2>
+    <p>Dandelion has no third-party analytics or ad tracking. We don't:</p>
     <ul>
       <li>Collect analytics about your usage</li>
       <li>Track your behavior</li>
-      <li>Store any data about you</li>
-      <li>Have any way to access your information</li>
+      <li>Use ad networks or profiling SDKs</li>
     </ul>
-    <p>Everything stays on your devices and in your personal iCloud account.</p>
+    <p>Cloud storage and sync are handled by Apple CloudKit.</p>
 
-    <h2>iCloud Sync</h2>
-    <p>If you're signed in to iCloud, your on-device metadata (release history, prompt preferences, settings, and purchase state) syncs between your devices using CloudKit. This data is:</p>
+    <h2>iCloud and CloudKit</h2>
+    <p>If you're signed in to iCloud, Dandelion uses CloudKit for private sync data and for anonymous global aggregates used in the in-app global counters.</p>
     <ul>
-      <li>Stored in your personal iCloud account</li>
-      <li>Not accessible to us or anyone else</li>
-      <li>Subject to Apple's privacy protections</li>
+      <li>Private sync data is stored in your personal iCloud account</li>
+      <li>Anonymous aggregate totals are stored in CloudKit public database records</li>
+      <li>Private sync data is not accessible to the Dandelion team</li>
+      <li>Both are subject to Apple's privacy and security protections</li>
     </ul>
+    <p>If iCloud is unavailable, global stats contribution is automatically disabled until iCloud is available again.</p>
 
     <h2>Microphone Access</h2>
     <p>Dandelion can optionally use your microphone to detect when you blow to release. This audio:</p>
