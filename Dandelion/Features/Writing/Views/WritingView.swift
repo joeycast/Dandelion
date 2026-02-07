@@ -731,23 +731,25 @@ struct WritingView: View {
             if globalCountEnabled {
                 globalReleaseCountView
                     .padding(.top, DandelionSpacing.sm)
-                    .transition(.opacity)
             }
         }
     }
 
     private var globalReleaseCountView: some View {
-        Group {
-            if let counts = globalReleaseCounts, counts.today > 0 {
+        ZStack(alignment: .top) {
+            if shouldShowGlobalReleaseCountText, let counts = globalReleaseCounts {
                 let countString = OdometerCountText.formatted(counts.today)
                 let timesWord = counts.today == 1 ? "time" : "times"
-                Text("People around the world have let go \(countString) \(timesWord) today. Join them.")
+                Text(globalReleaseCountMessage(countString: countString, timesWord: timesWord))
                     .font(.system(size: 12, design: .serif))
                     .foregroundColor(theme.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, DandelionSpacing.xxxl)
             }
         }
+        .frame(height: 34, alignment: .top)
+        .opacity(shouldShowGlobalReleaseCountText ? 1 : 0)
+        .animation(.easeInOut(duration: 1.0), value: shouldShowGlobalReleaseCountText)
     }
 
     private var beginWritingButton: some View {
@@ -1029,8 +1031,9 @@ struct WritingView: View {
 
         if let cached = globalReleaseCounts {
             let updated = cached.incremented(wordCount: wordCount)
-            globalReleaseCounts = updated
-            globalReleaseService.updateCachedCounts(updated)
+            withAnimation(.easeInOut(duration: 0.25)) {
+                globalReleaseCounts = updated
+            }
         }
 
         Task {
@@ -1039,7 +1042,9 @@ struct WritingView: View {
             let refreshed = await globalReleaseService.loadCounts(forceRefresh: true)
             await MainActor.run {
                 guard globalCountEnabled else { return }
-                globalReleaseCounts = refreshed
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    globalReleaseCounts = refreshed
+                }
             }
         }
     }
@@ -1057,17 +1062,43 @@ struct WritingView: View {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(45))
                 guard !Task.isCancelled else { return }
-                globalReleaseCounts = await globalReleaseService.loadCounts(forceRefresh: true)
+                let refreshed = await globalReleaseService.loadCounts(forceRefresh: true)
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        globalReleaseCounts = refreshed
+                    }
+                }
             }
         }
     }
 
     private func refreshGlobalCounts(forceRefresh: Bool) async {
         guard globalCountEnabled else {
-            globalReleaseCounts = nil
+            withAnimation(.easeInOut(duration: 0.2)) {
+                globalReleaseCounts = nil
+            }
             return
         }
-        globalReleaseCounts = await globalReleaseService.loadCounts(forceRefresh: forceRefresh)
+
+        let loaded = await globalReleaseService.loadCounts(forceRefresh: forceRefresh)
+        withAnimation(.easeInOut(duration: 0.25)) {
+            globalReleaseCounts = loaded
+        }
+    }
+
+    private func globalReleaseCountMessage(countString: String, timesWord: String) -> String {
+        if hasReleasedToday {
+            return "People around the world have let go \(countString) \(timesWord) today."
+        }
+        return "People around the world have let go \(countString) \(timesWord) today. Join them."
+    }
+
+    private var hasReleasedToday: Bool {
+        allReleases.contains { Calendar.current.isDateInToday($0.timestamp) }
+    }
+
+    private var shouldShowGlobalReleaseCountText: Bool {
+        globalCountEnabled && (globalReleaseCounts?.today ?? 0) > 0
     }
 
     private func syncCustomPrompts() {

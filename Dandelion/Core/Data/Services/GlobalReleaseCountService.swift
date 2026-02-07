@@ -56,40 +56,20 @@ final class GlobalReleaseCountService {
     private let containerProvider: () -> CKContainer
     private lazy var container: CKContainer = containerProvider()
     private lazy var database: CKDatabase = container.publicCloudDatabase
-    private let userDefaults: UserDefaults
-    private let cacheInterval: TimeInterval
-
-    private let cacheKey = "globalReleaseCountsCache"
-    private let cacheDateKey = "globalReleaseCountsCacheDate"
 
     init(
-        containerProvider: @escaping () -> CKContainer = { CKContainer.default() },
-        userDefaults: UserDefaults = .standard,
-        cacheInterval: TimeInterval = 60 * 30
+        containerProvider: @escaping () -> CKContainer = { CKContainer.default() }
     ) {
         self.containerProvider = containerProvider
-        self.userDefaults = userDefaults
-        self.cacheInterval = cacheInterval
     }
 
-    func loadCounts(forceRefresh: Bool = false) async -> GlobalReleaseCounts? {
-        if isRunningTests {
-            return cachedCounts()
-        }
-        if !forceRefresh, let cached = cachedCounts(), isCacheFresh() {
-            return cached
-        }
-        guard await isICloudAvailableForReads() else {
-            return cachedCounts()
-        }
-
+    func loadCounts(forceRefresh _: Bool = false) async -> GlobalReleaseCounts? {
+        if isRunningTests { return nil }
         do {
-            let counts = try await fetchCounts()
-            cacheCounts(counts)
-            return counts
+            return try await fetchCounts()
         } catch {
             logCloudKitError("loadCounts failed", error: error)
-            return cachedCounts()
+            return nil
         }
     }
 
@@ -114,10 +94,6 @@ final class GlobalReleaseCountService {
             logCloudKitError("incrementCountsIfEnabled failed", error: error)
             return
         }
-    }
-
-    func updateCachedCounts(_ counts: GlobalReleaseCounts) {
-        cacheCounts(counts)
     }
 
     // MARK: - Private
@@ -172,10 +148,6 @@ final class GlobalReleaseCountService {
 
         try await saveIncrementedRecord(globalRecord, releaseIncrement: 1, wordIncrement: safeWordCount)
         try await saveIncrementedRecord(hourlyRecord, releaseIncrement: 1, wordIncrement: safeWordCount)
-
-        if let cached = cachedCounts() {
-            cacheCounts(cached.incremented(wordCount: safeWordCount, now: now))
-        }
     }
 
     private func fetchRecord(recordType: String, recordName: String) async throws -> CKRecord {
@@ -240,37 +212,9 @@ final class GlobalReleaseCountService {
         }
     }
 
-    private func cacheCounts(_ counts: GlobalReleaseCounts) {
-        let encoder = JSONEncoder()
-        if let data = try? encoder.encode(counts) {
-            userDefaults.set(data, forKey: cacheKey)
-            userDefaults.set(Date(), forKey: cacheDateKey)
-        }
-    }
-
-    private func cachedCounts() -> GlobalReleaseCounts? {
-        guard let data = userDefaults.data(forKey: cacheKey) else { return nil }
-        let decoder = JSONDecoder()
-        return try? decoder.decode(GlobalReleaseCounts.self, from: data)
-    }
-
-    private func isCacheFresh() -> Bool {
-        guard let cachedDate = userDefaults.object(forKey: cacheDateKey) as? Date else { return false }
-        return Date().timeIntervalSince(cachedDate) < cacheInterval
-    }
-
     private func canContributeToGlobalStats() async throws -> Bool {
         let status = try await container.accountStatus()
         return status == .available
-    }
-
-    private func isICloudAvailableForReads() async -> Bool {
-        do {
-            let status = try await container.accountStatus()
-            return status == .available
-        } catch {
-            return false
-        }
     }
 
     private func retryDelay(for error: CKError) -> TimeInterval? {
