@@ -49,7 +49,13 @@ struct PromptsSettingsView: View {
                     ForEach(customPrompts) { prompt in
                         MacPromptRow(
                             prompt: prompt,
-                            onDelete: { modelContext.delete(prompt) }
+                            onDelete: {
+                                modelContext.delete(prompt)
+                                saveContext()
+                            },
+                            onSave: {
+                                saveContext()
+                            }
                         )
                     }
 
@@ -153,6 +159,7 @@ struct PromptsSettingsView: View {
         }
         let newPrompt = CustomPrompt(text: trimmed)
         modelContext.insert(newPrompt)
+        saveContext()
         cancelNewPrompt()
     }
 
@@ -171,10 +178,16 @@ struct PromptsSettingsView: View {
                 // Custom prompts section
                 Section {
                     ForEach(customPrompts) { prompt in
-                        PromptRow(prompt: prompt)
+                        PromptRow(
+                            prompt: prompt,
+                            onToggleActive: {
+                                saveContext()
+                            }
+                        )
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button(role: .destructive) {
                                     modelContext.delete(prompt)
+                                    saveContext()
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -334,6 +347,7 @@ struct PromptsSettingsView: View {
             let newPrompt = CustomPrompt(text: trimmed)
             modelContext.insert(newPrompt)
         }
+        saveContext()
         showEditor = false
     }
 
@@ -348,6 +362,7 @@ struct PromptsSettingsView: View {
     private func toggleDefaultPrompt(_ prompt: WritingPrompt) {
         let setting = upsertDefaultPromptSetting(promptId: prompt.id, defaultIsEnabled: true)
         setting.isEnabled.toggle()
+        saveContext()
     }
 
     private func allDefaultPromptsEnabled() -> Bool {
@@ -363,6 +378,7 @@ struct PromptsSettingsView: View {
                 setting.isEnabled = false
             }
         }
+        saveContext()
     }
 
     private func upsertDefaultPromptSetting(promptId: String, defaultIsEnabled: Bool) -> DefaultPromptSetting {
@@ -373,12 +389,21 @@ struct PromptsSettingsView: View {
         modelContext.insert(setting)
         return setting
     }
+
+    private func saveContext() {
+        do {
+            try modelContext.save()
+        } catch {
+            debugLog("[PromptsSettings] Failed to save context: \(error)")
+        }
+    }
 }
 
 #if os(macOS)
 private struct MacPromptRow: View {
     @Bindable var prompt: CustomPrompt
     let onDelete: () -> Void
+    let onSave: () -> Void
     @State private var isEditing: Bool = false
     @State private var editText: String = ""
     @FocusState private var isEditFocused: Bool
@@ -407,7 +432,13 @@ private struct MacPromptRow: View {
                 }
                 .buttonStyle(.bordered)
             } else {
-                Toggle(isOn: $prompt.isActive) {
+                Toggle(isOn: Binding(
+                    get: { prompt.isActive },
+                    set: { newValue in
+                        prompt.isActive = newValue
+                        onSave()
+                    }
+                )) {
                     Text(prompt.text)
                 }
 
@@ -434,6 +465,7 @@ private struct MacPromptRow: View {
         let trimmed = editText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty {
             prompt.text = trimmed
+            onSave()
         }
         cancelEdit()
     }
@@ -448,12 +480,19 @@ private struct MacPromptRow: View {
 
 private struct PromptRow: View {
     @Bindable var prompt: CustomPrompt
+    let onToggleActive: () -> Void
     @Environment(AppearanceManager.self) private var appearance
 
     var body: some View {
         let theme = appearance.theme
 
-        Toggle(isOn: $prompt.isActive) {
+        Toggle(isOn: Binding(
+            get: { prompt.isActive },
+            set: { newValue in
+                prompt.isActive = newValue
+                onToggleActive()
+            }
+        )) {
             Text(prompt.text)
                 .font(.dandelionSecondary)
                 .foregroundColor(theme.text)
