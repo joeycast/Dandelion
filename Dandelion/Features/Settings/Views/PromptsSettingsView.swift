@@ -102,7 +102,7 @@ struct PromptsSettingsView: View {
                             set: { _ in toggleDefaultPrompt(prompt) }
                         )) {
                             Text(prompt.text)
-                                .font(.dandelionSecondary)
+                                .font(.body)
                                 .lineLimit(2)
                         }
                     }
@@ -113,7 +113,7 @@ struct PromptsSettingsView: View {
                         Button(allDefaultPromptsEnabled() ? "Deselect All" : "Select All") {
                             setAllDefaultPrompts(enabled: !allDefaultPromptsEnabled())
                         }
-                        .font(.dandelionCaption)
+                        .font(.caption)
                         .buttonStyle(.plain)
                     }
                 }
@@ -139,7 +139,7 @@ struct PromptsSettingsView: View {
                 Section {
                     ForEach(WritingPrompt.defaults) { prompt in
                         Text(prompt.text)
-                            .font(.dandelionSecondary)
+                            .font(.body)
                     }
                 } header: {
                     Text("Curated Prompts")
@@ -206,7 +206,7 @@ struct PromptsSettingsView: View {
 
                     if customPrompts.isEmpty {
                         Text("Tap + to add your own prompts")
-                            .font(.dandelionCaption)
+                            .font(.caption)
                             .foregroundColor(theme.secondary)
                             .listRowBackground(theme.card)
                     }
@@ -224,7 +224,7 @@ struct PromptsSettingsView: View {
                         } label: {
                             HStack {
                                 Text(prompt.text)
-                                    .font(.dandelionSecondary)
+                                    .font(.body)
                                     .foregroundColor(isEnabled ? theme.text : theme.secondary)
                                     .lineLimit(2)
                                 Spacer()
@@ -248,14 +248,14 @@ struct PromptsSettingsView: View {
                         Button(allDefaultPromptsEnabled() ? "Deselect All" : "Select All") {
                             setAllDefaultPrompts(enabled: !allDefaultPromptsEnabled())
                         }
-                        .font(.dandelionCaption)
+                        .font(.caption)
                         .foregroundColor(theme.accent)
                         .buttonStyle(.plain)
                         .accessibilityHint("Toggle all curated prompts at once")
                     }
                 } footer: {
                     Text("Disable prompts you don't want to see")
-                        .font(.dandelionCaption)
+                        .font(.caption)
                         .foregroundColor(theme.secondary)
                 }
             } else {
@@ -266,7 +266,7 @@ struct PromptsSettingsView: View {
                     } label: {
                         HStack {
                             Text("Add your own prompts")
-                                .font(.dandelionSecondary)
+                                .font(.body)
                                 .foregroundColor(theme.secondary)
                             Spacer()
                             Image(systemName: "lock.fill")
@@ -292,7 +292,7 @@ struct PromptsSettingsView: View {
                 Section {
                     ForEach(WritingPrompt.defaults) { prompt in
                         Text(prompt.text)
-                            .font(.dandelionSecondary)
+                            .font(.body)
                             .foregroundColor(theme.text)
                             .listRowBackground(theme.card)
                     }
@@ -494,7 +494,7 @@ private struct PromptRow: View {
             }
         )) {
             Text(prompt.text)
-                .font(.dandelionSecondary)
+                .font(.body)
                 .foregroundColor(theme.text)
         }
         .toggleStyle(SwitchToggleStyle(tint: theme.accent))
@@ -514,7 +514,7 @@ private struct PromptEditorView: View {
         NavigationStack {
             VStack(spacing: DandelionSpacing.md) {
                 TextField("Your prompt...", text: $text, axis: .vertical)
-                    .font(.dandelionSecondary)
+                    .font(.body)
                     .foregroundColor(theme.text)
                     .focused($isFocused)
                     .padding(DandelionSpacing.md)

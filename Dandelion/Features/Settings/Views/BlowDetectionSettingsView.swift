@@ -149,7 +149,7 @@ struct BlowDetectionSettingsView: View {
                     .foregroundColor(theme.text)
                 Spacer()
                 Text(blowSensitivityLabel)
-                    .font(.dandelionCaption)
+                    .font(.caption)
                     .foregroundColor(theme.secondary)
             }
             Slider(value: Binding(
@@ -161,7 +161,7 @@ struct BlowDetectionSettingsView: View {
             HStack {
                 Spacer()
                 Text("Higher means easier to trigger.")
-                    .font(.dandelionCaption)
+                    .font(.caption)
                     .foregroundColor(theme.secondary)
             }
         }
@@ -193,7 +193,7 @@ struct BlowDetectionSettingsView: View {
                 Text("Microphone")
                     .foregroundColor(theme.text)
                 Text(micPermission.statusText)
-                    .font(.dandelionCaption)
+                    .font(.caption)
                     .foregroundColor(theme.secondary)
             }
             Spacer()
@@ -201,7 +201,7 @@ struct BlowDetectionSettingsView: View {
                 Button(micPermission.actionTitle) {
                     handleMicrophoneAction()
                 }
-                .font(.dandelionCaption)
+                .font(.caption)
                 .foregroundColor(theme.accent)
             }
         }

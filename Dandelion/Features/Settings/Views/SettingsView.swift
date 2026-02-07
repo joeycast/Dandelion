@@ -60,7 +60,7 @@ struct SettingsView: View {
                                 .foregroundColor(theme.text)
                             Spacer()
                             Text("Purchased")
-                                .font(.dandelionCaption)
+                                .font(.caption)
                                 .foregroundColor(theme.secondary)
                         }
                         .listRowBackground(theme.card)
@@ -227,7 +227,7 @@ struct SettingsView: View {
                         Text("CloudKit: Enabled")
                             .foregroundColor(theme.secondary)
                     }
-                    .font(.dandelionSecondary)
+                    .font(.body)
                     .listRowBackground(theme.card)
 #endif
                 } header: {
