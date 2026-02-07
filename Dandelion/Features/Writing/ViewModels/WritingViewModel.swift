@@ -148,7 +148,9 @@ final class WritingViewModel {
         if Self.debugReleaseFlow {
             debugLog("[ReleaseFlow] startWriting")
         }
+#if os(iOS)
         haptics.tap()
+#endif
         isDandelionReturning = false
         writtenText = ""
         withAnimation(DandelionAnimation.slow) {
