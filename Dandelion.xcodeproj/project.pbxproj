@@ -389,6 +389,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = Dandelion/Dandelion-iOS.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Dandelion/Dandelion-iOS.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = Dandelion/Dandelion.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 9;
@@ -399,6 +401,8 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = LaunchScreen.storyboard;
 				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_FILE[sdk=iphoneos*]" = "Info-iOS.plist";
+				"INFOPLIST_FILE[sdk=iphonesimulator*]" = "Info-iOS.plist";
 				"INFOPLIST_FILE[sdk=macosx*]" = "Info-macOS.plist";
 				INFOPLIST_KEY_AppStoreID = 6757363901;
 				INFOPLIST_KEY_CFBundleDisplayName = Dandelion;
@@ -448,6 +452,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = Dandelion/Dandelion-iOS.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Dandelion/Dandelion-iOS.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = Dandelion/Dandelion.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 9;
@@ -458,6 +464,8 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = LaunchScreen.storyboard;
 				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_FILE[sdk=iphoneos*]" = "Info-iOS.plist";
+				"INFOPLIST_FILE[sdk=iphonesimulator*]" = "Info-iOS.plist";
 				"INFOPLIST_FILE[sdk=macosx*]" = "Info-macOS.plist";
 				INFOPLIST_KEY_AppStoreID = 6757363901;
 				INFOPLIST_KEY_CFBundleDisplayName = Dandelion;

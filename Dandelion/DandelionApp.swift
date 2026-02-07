@@ -17,13 +17,18 @@ struct DandelionApp: App {
     private let premiumManager = PremiumManager.shared
     private let appearanceManager = AppearanceManager()
     private let ambientSoundService = AmbientSoundService()
+    private static let iCloudSyncSettingKey = "iCloudSyncEnabled"
 
     init() {
+        UserDefaults.standard.register(defaults: [Self.iCloudSyncSettingKey: true])
+        let iCloudSyncEnabled = UserDefaults.standard.bool(forKey: Self.iCloudSyncSettingKey)
+        let cloudKitDatabase: ModelConfiguration.CloudKitDatabase = iCloudSyncEnabled ? .automatic : .none
+
         let schema = Schema([Release.self, CustomPrompt.self, DefaultPromptSetting.self])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
-            cloudKitDatabase: .automatic
+            cloudKitDatabase: cloudKitDatabase
         )
 
         do {

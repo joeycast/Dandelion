@@ -26,6 +26,7 @@ struct WritingView: View {
     @Environment(PremiumManager.self) private var premium
     @Environment(AmbientSoundService.self) private var ambientSound
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \CustomPrompt.createdAt) private var customPrompts: [CustomPrompt]
     @Query private var defaultPromptSettings: [DefaultPromptSetting]
@@ -56,6 +57,7 @@ struct WritingView: View {
     @State private var showBloomPaywall: Bool = false
     @State private var isSettingsPresented: Bool = false
     @State private var showLetGoHint: Bool = false
+    @AppStorage("globalCountEnabled") private var globalCountEnabled: Bool = true
     @AppStorage("hasSeenLetGoHint") private var hasSeenLetGoHint: Bool = false
     @AppStorage("hasUsedPromptTap") private var hasUsedPromptTap: Bool = false
     private static var hasCheckedHintReset = false
@@ -63,6 +65,9 @@ struct WritingView: View {
     @State private var hasShownInitialPrompt: Bool = false
     @State private var isDandelionWindAnimating: Bool = true
     @State private var dandelionWindAnimationTask: Task<Void, Never>?
+    @State private var globalReleaseCounts: GlobalReleaseCounts?
+    @State private var globalReleaseService = GlobalReleaseCountService()
+    @State private var globalCountsPollingTask: Task<Void, Never>?
 
     private struct LayoutMetrics {
         let safeAreaTop: CGFloat
@@ -111,6 +116,14 @@ struct WritingView: View {
             syncCustomPrompts()
             checkHintResetForReturningUser()
             onSwipeEligibilityChange(isPromptVisible)
+            Task {
+                await refreshGlobalCounts(forceRefresh: false)
+            }
+            updateGlobalCountsPolling()
+        }
+        .onDisappear {
+            globalCountsPollingTask?.cancel()
+            globalCountsPollingTask = nil
         }
         .onChange(of: customPrompts) { _, _ in
             syncCustomPrompts()
@@ -139,6 +152,27 @@ struct WritingView: View {
                 viewModel.blowDetection.stopListening()
                 viewModel.showBlowIndicator = false
                 ambientSound.stop()
+            }
+            updateGlobalCountsPolling()
+        }
+        .onChange(of: scenePhase) { _, newValue in
+            updateGlobalCountsPolling()
+            guard newValue == .active else { return }
+            Task {
+                await refreshGlobalCounts(forceRefresh: false)
+            }
+        }
+        .onChange(of: isPromptVisible) { _, isVisible in
+            updateGlobalCountsPolling()
+            guard isVisible else { return }
+            Task {
+                await refreshGlobalCounts(forceRefresh: false)
+            }
+        }
+        .onChange(of: globalCountEnabled) { _, _ in
+            updateGlobalCountsPolling()
+            Task {
+                await refreshGlobalCounts(forceRefresh: false)
             }
         }
         .onChange(of: viewModel.currentPrompt?.id) { _, _ in
@@ -661,6 +695,26 @@ struct WritingView: View {
     private var promptButtons: some View {
         VStack(spacing: DandelionSpacing.md) {
             beginWritingButton
+
+            if globalCountEnabled {
+                globalReleaseCountView
+                    .padding(.top, DandelionSpacing.sm)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    private var globalReleaseCountView: some View {
+        Group {
+            if let counts = globalReleaseCounts, counts.today > 0 {
+                let countString = OdometerCountText.formatted(counts.today)
+                let timesWord = counts.today == 1 ? "time" : "times"
+                Text("People around the world have let go \(countString) \(timesWord) today. Join them.")
+                    .font(.system(size: 12, design: .serif))
+                    .foregroundColor(theme.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, DandelionSpacing.xxxl)
+            }
         }
     }
 
@@ -866,8 +920,9 @@ struct WritingView: View {
 
     private func setupReleaseTracking() {
         viewModel.onReleaseTriggered = { [modelContext] wordCount in
-            let service = ReleaseHistoryService(modelContext: modelContext)
-            service.recordRelease(wordCount: wordCount)
+            Task { @MainActor in
+                handleReleaseTriggered(wordCount: wordCount, modelContext: modelContext)
+            }
         }
     }
 
@@ -882,6 +937,56 @@ struct WritingView: View {
             hasUsedPromptTap = false
             hasSeenLetGoHint = false
         }
+    }
+
+    @MainActor
+    private func handleReleaseTriggered(wordCount: Int, modelContext: ModelContext) {
+        let service = ReleaseHistoryService(modelContext: modelContext)
+        service.recordRelease(wordCount: wordCount)
+
+        guard globalCountEnabled else { return }
+
+        if let cached = globalReleaseCounts {
+            let updated = cached.incremented(wordCount: wordCount)
+            globalReleaseCounts = updated
+            globalReleaseService.updateCachedCounts(updated)
+        }
+
+        Task {
+            await globalReleaseService.incrementCountsIfEnabled(globalCountEnabled, wordCount: wordCount)
+            try? await Task.sleep(for: .seconds(3))
+            let refreshed = await globalReleaseService.loadCounts(forceRefresh: true)
+            await MainActor.run {
+                guard globalCountEnabled else { return }
+                globalReleaseCounts = refreshed
+            }
+        }
+    }
+
+    private var shouldPollGlobalCounts: Bool {
+        globalCountEnabled && isActive && isPromptVisible && scenePhase == .active
+    }
+
+    private func updateGlobalCountsPolling() {
+        globalCountsPollingTask?.cancel()
+        globalCountsPollingTask = nil
+        guard shouldPollGlobalCounts else { return }
+
+        globalCountsPollingTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(45))
+                guard !Task.isCancelled else { return }
+                globalReleaseCounts = await globalReleaseService.loadCounts(forceRefresh: true)
+            }
+        }
+    }
+
+    private func refreshGlobalCounts(forceRefresh: Bool) async {
+        guard globalCountEnabled else {
+            globalReleaseCounts = nil
+            return
+        }
+        globalReleaseCounts = await globalReleaseService.loadCounts(forceRefresh: forceRefresh)
     }
 
     private func syncCustomPrompts() {
@@ -1314,6 +1419,27 @@ struct WritingView: View {
         .buttonStyle(.plain)
     }
 
+}
+
+private struct OdometerCountText: View {
+    let value: Int
+
+    var body: some View {
+        Text(Self.countFormatter.string(from: NSNumber(value: value)) ?? "\(value)")
+            .monospacedDigit()
+            .contentTransition(.numericText(value: Double(value)))
+            .animation(.easeInOut(duration: 0.8), value: value)
+    }
+
+    static func formatted(_ value: Int) -> String {
+        countFormatter.string(from: NSNumber(value: value)) ?? "\(value)"
+    }
+
+    private static let countFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return formatter
+    }()
 }
 
 #Preview {

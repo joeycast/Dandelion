@@ -7,6 +7,7 @@
 
 import SwiftUI
 import StoreKit
+import CloudKit
 
 #if os(macOS)
 struct MacSettingsView: View {
@@ -54,7 +55,14 @@ private struct GeneralSettingsTab: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.requestReview) private var requestReview
     @State private var showPaywall: Bool = false
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage(HapticsService.settingsKey) private var hapticsEnabled: Bool = true
+    @AppStorage("iCloudSyncEnabled") private var iCloudSyncEnabled: Bool = true
+    @AppStorage("globalCountEnabled") private var globalCountEnabled: Bool = true
+    @State private var iCloudAvailability: ICloudAvailability = .checking
+    @State private var showICloudSyncRestartAlert: Bool = false
+    @State private var iCloudStatusTask: Task<Void, Never>?
+    @State private var iCloudStatusRequestID = UUID()
 
     var body: some View {
         @Bindable var premium = premium
@@ -91,6 +99,30 @@ private struct GeneralSettingsTab: View {
                 Text("Writing")
             } footer: {
                 Text("Customize your writing experience.")
+            }
+
+            Section {
+                HStack {
+                    Label("iCloud Status", systemImage: "icloud")
+                    Spacer()
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(iCloudAvailability.dotColor)
+                            .frame(width: 8, height: 8)
+                        Text(iCloudAvailability.label)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Toggle("iCloud Sync", isOn: iCloudSyncToggleBinding)
+                    .disabled(!isICloudAvailable)
+
+                Toggle("Contribute to Global Stats", isOn: globalStatsToggleBinding)
+                    .disabled(!isICloudAvailable)
+            } header: {
+                Text("iCloud")
+            } footer: {
+                Text("Sync keeps your release history and app settings up to date across your devices through iCloud when available. Changes to iCloud Sync apply the next time you launch Dandelion. Global stats share anonymous totals only (release and word counts). Your writing text is never uploaded.")
             }
 
             Section {
@@ -132,9 +164,6 @@ private struct GeneralSettingsTab: View {
                 Toggle(isOn: $premium.debugForceBloomLocked) {
                     Label("Debug: Force Bloom Locked", systemImage: "lock.fill")
                 }
-
-                Label("CloudKit: Enabled", systemImage: "icloud")
-                    .foregroundColor(.secondary)
             } header: {
                 Text("Debug")
             }
@@ -143,6 +172,74 @@ private struct GeneralSettingsTab: View {
         .formStyle(.grouped)
         .sheet(isPresented: $showPaywall) {
             BloomPaywallView(onClose: { showPaywall = false })
+        }
+        .onAppear {
+            refreshICloudAvailability()
+        }
+        .onChange(of: scenePhase) { _, newValue in
+            if newValue == .active {
+                refreshICloudAvailability()
+            }
+        }
+        .onDisappear {
+            iCloudStatusTask?.cancel()
+            iCloudStatusTask = nil
+        }
+        .alert("Restart Required", isPresented: $showICloudSyncRestartAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Changes to iCloud Sync apply the next time you launch Dandelion.")
+        }
+    }
+
+    private var isICloudAvailable: Bool {
+        iCloudAvailability == .available
+    }
+
+    private var iCloudSyncToggleBinding: Binding<Bool> {
+        Binding(
+            get: { isICloudAvailable ? iCloudSyncEnabled : false },
+            set: { newValue in
+                guard isICloudAvailable else { return }
+                let oldValue = iCloudSyncEnabled
+                iCloudSyncEnabled = newValue
+                if oldValue != newValue {
+                    showICloudSyncRestartAlert = true
+                }
+            }
+        )
+    }
+
+    private var globalStatsToggleBinding: Binding<Bool> {
+        Binding(
+            get: { isICloudAvailable ? globalCountEnabled : false },
+            set: { newValue in
+                guard isICloudAvailable else { return }
+                globalCountEnabled = newValue
+            }
+        )
+    }
+
+    private func refreshICloudAvailability() {
+        iCloudStatusTask?.cancel()
+        let requestID = UUID()
+        iCloudStatusRequestID = requestID
+        iCloudAvailability = .checking
+        iCloudStatusTask = Task {
+            let availability = await fetchICloudAvailability()
+            await MainActor.run {
+                guard iCloudStatusRequestID == requestID else { return }
+                iCloudAvailability = availability
+            }
+        }
+    }
+
+    private func fetchICloudAvailability() async -> ICloudAvailability {
+        do {
+            let status = try await CKContainer.default().accountStatus()
+            return status == .available ? .available : .unavailable
+        } catch {
+            return .unavailable
         }
     }
 }
