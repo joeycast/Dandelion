@@ -25,9 +25,11 @@ struct WritingView: View {
     @Environment(AppearanceManager.self) private var appearance
     @Environment(PremiumManager.self) private var premium
     @Environment(AmbientSoundService.self) private var ambientSound
+    @Environment(ReminderNotificationService.self) private var reminderService
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Query(sort: \Release.timestamp) private var allReleases: [Release]
     @Query(sort: \CustomPrompt.createdAt) private var customPrompts: [CustomPrompt]
     @Query private var defaultPromptSettings: [DefaultPromptSetting]
     @State private var viewModel = WritingViewModel()
@@ -56,7 +58,10 @@ struct WritingView: View {
 #endif
     @State private var showBloomPaywall: Bool = false
     @State private var isSettingsPresented: Bool = false
+    @State private var startsSettingsInReminders: Bool = false
     @State private var showLetGoHint: Bool = false
+    @State private var isReminderNudgePresented: Bool = false
+    @State private var pendingReminderNudgeAfterRegrowth: Bool = false
     @AppStorage("globalCountEnabled") private var globalCountEnabled: Bool = true
     @AppStorage("hasSeenLetGoHint") private var hasSeenLetGoHint: Bool = false
     @AppStorage("hasUsedPromptTap") private var hasUsedPromptTap: Bool = false
@@ -118,6 +123,9 @@ struct WritingView: View {
             onSwipeEligibilityChange(isPromptVisible)
             Task {
                 await refreshGlobalCounts(forceRefresh: false)
+#if os(iOS)
+                await reminderService.rescheduleIfNeeded(releases: allReleases)
+#endif
             }
             updateGlobalCountsPolling()
         }
@@ -160,6 +168,9 @@ struct WritingView: View {
             guard newValue == .active else { return }
             Task {
                 await refreshGlobalCounts(forceRefresh: false)
+#if os(iOS)
+                await reminderService.rescheduleIfNeeded(releases: allReleases)
+#endif
             }
         }
         .onChange(of: isPromptVisible) { _, isVisible in
@@ -189,14 +200,35 @@ struct WritingView: View {
             BloomPaywallView(onClose: { showBloomPaywall = false })
         }
         .sheet(isPresented: $isSettingsPresented) {
-            SettingsView()
+            SettingsView(startsInReminders: startsSettingsInReminders)
                 .preferredColorScheme(appearance.colorScheme)
         }
+#if os(iOS)
+        .alert("Daily reminders", isPresented: $isReminderNudgePresented) {
+            Button("Not Now", role: .cancel) {}
+            Button("Enable") {
+                Task {
+                    let granted = await reminderService.requestPermission()
+                    debugLog("[ReminderNudge] alert enable tapped granted=\(granted)")
+                    guard granted else { return }
+                    await reminderService.setEnabled(true, releases: allReleases)
+                    startsSettingsInReminders = true
+                    isSettingsPresented = true
+                }
+            }
+        } message: {
+            Text("Would you like a daily reminder to take a moment and release?")
+        }
+#endif
         .onChange(of: isSettingsPresented) { _, isPresented in
             if !isPresented {
                 // Reload prompt configuration when settings closes
                 syncCustomPrompts()
+                startsSettingsInReminders = false
             }
+        }
+        .onChange(of: isReminderNudgePresented) { _, isPresented in
+            debugLog("[ReminderNudge] isReminderNudgePresented=\(isPresented)")
         }
         .overlay {
             if showLetGoHint {
@@ -924,6 +956,37 @@ struct WritingView: View {
                 handleReleaseTriggered(wordCount: wordCount, modelContext: modelContext)
             }
         }
+        viewModel.onRegrowthCompleted = {
+            handleRegrowthCompleted()
+        }
+    }
+
+    private func handleRegrowthCompleted() {
+#if os(iOS)
+        debugLog(
+            "[ReminderNudge] handleRegrowthCompleted pending=\(pendingReminderNudgeAfterRegrowth) detached=\(viewModel.detachedSeedTimes.count)"
+        )
+        guard pendingReminderNudgeAfterRegrowth else { return }
+        pendingReminderNudgeAfterRegrowth = false
+        reminderService.markPostFirstReleaseNudgeShown()
+        isReminderNudgePresented = true
+#endif
+    }
+
+    private func queueReminderNudgeAfterRegrowthIfNeeded() {
+#if os(iOS)
+        let regrowthAlreadyComplete = viewModel.seedRestoreStartTime == nil && viewModel.detachedSeedTimes.isEmpty
+        debugLog(
+            "[ReminderNudge] queueDecision regrowthAlreadyComplete=\(regrowthAlreadyComplete) detached=\(viewModel.detachedSeedTimes.count) seedRestoreStartTimeNil=\(viewModel.seedRestoreStartTime == nil)"
+        )
+        if regrowthAlreadyComplete {
+            reminderService.markPostFirstReleaseNudgeShown()
+            isReminderNudgePresented = true
+        } else {
+            pendingReminderNudgeAfterRegrowth = true
+            debugLog("[ReminderNudge] queued until regrowth complete")
+        }
+#endif
     }
 
     private func checkHintResetForReturningUser() {
@@ -943,6 +1006,24 @@ struct WritingView: View {
     private func handleReleaseTriggered(wordCount: Int, modelContext: ModelContext) {
         let service = ReleaseHistoryService(modelContext: modelContext)
         service.recordRelease(wordCount: wordCount)
+
+#if os(iOS)
+        Task {
+            await reminderService.handleReleaseRecorded()
+        }
+
+        Task {
+            debugLog("[ReminderNudge] evaluating nudge after release")
+            await reminderService.refreshPermissionStatus()
+            let shouldPresent = reminderService.shouldPresentPostFirstReleaseNudge
+            debugLog(
+                "[ReminderNudge] post-permission shouldPresent=\(shouldPresent) permissionState=\(reminderService.permissionState) hasShown=\(reminderService.hasShownPostFirstReleaseNudge)"
+            )
+            guard shouldPresent else { return }
+            debugLog("[ReminderNudge] eligible; queuing/presenting")
+            queueReminderNudgeAfterRegrowthIfNeeded()
+        }
+#endif
 
         guard globalCountEnabled else { return }
 

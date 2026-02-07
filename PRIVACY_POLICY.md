@@ -17,6 +17,7 @@ To make the app work, Dandelion stores a small amount of data locally on your de
 - **Release history metadata:** timestamps and word counts for each release.
 - **Prompt preferences:** your custom prompts and which default prompts are enabled.
 - **Settings:** app preferences such as appearance and haptics.
+- **Reminder preferences:** whether daily reminders are enabled and your chosen reminder time.
 - **Purchase state:** whether premium is unlocked.
 
 This information stays on your device and in your personal iCloud account (if enabled). We do not operate any servers that receive this data.
@@ -39,7 +40,11 @@ Dandelion requests access to your microphone so you can blow into your device to
 
 ## Device Permissions
 
-The only permission Dandelion requests is microphone access for the blow-to-release feature. This is optional — you can use Dandelion fully without granting this permission.
+Dandelion may request these optional permissions:
+- **Microphone access** for blow-to-release.
+- **Notification permission** for daily release reminders.
+
+You can use Dandelion without granting either permission.
 
 ## Third-Party Services
 

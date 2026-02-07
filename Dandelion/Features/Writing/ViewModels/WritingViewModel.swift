@@ -54,6 +54,8 @@ final class WritingViewModel {
     /// Callback invoked when a release is triggered, passing word count
     /// Set this from the view to record releases to history
     var onReleaseTriggered: ((Int) -> Void)?
+    /// Callback invoked when seed regrowth fully completes.
+    var onRegrowthCompleted: (() -> Void)?
     let dandelionSeedCount: Int = 140
     private var detachmentOrder: [Int] = []
     private var detachmentCursor: Int = 0
@@ -474,6 +476,7 @@ final class WritingViewModel {
                 self.seedRestoreStartTime = nil
                 self.prepareDetachmentOrder()
                 self.stopDetachingSeeds()
+                self.onRegrowthCompleted?()
             }
         }
     }
@@ -603,6 +606,7 @@ final class WritingViewModel {
                 self.seedRestoreStartTime = nil
                 self.prepareDetachmentOrder()
                 self.stopDetachingSeeds()
+                self.onRegrowthCompleted?()
             }
         }
     }

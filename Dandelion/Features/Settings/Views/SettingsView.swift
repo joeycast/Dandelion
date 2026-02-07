@@ -14,6 +14,7 @@ import UIKit
 
 struct SettingsView: View {
     let showsDoneButton: Bool
+    let startsInReminders: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.requestReview) private var requestReview
@@ -32,6 +33,7 @@ struct SettingsView: View {
     @State private var showICloudSyncRestartAlert: Bool = false
     @State private var iCloudStatusTask: Task<Void, Never>?
     @State private var iCloudStatusRequestID = UUID()
+    @State private var hasAppliedInitialNavigation: Bool = false
 
     private enum Destination: Hashable {
         case prompts
@@ -39,10 +41,12 @@ struct SettingsView: View {
         case sounds
         case appIcon
         case blowDetection
+        case reminders
     }
 
-    init(showsDoneButton: Bool = true) {
+    init(showsDoneButton: Bool = true, startsInReminders: Bool = false) {
         self.showsDoneButton = showsDoneButton
+        self.startsInReminders = startsInReminders
     }
 
     var body: some View {
@@ -102,6 +106,13 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                     .listRowBackground(theme.card)
                     .accessibilityHint("Configure blow detection")
+
+                    Button { navigationPath.append(Destination.reminders) } label: {
+                        SettingsRow(icon: "bell", title: "Reminders")
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(theme.card)
+                    .accessibilityHint("Configure daily release reminders")
 
                     if shouldShowHapticsToggle {
                         Toggle(isOn: $hapticsEnabled) {
@@ -259,6 +270,9 @@ struct SettingsView: View {
             .dandelionNavigationBarStyle(background: theme.background, colorScheme: appearance.colorScheme)
             .onAppear {
                 refreshICloudAvailability()
+                guard startsInReminders, !hasAppliedInitialNavigation else { return }
+                navigationPath.append(Destination.reminders)
+                hasAppliedInitialNavigation = true
             }
             .onChange(of: scenePhase) { _, newValue in
                 if newValue == .active {
@@ -300,6 +314,8 @@ struct SettingsView: View {
                     AppIconSettingsView()
                 case .blowDetection:
                     BlowDetectionSettingsView()
+                case .reminders:
+                    ReminderSettingsView()
                 }
             }
         }

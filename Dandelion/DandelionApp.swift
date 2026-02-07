@@ -17,6 +17,7 @@ struct DandelionApp: App {
     private let premiumManager = PremiumManager.shared
     private let appearanceManager = AppearanceManager()
     private let ambientSoundService = AmbientSoundService()
+    private let reminderNotificationService = ReminderNotificationService()
     private static let iCloudSyncSettingKey = "iCloudSyncEnabled"
 
     init() {
@@ -103,6 +104,7 @@ struct DandelionApp: App {
         .environment(premiumManager)
         .environment(appearanceManager)
         .environment(ambientSoundService)
+        .environment(reminderNotificationService)
 #if os(macOS)
         .defaultSize(width: 900, height: 700)
         .commands {
@@ -117,6 +119,7 @@ struct DandelionApp: App {
         .environment(premiumManager)
         .environment(appearanceManager)
         .environment(ambientSoundService)
+        .environment(reminderNotificationService)
         .modelContainer(modelContainer)
 #endif
     }
