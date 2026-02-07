@@ -103,18 +103,20 @@ struct SettingsView: View {
                     .listRowBackground(theme.card)
                     .accessibilityHint("Configure blow detection")
 
-                    Toggle(isOn: $hapticsEnabled) {
-                        HStack(spacing: DandelionSpacing.md) {
-                            Image(systemName: "hand.tap")
-                                .foregroundColor(theme.accent)
-                                .frame(width: 24)
-                            Text("Haptics")
-                                .foregroundColor(theme.text)
+                    if shouldShowHapticsToggle {
+                        Toggle(isOn: $hapticsEnabled) {
+                            HStack(spacing: DandelionSpacing.md) {
+                                Image(systemName: "hand.tap")
+                                    .foregroundColor(theme.accent)
+                                    .frame(width: 24)
+                                Text("Haptics")
+                                    .foregroundColor(theme.text)
+                            }
                         }
+                        .toggleStyle(SwitchToggleStyle(tint: theme.accent))
+                        .listRowBackground(theme.card)
+                        .accessibilityHint("Enable or disable vibration feedback")
                     }
-                    .toggleStyle(SwitchToggleStyle(tint: theme.accent))
-                    .listRowBackground(theme.card)
-                    .accessibilityHint("Enable or disable vibration feedback")
                 } header: {
                     Text("Writing")
                         .foregroundColor(theme.secondary)
@@ -474,6 +476,14 @@ struct SettingsView: View {
                 globalCountEnabled = newValue
             }
         )
+    }
+
+    private var shouldShowHapticsToggle: Bool {
+#if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone
+#else
+        true
+#endif
     }
 }
 
