@@ -604,8 +604,11 @@ struct WritingView: View {
         let promptBottomPadding = max(size.height * 0.15, 100)
 #else
         let promptBottomPadding = safeAreaBottom + DandelionSpacing.lg
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        let topBarHeight: CGFloat = isPad ? 44 : 32
+        // Keep controls clear of iPad window chrome while preserving a correct hit-test region.
+        let topBarOffset: CGFloat = isPad ? max(44, safeAreaTop + 6) : 0
 #endif
-        _ = safeAreaTop
 
         return ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
@@ -642,14 +645,17 @@ struct WritingView: View {
 #endif
         .safeAreaInset(edge: .top, spacing: 0) {
 #if os(iOS)
-            HStack {
-                historyButton
-                Spacer()
-                settingsButton
+            VStack(spacing: 0) {
+                Spacer(minLength: topBarOffset)
+                HStack {
+                    historyButton
+                    Spacer()
+                    settingsButton
+                }
+                .padding(.horizontal, DandelionSpacing.screenEdge)
+                .frame(height: topBarHeight)
             }
-            .padding(.horizontal, DandelionSpacing.screenEdge)
-            .padding(.top, UIDevice.current.userInterfaceIdiom == .pad ? 65 : 0)
-            .frame(height: UIDevice.current.userInterfaceIdiom == .pad ? 42 : 32)
+            .frame(height: topBarOffset + topBarHeight)
 #else
             Color.clear.frame(height: 0)
 #endif
@@ -663,6 +669,8 @@ struct WritingView: View {
             Image(systemName: "calendar")
                 .font(.system(size: 20, weight: .regular))
                 .foregroundColor(theme.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .accessibilityLabel("Release history")
         .accessibilityHint("View your calendar of past releases")
@@ -678,6 +686,8 @@ struct WritingView: View {
             Image(systemName: "gearshape")
                 .font(.system(size: 18, weight: .regular))
                 .foregroundColor(theme.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
         .accessibilityLabel("Settings")
         .accessibilityHint("Customize prompts, appearance, sounds, and more")

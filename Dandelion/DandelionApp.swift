@@ -7,12 +7,14 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
 #if os(macOS)
 import AppKit
 #endif
 
 @main
 struct DandelionApp: App {
+    private static let logger = Logger(subsystem: "app.brink13labs.Dandelion", category: "AppLaunch")
     let modelContainer: ModelContainer
     private let premiumManager = PremiumManager.shared
     private let appearanceManager = AppearanceManager()
@@ -26,29 +28,71 @@ struct DandelionApp: App {
         let cloudKitDatabase: ModelConfiguration.CloudKitDatabase = iCloudSyncEnabled ? .automatic : .none
 
         let schema = Schema([Release.self, CustomPrompt.self, DefaultPromptSetting.self])
+        modelContainer = Self.makeModelContainer(
+            schema: schema,
+            preferredCloudKitDatabase: cloudKitDatabase,
+            preferredCloudKitEnabled: iCloudSyncEnabled
+        )
+
+#if os(macOS)
+        NSHelpManager.shared.registerBooks(in: .main)
+#endif
+
+        // DEBUG: Seed mock release for testing
+        #if DEBUG
+        seedMockData()
+        #endif
+    }
+
+    private static func makeModelContainer(
+        schema: Schema,
+        preferredCloudKitDatabase: ModelConfiguration.CloudKitDatabase,
+        preferredCloudKitEnabled: Bool
+    ) -> ModelContainer {
+        do {
+            return try buildModelContainer(schema: schema, cloudKitDatabase: preferredCloudKitDatabase)
+        } catch {
+            logger.error("ModelContainer init failed with preferred CloudKit mode: \(String(describing: error), privacy: .public)")
+
+            if preferredCloudKitEnabled {
+                do {
+                    let fallbackContainer = try buildModelContainer(schema: schema, cloudKitDatabase: .none)
+                    UserDefaults.standard.set(false, forKey: iCloudSyncSettingKey)
+                    logger.error("Fell back to local-only SwiftData store and disabled iCloud Sync for this install.")
+                    return fallbackContainer
+                } catch {
+                    logger.error("Fallback local SwiftData store init also failed: \(String(describing: error), privacy: .public)")
+                }
+            }
+
+            do {
+                let inMemoryConfiguration = ModelConfiguration(
+                    schema: schema,
+                    isStoredInMemoryOnly: true,
+                    cloudKitDatabase: .none
+                )
+                logger.error("Using in-memory SwiftData store as last-resort launch fallback.")
+                return try ModelContainer(for: schema, configurations: [inMemoryConfiguration])
+            } catch {
+                fatalError("Could not create any ModelContainer configuration: \(error)")
+            }
+        }
+    }
+
+    private static func buildModelContainer(
+        schema: Schema,
+        cloudKitDatabase: ModelConfiguration.CloudKitDatabase
+    ) throws -> ModelContainer {
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
             cloudKitDatabase: cloudKitDatabase
         )
 
-        do {
-            modelContainer = try ModelContainer(
-                for: schema,
-                configurations: [modelConfiguration]
-            )
-
-#if os(macOS)
-            NSHelpManager.shared.registerBooks(in: .main)
-#endif
-
-            // DEBUG: Seed mock release for testing
-            #if DEBUG
-            seedMockData()
-            #endif
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
+        return try ModelContainer(
+            for: schema,
+            configurations: [modelConfiguration]
+        )
     }
 
     #if DEBUG
