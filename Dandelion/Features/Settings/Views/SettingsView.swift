@@ -31,6 +31,7 @@ struct SettingsView: View {
     @State private var iCloudAvailability: ICloudAvailability = .checking
     @State private var isICloudStatusInfoPresented: Bool = false
     @State private var showICloudSyncRestartAlert: Bool = false
+    @State private var showHintsResetAlert: Bool = false
     @State private var iCloudStatusTask: Task<Void, Never>?
     @State private var iCloudStatusRequestID = UUID()
     @State private var hasAppliedInitialNavigation: Bool = false
@@ -206,6 +207,7 @@ struct SettingsView: View {
                     Button {
                         hasUsedPromptTap = false
                         hasSeenLetGoHint = false
+                        showHintsResetAlert = true
                     } label: {
                         SettingsRow(icon: "lightbulb", title: "Reset Hints", showsChevron: false)
                     }
@@ -333,6 +335,11 @@ struct SettingsView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Changes to iCloud Sync apply the next time you launch Dandelion.")
+        }
+        .alert("Hints Reset", isPresented: $showHintsResetAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("You’ll see helpful hints again as you use Dandelion.")
         }
     }
 
