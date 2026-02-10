@@ -57,10 +57,13 @@ private struct GeneralSettingsTab: View {
     @State private var showPaywall: Bool = false
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(HapticsService.settingsKey) private var hapticsEnabled: Bool = true
+    @AppStorage("hasUsedPromptTap") private var hasUsedPromptTap: Bool = false
+    @AppStorage("hasSeenLetGoHint") private var hasSeenLetGoHint: Bool = false
     @AppStorage("iCloudSyncEnabled") private var iCloudSyncEnabled: Bool = true
     @AppStorage("globalCountEnabled") private var globalCountEnabled: Bool = true
     @State private var iCloudAvailability: ICloudAvailability = .checking
     @State private var showICloudSyncRestartAlert: Bool = false
+    @State private var showHintsResetAlert: Bool = false
     @State private var iCloudStatusTask: Task<Void, Never>?
     @State private var iCloudStatusRequestID = UUID()
 
@@ -141,6 +144,15 @@ private struct GeneralSettingsTab: View {
                     SettingsActionRow(icon: "square.and.arrow.up", title: "Share Dandelion")
                 }
                 .buttonStyle(.plain)
+
+                Button {
+                    hasUsedPromptTap = false
+                    hasSeenLetGoHint = false
+                    showHintsResetAlert = true
+                } label: {
+                    SettingsActionRow(icon: "lightbulb", title: "Reset Hints")
+                }
+                .buttonStyle(.plain)
             } header: {
                 Text("App")
             } footer: {
@@ -189,6 +201,11 @@ private struct GeneralSettingsTab: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Changes to iCloud Sync apply the next time you launch Dandelion.")
+        }
+        .alert("Hints Reset", isPresented: $showHintsResetAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("You’ll see helpful hints again as you use Dandelion.")
         }
     }
 
