@@ -230,6 +230,22 @@ struct SettingsView: View {
                         .foregroundColor(theme.secondary)
                 }
 
+                Section {
+                    ForEach(AppStoreConfiguration.moreFromBrink13Labs) { link in
+                        Button {
+                            openURL(link.url)
+                        } label: {
+                            SettingsRow(icon: link.symbol, title: link.title, showsChevron: false)
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(theme.card)
+                        .accessibilityHint("Open \(link.title)")
+                    }
+                } header: {
+                    Text("More from Brink 13 Labs")
+                        .foregroundColor(theme.secondary)
+                }
+
 #if DEBUG
                 Section {
                     Toggle(isOn: $premium.debugForceBloom) {

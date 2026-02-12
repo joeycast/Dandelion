@@ -155,6 +155,19 @@ private struct GeneralSettingsTab: View {
                 .buttonStyle(.plain)
             } header: {
                 Text("App")
+            }
+
+            Section {
+                ForEach(AppStoreConfiguration.moreFromBrink13Labs) { link in
+                    Button {
+                        openURL(link.url)
+                    } label: {
+                        SettingsActionRow(icon: link.symbol, title: link.title)
+                    }
+                    .buttonStyle(.plain)
+                }
+            } header: {
+                Text("More from Brink 13 Labs")
             } footer: {
                 SettingsFooterView(
                     useThemeColors: false,

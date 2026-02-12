@@ -8,6 +8,13 @@
 import Foundation
 
 enum AppStoreConfiguration {
+    struct ExternalAppLink: Identifiable {
+        let id: String
+        let title: String
+        let symbol: String
+        let url: URL
+    }
+
     static var iosAppStoreID: String? {
         nonEmptyInfoString(forKey: "iOSAppStoreID")
     }
@@ -44,6 +51,29 @@ enum AppStoreConfiguration {
         let baseMessage = "Check out Dandelion — a mindful writing app for letting go."
         guard let appStoreURL else { return baseMessage }
         return "\(baseMessage) \(appStoreURL.absoluteString)"
+    }
+
+    static var moreFromBrink13Labs: [ExternalAppLink] {
+        [
+            ExternalAppLink(
+                id: "movemates",
+                title: "Movemates: Move Together",
+                symbol: "figure.run",
+                url: URL(string: "https://apps.apple.com/us/app/movemates-move-together/id6748308903")!
+            ),
+            ExternalAppLink(
+                id: "bitlocal",
+                title: "BitLocal: BTC-Friendly Shops",
+                symbol: "bitcoinsign.circle",
+                url: URL(string: "https://apps.apple.com/us/app/bitlocal-btc-friendly-shops/id6447485666")!
+            ),
+            ExternalAppLink(
+                id: "bitcoin-live-price-chart-tv",
+                title: "Bitcoin Live Price Chart for Apple TV",
+                symbol: "chart.line.uptrend.xyaxis",
+                url: URL(string: "https://brink13labs.com")!
+            )
+        ]
     }
 
     static func nonEmptyInfoString(
