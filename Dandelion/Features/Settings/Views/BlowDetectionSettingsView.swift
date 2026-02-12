@@ -120,7 +120,7 @@ struct BlowDetectionSettingsView: View {
 #if os(macOS)
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Sensitivity")
+                Label("Sensitivity", systemImage: "slider.horizontal.3")
                 Spacer()
                 Text(blowSensitivityLabel)
                     .foregroundColor(.secondary)
@@ -145,6 +145,9 @@ struct BlowDetectionSettingsView: View {
         let theme = appearance.theme
         return VStack(alignment: .leading, spacing: DandelionSpacing.xs) {
             HStack {
+                Image(systemName: "slider.horizontal.3")
+                    .foregroundColor(theme.accent)
+                    .frame(width: 24)
                 Text("Sensitivity")
                     .foregroundColor(theme.text)
                 Spacer()
