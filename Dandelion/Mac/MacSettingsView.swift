@@ -75,7 +75,6 @@ private struct GeneralSettingsTab: View {
                 if premium.isBloomUnlocked {
                     HStack {
                         Image(systemName: "leaf.fill")
-                            .foregroundColor(.green)
                         Text("Dandelion Bloom")
                         Spacer()
                         Text("Purchased")
@@ -84,7 +83,6 @@ private struct GeneralSettingsTab: View {
                 } else {
                     HStack {
                         Image(systemName: "leaf")
-                            .foregroundColor(.green)
                         Text("Dandelion Bloom")
                         Spacer()
                         Button("Unlock") {
