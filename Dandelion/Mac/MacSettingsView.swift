@@ -97,7 +97,9 @@ private struct GeneralSettingsTab: View {
             }
 
             Section {
-                Toggle("Haptics", isOn: $hapticsEnabled)
+                Toggle(isOn: $hapticsEnabled) {
+                    Label("Haptics", systemImage: "hand.tap")
+                }
             } header: {
                 Text("Writing")
             } footer: {
@@ -117,10 +119,14 @@ private struct GeneralSettingsTab: View {
                     }
                 }
 
-                Toggle("iCloud Sync", isOn: iCloudSyncToggleBinding)
+                Toggle(isOn: iCloudSyncToggleBinding) {
+                    Label("iCloud Sync", systemImage: "arrow.triangle.2.circlepath.icloud")
+                }
                     .disabled(!isICloudAvailable)
 
-                Toggle("Contribute to Global Stats", isOn: globalStatsToggleBinding)
+                Toggle(isOn: globalStatsToggleBinding) {
+                    Label("Contribute to Global Stats", systemImage: "globe")
+                }
                     .disabled(!isICloudAvailable)
             } header: {
                 Text("iCloud")
