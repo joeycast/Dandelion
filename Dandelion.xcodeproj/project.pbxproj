@@ -405,6 +405,8 @@
 				"INFOPLIST_FILE[sdk=iphonesimulator*]" = "Info-iOS.plist";
 				"INFOPLIST_FILE[sdk=macosx*]" = "Info-macOS.plist";
 				INFOPLIST_KEY_AppStoreID = 6757363901;
+				"INFOPLIST_KEY_MacDownloadLandingURL[sdk=iphoneos*]" = "https://letgowithdandelion.com";
+				"INFOPLIST_KEY_MacDownloadLandingURL[sdk=iphonesimulator*]" = "https://letgowithdandelion.com";
 				INFOPLIST_KEY_CFBundleDisplayName = Dandelion;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
@@ -468,6 +470,8 @@
 				"INFOPLIST_FILE[sdk=iphonesimulator*]" = "Info-iOS.plist";
 				"INFOPLIST_FILE[sdk=macosx*]" = "Info-macOS.plist";
 				INFOPLIST_KEY_AppStoreID = 6757363901;
+				"INFOPLIST_KEY_MacDownloadLandingURL[sdk=iphoneos*]" = "https://letgowithdandelion.com";
+				"INFOPLIST_KEY_MacDownloadLandingURL[sdk=iphonesimulator*]" = "https://letgowithdandelion.com";
 				INFOPLIST_KEY_CFBundleDisplayName = Dandelion;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";

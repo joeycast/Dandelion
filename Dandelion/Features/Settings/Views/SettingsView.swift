@@ -197,6 +197,17 @@ struct SettingsView: View {
                     .listRowBackground(theme.card)
                     .accessibilityHint("Open the App Store to leave a review")
 
+                    if let macDownloadLandingURL = AppStoreConfiguration.macDownloadLandingURL {
+                        Button {
+                            openURL(macDownloadLandingURL)
+                        } label: {
+                            SettingsRow(icon: "laptopcomputer", title: "Get Dandelion for Mac", showsChevron: false)
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(theme.card)
+                        .accessibilityHint("Open the Dandelion website to download the Mac app")
+                    }
+
                     ShareLink(item: AppStoreConfiguration.shareMessage) {
                         SettingsRow(icon: "square.and.arrow.up", title: "Share Dandelion", showsChevron: false)
                     }
