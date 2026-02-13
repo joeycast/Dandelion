@@ -106,7 +106,13 @@ private struct GeneralSettingsTab: View {
 
             Section {
                 HStack {
-                    Label("iCloud Status", systemImage: "icloud")
+                    Label {
+                        Text("iCloud Status")
+                    } icon: {
+                        Image(systemName: iCloudAvailability.statusSymbolName)
+                            .contentTransition(.symbolEffect(.replace))
+                            .animation(.easeInOut(duration: 0.2), value: iCloudAvailability)
+                    }
                     Spacer()
                     HStack(spacing: 6) {
                         Circle()

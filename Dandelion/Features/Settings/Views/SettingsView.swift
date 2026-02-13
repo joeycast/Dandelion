@@ -412,9 +412,11 @@ struct SettingsView: View {
             isICloudStatusInfoPresented = true
         } label: {
             HStack(spacing: DandelionSpacing.md) {
-                Image(systemName: "icloud")
+                Image(systemName: iCloudAvailability.statusSymbolName)
                     .foregroundColor(theme.accent)
                     .frame(width: 24)
+                    .contentTransition(.symbolEffect(.replace))
+                    .animation(.easeInOut(duration: 0.2), value: iCloudAvailability)
                     .accessibilityHidden(true)
                 Text("iCloud Status")
                     .font(.system(size: 17, weight: .regular))
@@ -561,6 +563,17 @@ enum ICloudAvailability {
             return .green
         case .unavailable:
             return .red
+        }
+    }
+
+    var statusSymbolName: String {
+        switch self {
+        case .checking:
+            return "icloud.dashed"
+        case .available:
+            return "checkmark.icloud"
+        case .unavailable:
+            return "xmark.icloud"
         }
     }
 }
