@@ -104,6 +104,24 @@ final class ReminderNotificationServiceTests: XCTestCase {
         XCTAssertTrue(bodies.contains(where: { ReminderMessageLibrary.encouragingMessages.contains($0) }))
     }
 
+    func testReschedulingKeepsBodyStableForSameCalendarDay() async throws {
+        let sut = makeService()
+        center.status = .authorized
+        await sut.refreshPermissionStatus()
+
+        let firstNow = makeDate(year: 2026, month: 2, day: 7, hour: 23, minute: 30)
+        await sut.setEnabled(true, releases: [], now: firstNow)
+
+        let dateID = "2026-02-08"
+        let initialBody = try XCTUnwrap(center.requests.first(where: { $0.identifier.contains(dateID) })?.content.body)
+
+        let secondNow = makeDate(year: 2026, month: 2, day: 8, hour: 0, minute: 30)
+        await sut.rescheduleIfNeeded(releases: [], now: secondNow)
+
+        let rescheduledBody = try XCTUnwrap(center.requests.first(where: { $0.identifier.contains(dateID) })?.content.body)
+        XCTAssertEqual(initialBody, rescheduledBody)
+    }
+
     private func makeService() -> ReminderNotificationService {
         ReminderNotificationService(center: center, userDefaults: defaults)
     }

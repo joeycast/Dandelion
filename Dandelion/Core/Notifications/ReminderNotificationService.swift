@@ -203,7 +203,7 @@ final class ReminderNotificationService {
 
             let content = UNMutableNotificationContent()
             content.title = Self.reminderTitle
-            content.body = ReminderMessageLibrary.body(forDayOffset: dayOffset)
+            content.body = ReminderMessageLibrary.body(for: day, calendar: calendar)
             content.sound = .default
 
             let triggerComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
