@@ -26,7 +26,6 @@ struct WritingView: View {
     @Environment(PremiumManager.self) private var premium
     @Environment(AmbientSoundService.self) private var ambientSound
     @Environment(ReminderNotificationService.self) private var reminderService
-    @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Release.timestamp) private var allReleases: [Release]
@@ -232,7 +231,16 @@ struct WritingView: View {
         }
         .overlay {
             if showLetGoHint {
-                letGoHintOverlay
+                WritingLetGoHintView(
+                    permissionDetermined: viewModel.blowDetection.permissionDetermined,
+                    hasMicrophonePermission: viewModel.blowDetection.hasPermission,
+                    onRequestMicrophone: {
+                        Task { await viewModel.requestMicrophonePermission() }
+                    },
+                    onDismiss: {
+                        showLetGoHint = false
+                    }
+                )
             }
         }
     }
@@ -260,7 +268,33 @@ struct WritingView: View {
                 )
                     .safeAreaInset(edge: .bottom, spacing: 0) {
                         if isWriting || isReleasing {
-                            bottomBar(bottomInset: layout.safeAreaBottom)
+                            WritingBottomBar(
+                                isWriting: isWriting,
+                                isReleasing: isReleasing,
+                                isTextEditorFocused: isTextEditorFocused,
+                                bottomInset: layout.safeAreaBottom,
+                                canRelease: viewModel.canRelease,
+                                blowDetection: viewModel.blowDetection,
+                                onShowHelp: {
+                                    withAnimation(.easeOut(duration: 0.3)) {
+                                        showLetGoHint = true
+                                    }
+                                },
+                                onLetGo: {
+                                    capturedScrollOffset = textScrollOffset
+                                    isTextEditorFocused = false
+                                    viewModel.manualRelease()
+                                },
+                                onAmbientChanged: {
+                                    handleAmbientSound(for: viewModel.writingState)
+                                },
+                                onShowPaywall: {
+                                    showBloomPaywall = true
+                                },
+                                onRequestMicrophone: {
+                                    Task { await viewModel.requestMicrophonePermission() }
+                                }
+                            )
                                 // Animate in normally, but disappear instantly to avoid
                                 // clipping through the appearing prompt buttons
                                 .transition(.asymmetric(
@@ -1189,294 +1223,6 @@ struct WritingView: View {
         }
     }
 
-    // MARK: - Bottom Bar
-
-    private func bottomBar(bottomInset: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            if (isWriting || isReleasing)
-                && viewModel.blowDetection.hasPermission
-                && viewModel.blowDetection.isEnabled {
-                blowProgressBar
-                    .padding(.bottom, DandelionSpacing.md)
-                    .opacity(isWriting ? 1 : 0)
-                    .animation(.easeOut(duration: 0.2), value: isWriting)
-            }
-
-            // Bottom bar with persistent background
-            ZStack {
-                // Background stays visible during release
-                theme.background
-                    .ignoresSafeArea(edges: .bottom)
-
-                // Content hides during release
-                HStack(spacing: DandelionSpacing.md) {
-                    ambientToggleButton
-
-                    Spacer()
-
-                    // Info button to show hint
-                    Button {
-                        withAnimation(.easeOut(duration: 0.3)) {
-                            showLetGoHint = true
-                        }
-                    } label: {
-                        Image(systemName: "questionmark.circle")
-                            .font(.system(size: 20))
-                            .foregroundColor(theme.secondary)
-                    }
-                    .accessibilityLabel("Help")
-                    .accessibilityHint("Learn how to release your writing")
-#if os(macOS)
-                    .buttonStyle(.plain)
-#endif
-
-                    // Manual release button
-                    Button {
-                        // Capture scroll offset BEFORE dismissing keyboard to prevent text shift
-                        capturedScrollOffset = textScrollOffset
-                        isTextEditorFocused = false
-                        viewModel.manualRelease()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "wind")
-                                .font(.system(size: 15))
-                            Text("Let Go")
-                                .font(.system(size: 16, weight: .semibold, design: .serif))
-                        }
-                        .foregroundColor(theme.background)
-                        .padding(.horizontal, DandelionSpacing.md)
-                        .padding(.vertical, DandelionSpacing.md)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(theme.primary)
-                        )
-                    }
-                    .accessibilityLabel("Let Go")
-                    .accessibilityHint("Release your writing and watch it drift away like dandelion seeds")
-                    .accessibilityAddTraits(viewModel.canRelease ? [] : .isStaticText)
-                    .disabled(!viewModel.canRelease)
-                    .opacity(viewModel.canRelease ? 1.0 : 0.5)
-#if os(macOS)
-                    .buttonStyle(.plain)
-#endif
-                }
-                .padding(.horizontal, DandelionSpacing.md)
-                .opacity(isWriting ? 1 : 0)
-            }
-            .frame(height: 56) // Fixed height for consistent layout
-            .padding(.bottom, isTextEditorFocused ? DandelionSpacing.sm : bottomInset)
-            .animation(nil, value: isTextEditorFocused)
-        }
-        .opacity((isWriting || isReleasing) ? 1 : 0)
-        .allowsHitTesting(isWriting)
-    }
-
-    // MARK: - Microphone Status
-
-    @ViewBuilder
-    private var microphoneStatusView: some View {
-        if !viewModel.blowDetection.permissionDetermined {
-            // Prompt to enable blow detection
-            Button {
-                Task {
-                    await viewModel.requestMicrophonePermission()
-                }
-            } label: {
-                HStack(spacing: DandelionSpacing.xs) {
-                    Image(systemName: "mic")
-                    Text("Enable blow")
-                }
-                .font(.dandelionCaption)
-                .foregroundColor(theme.secondary)
-            }
-        } else if viewModel.blowDetection.hasPermission {
-            // Instruction text with mic indicator
-            HStack(spacing: 4) {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 11))
-                    .foregroundColor(theme.accent)
-                Text("Or blow gently into your microphone")
-                    .font(.system(size: 13))
-                    .foregroundColor(theme.secondary)
-            }
-        } else {
-            // Permission denied - offer Settings link
-            HStack(spacing: 4) {
-                Image(systemName: "mic.slash")
-                    .font(.system(size: 11))
-                    .foregroundColor(theme.secondary)
-                Text("Microphone access is off.")
-                    .font(.system(size: 13))
-                    .foregroundColor(theme.secondary)
-                Button("Open Settings") {
-                    openAppSettings()
-                }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(theme.accent)
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    // MARK: - Blow Indicator
-
-    private var blowIndicator: some View {
-        HStack {
-            Image(systemName: "wind")
-                .foregroundColor(theme.accent)
-
-            Text("Keep blowing...")
-                .font(.dandelionSecondary)
-                .foregroundColor(theme.text)
-        }
-        .padding(.horizontal, DandelionSpacing.lg)
-        .padding(.vertical, DandelionSpacing.sm)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(theme.primary.opacity(0.5))
-        )
-        .transition(.opacity.combined(with: .scale))
-        .accessibilityLabel("Keep blowing into the microphone to release your writing")
-    }
-
-    private var blowProgressBar: some View {
-        let progress = CGFloat(max(0, min(1, viewModel.blowDetection.blowProgress)))
-        return VStack(spacing: DandelionSpacing.xs) {
-            Text("Blow to release")
-                .font(.dandelionSecondary)
-                .foregroundColor(theme.secondary)
-
-            GeometryReader { geometry in
-                let width = max(0, geometry.size.width)
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(theme.primary.opacity(0.2))
-                    Capsule()
-                        .fill(theme.accent)
-                        .frame(width: width * progress)
-                        .animation(.easeOut(duration: 0.15), value: progress)
-                }
-            }
-            .frame(height: 6)
-        }
-        .frame(maxWidth: 240)
-        .opacity(progress > 0 ? 1 : 0.6)
-        .transition(.opacity)
-        .accessibilityLabel("Blow progress")
-        .accessibilityValue("\(Int(progress * 100)) percent")
-    }
-
-    // MARK: - Let Go Hint Overlay
-
-    private var letGoHintOverlay: some View {
-        ZStack {
-            // Dimmed background
-            Color.black.opacity(0.5)
-                .ignoresSafeArea()
-                .onTapGesture {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        showLetGoHint = false
-                    }
-                }
-
-            // Hint card
-            VStack(spacing: DandelionSpacing.lg) {
-                // Title
-                Text("When you're ready,\nlet go")
-                    .font(.system(size: 26, weight: .medium, design: .serif))
-                    .foregroundColor(theme.text)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-
-                // Combined instruction and privacy message
-                VStack(alignment: .leading, spacing: DandelionSpacing.md) {
-                    HStack(alignment: .top, spacing: DandelionSpacing.sm) {
-                        Image(systemName: "wind")
-                            .font(.system(size: 16))
-                            .foregroundColor(theme.accent)
-                            .frame(width: 20)
-                        Text("Tap **Let Go** or blow gently into the microphone.")
-                            .font(.system(size: 16, design: .serif))
-                            .foregroundColor(theme.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    HStack(alignment: .top, spacing: DandelionSpacing.sm) {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(theme.accent)
-                            .frame(width: 20)
-                        Text("Your words will drift away—never saved, never shared.")
-                            .font(.system(size: 16, design: .serif))
-                            .foregroundColor(theme.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                // Mic permission - only show when needed
-                if viewModel.blowDetection.permissionDetermined && !viewModel.blowDetection.hasPermission {
-                    HStack(spacing: 4) {
-                        Text("Microphone is off.")
-                        Button("Open Settings") {
-                            openAppSettings()
-                        }
-                        .foregroundColor(theme.accent)
-                        .buttonStyle(.plain)
-                    }
-                    .font(.system(size: 13, design: .serif))
-                    .foregroundColor(theme.secondary)
-                } else if !viewModel.blowDetection.permissionDetermined {
-                    HStack(spacing: 4) {
-                        Text("Microphone required to blow.")
-                        Button("Enable") {
-                            Task {
-                                await viewModel.requestMicrophonePermission()
-                            }
-                        }
-                        .foregroundColor(theme.accent)
-                        .buttonStyle(.plain)
-                    }
-                    .font(.system(size: 13, design: .serif))
-                    .foregroundColor(theme.secondary)
-                }
-
-                // Button
-                Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        showLetGoHint = false
-                    }
-                } label: {
-                    Text("Got it")
-                        .font(.system(size: 16, weight: .medium, design: .serif))
-                        .foregroundColor(theme.background)
-                        .padding(.horizontal, DandelionSpacing.xl)
-                        .padding(.vertical, DandelionSpacing.sm)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(theme.primary)
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Got it")
-                .accessibilityHint("Dismiss this help dialog")
-            }
-            .padding(.horizontal, DandelionSpacing.xl)
-            .padding(.vertical, DandelionSpacing.xxl)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(theme.card)
-            )
-            .frame(maxWidth: 340)
-            .padding(.horizontal, DandelionSpacing.lg)
-            .accessibilityElement(children: .contain)
-            .accessibilityAddTraits(.isModal)
-            .accessibilityLabel("How to let go of your writing")
-        }
-        .transition(.opacity)
-    }
-
     // MARK: - Dandelion Illustration
 
     private func dandelionIllustration(height: CGFloat) -> some View {
@@ -1509,59 +1255,6 @@ struct WritingView: View {
             }
             .allowsHitTesting(false)
     }
-
-    private func openAppSettings() {
-#if os(iOS)
-        if let url = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(url)
-        }
-#elseif os(macOS)
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
-            openURL(url)
-        }
-#endif
-    }
-
-    private var ambientToggleButton: some View {
-        Button {
-            if premium.isBloomUnlocked {
-                ambientSound.isEnabled.toggle()
-                handleAmbientSound(for: viewModel.writingState)
-            } else {
-                showBloomPaywall = true
-            }
-        } label: {
-            Image(systemName: ambientSound.isEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                .font(.system(size: 16, weight: .regular))
-                .foregroundColor(premium.isBloomUnlocked ? theme.secondary : theme.subtle)
-        }
-        .accessibilityLabel("Ambient sound")
-        .accessibilityValue(ambientSound.isEnabled ? "On" : "Off")
-        .accessibilityHint(premium.isBloomUnlocked ? "Toggle calming background sounds" : "Unlock Dandelion Bloom for ambient sounds")
-        .buttonStyle(.plain)
-    }
-
-}
-
-private struct OdometerCountText: View {
-    let value: Int
-
-    var body: some View {
-        Text(Self.countFormatter.string(from: NSNumber(value: value)) ?? "\(value)")
-            .monospacedDigit()
-            .contentTransition(.numericText(value: Double(value)))
-            .animation(.easeInOut(duration: 0.8), value: value)
-    }
-
-    static func formatted(_ value: Int) -> String {
-        countFormatter.string(from: NSNumber(value: value)) ?? "\(value)"
-    }
-
-    private static let countFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        return formatter
-    }()
 }
 
 #Preview {
