@@ -4,5 +4,6 @@ APP_BUNDLE_ID = com.example.Dandelion
 TESTS_BUNDLE_ID = com.example.DandelionTests
 ICLOUD_CONTAINER_ID = iCloud.com.example.Dandelion
 
-// Override with actual values from Secrets (not committed to git)
-#include "Secrets.xcconfig"
+// Override with actual values from Secrets (not committed to git).
+// Optional include so CI / fresh clones still build with the defaults above.
+#include? "Secrets.xcconfig"
