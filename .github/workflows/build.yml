@@ -23,13 +23,36 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_26.3.app
 
+      - name: Resolve iOS Simulator destination
+        id: destination
+        run: |
+          set -euo pipefail
+          # Prefer a concrete iPhone destination available on this runner/Xcode.
+          # Xcode 26 runners ship iPhone 17 family devices, not iPhone 16.
+          DEST=$(
+            xcodebuild -project Dandelion.xcodeproj -scheme Dandelion -showdestinations 2>/dev/null \
+              | tr -d '\r' \
+              | grep 'platform:iOS Simulator' \
+              | grep 'name:iPhone' \
+              | grep -v 'placeholder' \
+              | grep 'arch:arm64' \
+              | head -1 \
+              | sed -E 's/.*id:([^,}]+).*/platform=iOS Simulator,id=\1/'
+          )
+          if [ -z "${DEST}" ]; then
+            echo "No concrete iPhone simulator found; falling back to generic destination"
+            DEST='generic/platform=iOS Simulator'
+          fi
+          echo "Using destination: ${DEST}"
+          echo "value=${DEST}" >> "$GITHUB_OUTPUT"
+
       - name: Build
         run: |
           xcodebuild \
             -project Dandelion.xcodeproj \
             -scheme Dandelion \
             -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.2' \
+            -destination '${{ steps.destination.outputs.value }}' \
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             build
