@@ -1193,13 +1193,22 @@ struct WritingView: View {
 
     private func bottomBar(bottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
-            if (isWriting || isReleasing)
-                && viewModel.blowDetection.hasPermission
-                && viewModel.blowDetection.isEnabled {
-                blowProgressBar
-                    .padding(.bottom, DandelionSpacing.md)
-                    .opacity(isWriting ? 1 : 0)
-                    .animation(.easeOut(duration: 0.2), value: isWriting)
+            if isWriting && viewModel.blowDetection.isEnabled {
+                VStack(spacing: DandelionSpacing.sm) {
+                    if viewModel.showBlowIndicator {
+                        blowIndicator
+                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    }
+
+                    if viewModel.blowDetection.hasPermission {
+                        blowProgressBar
+                    } else {
+                        microphoneStatusView
+                    }
+                }
+                .padding(.bottom, DandelionSpacing.md)
+                .animation(.easeOut(duration: 0.2), value: viewModel.showBlowIndicator)
+                .animation(.easeOut(duration: 0.2), value: viewModel.blowDetection.hasPermission)
             }
 
             // Bottom bar with persistent background
@@ -1341,8 +1350,9 @@ struct WritingView: View {
 
     private var blowProgressBar: some View {
         let progress = CGFloat(max(0, min(1, viewModel.blowDetection.blowProgress)))
+        let label = viewModel.showBlowIndicator ? "Keep blowing…" : "Blow to release"
         return VStack(spacing: DandelionSpacing.xs) {
-            Text("Blow to release")
+            Text(label)
                 .font(.dandelionSecondary)
                 .foregroundColor(theme.secondary)
 
@@ -1360,7 +1370,7 @@ struct WritingView: View {
             .frame(height: 6)
         }
         .frame(maxWidth: 240)
-        .opacity(progress > 0 ? 1 : 0.6)
+        .opacity(progress > 0 || viewModel.showBlowIndicator ? 1 : 0.6)
         .transition(.opacity)
         .accessibilityLabel("Blow progress")
         .accessibilityValue("\(Int(progress * 100)) percent")
