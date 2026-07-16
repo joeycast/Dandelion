@@ -2,7 +2,8 @@
 //  AnimatableTextView.swift
 //  Dandelion
 //
-//  A text view that renders each character separately so they can animate independently
+//  A text view that renders each character so they can animate independently.
+//  Uses Canvas + TimelineView on all platforms for performance.
 //
 
 import SwiftUI
@@ -29,25 +30,25 @@ struct AnimatableTextView: View {
         uiFont.lineHeight
     }
     private let lineFragmentPadding: CGFloat = 5
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var cachedLayout: GlyphLayout = GlyphLayout(glyphs: [], totalHeight: 0)
     @State private var cachedKey: LayoutKey?
     @State private var containerOpacity: Double = 1
-
-#if os(macOS)
-    // Animation state for Canvas-based rendering (macOS only)
     @State private var animationStartTime: Date?
-    @State private var glyphAnimations: [MacGlyphAnimation] = []
+    @State private var glyphAnimations: [GlyphAnimation] = []
 
-    private struct MacGlyphAnimation {
+    private struct GlyphAnimation {
         let delay: Double
         let duration: Double
         let horizontalDrift: CGFloat
         let verticalDrift: CGFloat
         let finalRotation: Double
     }
-#endif
 
-    // Extra space above text for upward animation on macOS
+    /// Extra space above text so characters can fly upward without clipping.
+    /// macOS uses a larger overflow because the overlay is positioned higher.
+    /// Extra canvas height above the text origin so glyphs can fly upward
+    /// without being clipped by the Canvas frame.
     private let topOverflowForAnimation: CGFloat = 500
 
     var body: some View {
@@ -58,54 +59,74 @@ struct AnimatableTextView: View {
             }
             return cachedLayout
         }()
-#if os(macOS)
-        // macOS: Use Canvas + TimelineView for performance (no view creation overhead)
-        // Canvas is extended upward to allow characters to animate above the text area
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !isAnimating)) { timeline in
-            Canvas { context, size in
+
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !isAnimating || reduceMotion)) { timeline in
+            Canvas { context, _ in
                 let elapsed = animationStartTime.map { timeline.date.timeIntervalSince($0) } ?? 0
 
                 for (index, glyph) in layout.glyphs.enumerated() {
-                    // If animations aren't ready yet, draw at starting position
+                    if reduceMotion || !isAnimating {
+                        drawCharacter(
+                            context: context,
+                            glyph: glyph,
+                            offset: CGSize(width: 0, height: topOverflowForAnimation),
+                            rotation: 0,
+                            opacity: 1
+                        )
+                        continue
+                    }
+
                     guard index < glyphAnimations.count else {
-                        drawCharacter(context: context, glyph: glyph, offset: CGSize(width: 0, height: topOverflowForAnimation), rotation: 0, opacity: 1)
+                        drawCharacter(
+                            context: context,
+                            glyph: glyph,
+                            offset: CGSize(width: 0, height: topOverflowForAnimation),
+                            rotation: 0,
+                            opacity: 1
+                        )
                         continue
                     }
                     let anim = glyphAnimations[index]
 
-                    // Calculate animation progress
                     let timeSinceStart = elapsed - anim.delay
                     guard timeSinceStart > 0 else {
-                        // Not started yet - draw at original position (offset down by topOverflow)
-                        drawCharacter(context: context, glyph: glyph, offset: CGSize(width: 0, height: topOverflowForAnimation), rotation: 0, opacity: 1)
+                        drawCharacter(
+                            context: context,
+                            glyph: glyph,
+                            offset: CGSize(width: 0, height: topOverflowForAnimation),
+                            rotation: 0,
+                            opacity: 1
+                        )
                         continue
                     }
 
                     let progress = min(timeSinceStart / anim.duration, 1.0)
                     let easedProgress = easeInOut(progress)
 
-                    // Interpolate values - add topOverflow to vertical position
                     let currentOffset = CGSize(
                         width: anim.horizontalDrift * easedProgress,
                         height: topOverflowForAnimation + anim.verticalDrift * easedProgress
                     )
                     let currentRotation = anim.finalRotation * easedProgress
-                    let currentOpacity = 1.0 // Opacity handled by container fadeOut
 
-                    drawCharacter(context: context, glyph: glyph, offset: currentOffset, rotation: currentRotation, opacity: currentOpacity)
+                    drawCharacter(
+                        context: context,
+                        glyph: glyph,
+                        offset: currentOffset,
+                        rotation: currentRotation,
+                        opacity: 1
+                    )
                 }
             }
         }
-        .frame(height: layout.totalHeight + topOverflowForAnimation)
+        .frame(height: layout.totalHeight + topOverflowForAnimation, alignment: .topLeading)
         .opacity(containerOpacity)
         .onAppear {
-            // Update cached layout if needed
             if cachedLayout.glyphs.isEmpty {
                 cachedLayout = layout
                 cachedKey = layoutKey
             }
-            // Start animations immediately
-            if isAnimating && glyphAnimations.isEmpty {
+            if isAnimating && glyphAnimations.isEmpty && !reduceMotion {
                 prepareAnimations(for: cachedLayout)
                 animationStartTime = Date()
             }
@@ -115,65 +136,40 @@ struct AnimatableTextView: View {
         }
         .onChange(of: isAnimating) { _, newValue in
             if newValue {
-                prepareAnimations(for: cachedLayout)
-                animationStartTime = Date()
+                if reduceMotion {
+                    // Simple collective dissolve instead of per-character flight.
+                    withAnimation(.easeIn(duration: 0.9)) {
+                        containerOpacity = 0
+                    }
+                    animationStartTime = nil
+                    glyphAnimations = []
+                } else {
+                    prepareAnimations(for: cachedLayout)
+                    animationStartTime = Date()
+                }
             } else {
                 animationStartTime = nil
+                containerOpacity = 1
             }
         }
         .onChange(of: fadeOutTrigger) { _, newValue in
             if newValue {
-                withAnimation(.easeIn(duration: 0.5)) {
+                let duration = reduceMotion ? 0.35 : 0.5
+                withAnimation(.easeIn(duration: duration)) {
                     containerOpacity = 0
                 }
-            } else {
+            } else if !isAnimating {
                 containerOpacity = 1
             }
         }
-#else
-        // iOS: Use CharacterView approach (works well on iOS)
-        ZStack(alignment: .topLeading) {
-            ForEach(layout.glyphs) { glyph in
-                CharacterView(
-                    character: glyph.character,
-                    font: font,
-                    textColor: textColor,
-                    isAnimating: isAnimating,
-                    screenSize: screenSize,
-                    charIndex: glyph.charIndex,
-                    lineIndex: glyph.lineIndex
-                )
-                .position(x: glyph.rect.midX, y: glyph.rect.midY)
-            }
-        }
-        .frame(height: layout.totalHeight, alignment: .topLeading)
-        .opacity(containerOpacity)
-        .onAppear {
-            updateLayoutIfNeeded()
-        }
-        .onChange(of: layoutKey) { _, _ in
-            updateLayoutIfNeeded()
-        }
-        .onChange(of: fadeOutTrigger) { _, newValue in
-            if newValue {
-                withAnimation(.easeIn(duration: 0.5)) {
-                    containerOpacity = 0
-                }
-            } else {
-                containerOpacity = 1
-            }
-        }
-#endif
     }
 
-#if os(macOS)
     private func prepareAnimations(for layout: GlyphLayout) {
-        // Wider horizontal drift to let particles roam across the full screen
         let maxHorizontalDrift = screenSize.width * 0.4
         glyphAnimations = layout.glyphs.map { _ in
-            MacGlyphAnimation(
+            GlyphAnimation(
                 delay: Double.random(in: 0...0.3),
-                // Duration must exceed fade-out timing (4.0s + 0.5s fade) so letters keep moving while fading
+                // Duration must exceed fade-out timing so letters keep moving while fading
                 duration: Double.random(in: 5.5...7.5),
                 horizontalDrift: CGFloat.random(in: -maxHorizontalDrift...maxHorizontalDrift),
                 verticalDrift: CGFloat.random(in: -screenSize.height * 1.2 ... -screenSize.height * 0.6),
@@ -186,7 +182,13 @@ struct AnimatableTextView: View {
         t < 0.5 ? 2 * t * t : 1 - pow(-2 * t + 2, 2) / 2
     }
 
-    private func drawCharacter(context: GraphicsContext, glyph: Glyph, offset: CGSize, rotation: Double, opacity: Double) {
+    private func drawCharacter(
+        context: GraphicsContext,
+        glyph: Glyph,
+        offset: CGSize,
+        rotation: Double,
+        opacity: Double
+    ) {
         var context = context
         let position = CGPoint(
             x: glyph.rect.midX + offset.width + horizontalOffset,
@@ -203,7 +205,6 @@ struct AnimatableTextView: View {
 
         context.draw(text, at: .zero)
     }
-#endif
 
     private func updateLayoutIfNeeded() {
         let key = layoutKey
@@ -247,16 +248,12 @@ struct AnimatableTextView: View {
         let textContainerTopInset: CGFloat = 8
         let textContainerBottomInset: CGFloat = 8
         let adjustedScrollOffset = max(0, scrollOffset - textContainerTopInset)
-        // Actual visible text height is smaller than container due to insets
         let actualVisibleHeight = visibleHeight - textContainerTopInset - textContainerBottomInset
 
-        // Add a small bottom bleed so the last visible line isn't clipped at descenders
-        // during the release snapshot handoff.
         let bottomBleed = max(2, ceil(abs(uiFont.descender)) + 2)
         let clampedVisibleHeight = max(0, min(actualVisibleHeight + bottomBleed, totalHeight))
         let isCropped = clampedVisibleHeight > 0 && clampedVisibleHeight < totalHeight
 
-        // The visible region based on scroll position
         let visibleMinY = isCropped ? adjustedScrollOffset : 0
         let visibleMaxY = isCropped ? min(adjustedScrollOffset + clampedVisibleHeight, totalHeight) : max(clampedVisibleHeight, totalHeight)
 
@@ -343,65 +340,6 @@ struct AnimatableTextView: View {
             fontName: uiFont.fontName,
             fontSize: Int(uiFont.pointSize.rounded())
         )
-    }
-}
-
-struct CharacterView: View {
-    let character: Character
-    let font: Font
-    let textColor: Color
-    let isAnimating: Bool
-    let screenSize: CGSize
-    let charIndex: Int
-    let lineIndex: Int
-
-    @State private var offset: CGSize = .zero
-    @State private var rotation: Double = 0
-    @State private var opacity: Double = 1
-
-    var body: some View {
-        Text(String(character))
-            .font(font)
-            .foregroundColor(textColor)
-            .opacity(opacity)
-            .rotationEffect(.degrees(rotation))
-            .offset(offset)
-            .onChange(of: isAnimating) { _, newValue in
-                if newValue {
-                    resetAnimationState()
-                    startAnimation()
-                } else {
-                    resetAnimationState()
-                }
-            }
-            .onAppear {
-                if isAnimating {
-                    resetAnimationState()
-                    startAnimation()
-                }
-            }
-    }
-
-    private func resetAnimationState() {
-        offset = .zero
-        rotation = 0
-        opacity = 1
-    }
-
-    private func startAnimation() {
-        let delay = Double.random(in: 0...0.3)
-        // Duration must exceed fade-out timing (4.0s + 0.5s fade) so letters keep moving while fading
-        let duration = Double.random(in: 5.5...7.5)
-
-        // Random drift direction
-        let horizontalDrift = CGFloat.random(in: -200...200)
-        let verticalDrift = CGFloat.random(in: -screenSize.height * 1.2 ... -screenSize.height * 0.6)
-        let finalRotation = Double.random(in: -60...60)
-
-        withAnimation(.easeInOut(duration: duration).delay(delay)) {
-            offset = CGSize(width: horizontalDrift, height: verticalDrift)
-            rotation = finalRotation
-        }
     }
 }
 

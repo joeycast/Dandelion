@@ -26,7 +26,6 @@ struct WritingView: View {
     @Environment(PremiumManager.self) private var premium
     @Environment(AmbientSoundService.self) private var ambientSound
     @Environment(ReminderNotificationService.self) private var reminderService
-    @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Release.timestamp) private var allReleases: [Release]
@@ -39,6 +38,10 @@ struct WritingView: View {
     @State private var mainContentOpacity: Double = 0
     @State private var textScrollOffset: CGFloat = 0
     @State private var capturedScrollOffset: CGFloat = 0
+    /// Live frame of the writing editor content (in `writingRoot` space).
+    @State private var liveWritingEditorFrame: CGRect = .zero
+    /// Frame frozen at release start so letters begin where the written text was.
+    @State private var capturedWritingEditorFrame: CGRect = .zero
     @State private var releaseDandelionTopPadding: CGFloat? = nil
     @State private var lastWritingDandelionTopPadding: CGFloat = 0
     @State private var releaseTextSnapshot: String = ""
@@ -46,7 +49,6 @@ struct WritingView: View {
     @State private var showAnimatedText: Bool = false
     @State private var releaseVisibleHeight: CGFloat = 0
     @State private var lastWritingAreaHeight: CGFloat = 0
-    @State private var releaseClipOffset: CGFloat = 0
     @State private var fadeOutLetters: Bool = false
     @State private var lastWritingState: WritingState = .prompt
     @State private var suppressPromptLayoutAnimation: Bool = false
@@ -232,7 +234,16 @@ struct WritingView: View {
         }
         .overlay {
             if showLetGoHint {
-                letGoHintOverlay
+                WritingLetGoHintView(
+                    permissionDetermined: viewModel.blowDetection.permissionDetermined,
+                    hasMicrophonePermission: viewModel.blowDetection.hasPermission,
+                    onRequestMicrophone: {
+                        Task { await viewModel.requestMicrophonePermission() }
+                    },
+                    onDismiss: {
+                        showLetGoHint = false
+                    }
+                )
             }
         }
     }
@@ -260,7 +271,38 @@ struct WritingView: View {
                 )
                     .safeAreaInset(edge: .bottom, spacing: 0) {
                         if isWriting || isReleasing {
-                            bottomBar(bottomInset: layout.safeAreaBottom)
+                            WritingBottomBar(
+                                isWriting: isWriting,
+                                isReleasing: isReleasing,
+                                isTextEditorFocused: isTextEditorFocused,
+                                bottomInset: layout.safeAreaBottom,
+                                canRelease: viewModel.canRelease,
+                                showBlowIndicator: viewModel.showBlowIndicator,
+                                blowDetection: viewModel.blowDetection,
+                                onShowHelp: {
+                                    withAnimation(.easeOut(duration: 0.3)) {
+                                        showLetGoHint = true
+                                    }
+                                },
+                                onLetGo: {
+                                    // Freeze editor geometry before keyboard dismiss shifts layout.
+                                    capturedScrollOffset = textScrollOffset
+                                    if liveWritingEditorFrame != .zero {
+                                        capturedWritingEditorFrame = liveWritingEditorFrame
+                                    }
+                                    isTextEditorFocused = false
+                                    viewModel.manualRelease()
+                                },
+                                onAmbientChanged: {
+                                    handleAmbientSound(for: viewModel.writingState)
+                                },
+                                onShowPaywall: {
+                                    showBloomPaywall = true
+                                },
+                                onRequestMicrophone: {
+                                    Task { await viewModel.requestMicrophonePermission() }
+                                }
+                            )
                                 // Animate in normally, but disappear instantly to avoid
                                 // clipping through the appearing prompt buttons
                                 .transition(.asymmetric(
@@ -287,6 +329,12 @@ struct WritingView: View {
                 .allowsHitTesting(false)
                 .zIndex(1)
 
+                // Floating release text sits above the dandelion so glyphs aren't clipped.
+                if showAnimatedText {
+                    releaseAnimatedTextOverlay(fullScreenSize: layout.fullScreenSize)
+                        .zIndex(2)
+                }
+
                 // Release message overlay
                 if isReleasing {
                     releaseMessageOverlay(layout: layout)
@@ -295,19 +343,12 @@ struct WritingView: View {
             }
             .opacity(mainContentOpacity)
         }
-#if os(macOS)
-        // macOS: Render animated text as overlay to ensure it floats above dandelion
-        // Only render when needed to avoid first-release initialization glitches
-        .overlay {
-            if showAnimatedText {
-                macOSAnimatedTextOverlay(
-                    in: geometry.size,
-                    headerSpaceHeight: layout.headerSpaceHeight,
-                    fullScreenSize: layout.fullScreenSize
-                )
-            }
+        .coordinateSpace(name: "writingRoot")
+        .onPreferenceChange(WritingEditorFrameKey.self) { frame in
+            // Keep tracking while writing so release can freeze the exact on-screen origin.
+            guard viewModel.writingState == .writing, frame.width > 0, frame.height > 0 else { return }
+            liveWritingEditorFrame = frame
         }
-#endif
         .onChange(of: viewModel.writingState) { _, newValue in
             if WritingViewModel.debugReleaseFlow {
                 debugLog(
@@ -316,14 +357,21 @@ struct WritingView: View {
             }
             if newValue == .releasing {
                 logReleaseTiming("state=releasing")
-                // Capture scroll offset only if keyboard is still up (blow-triggered release).
-                // For manual release, the button action already captured it before dismissing keyboard.
-                // On macOS, always capture since there's no keyboard.
+                // Capture scroll/frame while layout still matches the written text.
+                // Manual Let Go already frozen these before keyboard dismiss; blow still has focus here.
 #if os(macOS)
                 capturedScrollOffset = textScrollOffset
+                if liveWritingEditorFrame != .zero {
+                    capturedWritingEditorFrame = liveWritingEditorFrame
+                }
 #else
                 if isTextEditorFocused {
                     capturedScrollOffset = textScrollOffset
+                    if liveWritingEditorFrame != .zero {
+                        capturedWritingEditorFrame = liveWritingEditorFrame
+                    }
+                } else if capturedWritingEditorFrame == .zero, liveWritingEditorFrame != .zero {
+                    capturedWritingEditorFrame = liveWritingEditorFrame
                 }
 #endif
                 releaseDandelionTopPadding = lastWritingDandelionTopPadding
@@ -333,7 +381,7 @@ struct WritingView: View {
                 releaseVisibleHeight = lastWritingAreaHeight
                 if WritingViewModel.debugReleaseFlow {
                     debugLog(
-                        "[ReleaseFlow] release heights snapshot area=\(lastWritingAreaHeight) visible=\(releaseVisibleHeight)"
+                        "[ReleaseFlow] release heights snapshot area=\(lastWritingAreaHeight) visible=\(releaseVisibleHeight) frame=\(capturedWritingEditorFrame)"
                     )
                 }
                 // Note: Seed detachment is now handled in triggerRelease() for atomic state update
@@ -342,23 +390,6 @@ struct WritingView: View {
                 animateLetters = true
                 logReleaseTiming("animatedText=visible")
                 showWrittenText = false
-                // Start with clip at bounds, then animate it open to release characters upward
-                releaseClipOffset = 0
-                let releaseClipDuration: Double = {
-#if os(macOS)
-                    return 3.2
-#else
-                    return 2.0
-#endif
-                }()
-                withAnimation(.easeInOut(duration: releaseClipDuration)) {
-#if os(macOS)
-                    // macOS needs more headroom for characters to float past the header
-                    releaseClipOffset = 1000
-#else
-                    releaseClipOffset = 200
-#endif
-                }
             }
             // Update focus state after releasing check (so we can detect if keyboard was up)
             isTextEditorFocused = newValue == .writing
@@ -381,7 +412,9 @@ struct WritingView: View {
                 showWrittenText = true
                 showAnimatedText = false
                 releaseVisibleHeight = 0
-                releaseClipOffset = 0
+                if newValue != .writing {
+                    capturedWritingEditorFrame = .zero
+                }
             }
             if newValue == .prompt && lastWritingState == .complete {
                 suppressPromptLayoutAnimation = true
@@ -399,49 +432,43 @@ struct WritingView: View {
         }
     }
 
-#if os(macOS)
+    /// Release letters rendered above the dandelion layer so they aren't clipped underneath it.
+    /// Positioned from the frozen editor frame so letters start where the written text was
+    /// (no jump when the keyboard dismisses or layout reflows).
     @ViewBuilder
-    private func macOSAnimatedTextOverlay(
-        in size: CGSize,
-        headerSpaceHeight: CGFloat,
-        fullScreenSize: CGSize
-    ) -> some View {
-        let baseHorizontalPadding = DandelionSpacing.screenEdge - 5
-        let horizontalPadding = max(
-            baseHorizontalPadding,
-            (size.width - DandelionLayout.maxWritingWidth) / 2
-        )
-        let lineWidth = size.width - (horizontalPadding * 2)
-        // Add buffer to prevent bottom row cutoff
-        let overlayVisibleHeight = (releaseVisibleHeight > 0 ? releaseVisibleHeight : lastWritingAreaHeight) + 30
-
+    private func releaseAnimatedTextOverlay(fullScreenSize: CGSize) -> some View {
+        let frame = capturedWritingEditorFrame
         let topOverflowForAnimation: CGFloat = 500
-
-        AnimatableTextView(
-            text: releaseTextSnapshot,
-            font: .dandelionWriting,
-            uiFont: .dandelionWriting,
-            textColor: theme.text,
-            lineWidth: lineWidth,
-            isAnimating: animateLetters,
-            fadeOutTrigger: fadeOutLetters,
-            screenSize: fullScreenSize,
-            visibleHeight: overlayVisibleHeight,
-            scrollOffset: capturedScrollOffset,
-            horizontalOffset: horizontalPadding
+        // Buffer so the last visible line isn't clipped at descenders.
+        let overlayVisibleHeight = max(
+            frame.height,
+            (releaseVisibleHeight > 0 ? releaseVisibleHeight : lastWritingAreaHeight) + 30
         )
-        .padding(.top, max(0, 8 - capturedScrollOffset))
-        .allowsHitTesting(false)
-        // No horizontal padding - let particles float freely across the full window
-        // Position at top of writing area:
-        // - headerSpaceHeight: space for dandelion
-        // - ~18pt: height adjustment for prompt text line
-        // - DandelionSpacing.sm: writingArea top padding
-        // - minus 500pt for the overflow built into AnimatableTextView
-        .padding(.top, headerSpaceHeight + 18 + DandelionSpacing.sm - topOverflowForAnimation)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        let lineWidth = max(frame.width, 1)
+
+        if frame.width > 0, frame.height > 0 {
+            AnimatableTextView(
+                text: releaseTextSnapshot,
+                font: .dandelionWriting,
+                uiFont: .dandelionWriting,
+                textColor: theme.text,
+                lineWidth: lineWidth,
+                isAnimating: animateLetters,
+                fadeOutTrigger: fadeOutLetters,
+                screenSize: fullScreenSize,
+                visibleHeight: overlayVisibleHeight,
+                scrollOffset: capturedScrollOffset,
+                horizontalOffset: 0
+            )
+            // Match UITextView textContainerInset top (8) accounting for scroll.
+            .padding(.top, max(0, 8 - capturedScrollOffset))
+            .frame(width: frame.width, alignment: .topLeading)
+            // Canvas draws resting glyphs at y = topOverflow; place view so that maps to editor top.
+            .offset(x: frame.minX, y: frame.minY - topOverflowForAnimation)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .allowsHitTesting(false)
+        }
     }
-#endif
 
     private func releaseMessageOverlay(layout: LayoutMetrics) -> some View {
         #if os(macOS)
@@ -794,11 +821,7 @@ struct WritingView: View {
 #else
                 let horizontalPadding = baseHorizontalPadding
 #endif
-                let size = geometry.size
                 let lineWidth = geometry.size.width - (horizontalPadding * 2)
-                let overlayVisibleHeight = isReleasing
-                    ? (releaseVisibleHeight > 0 ? releaseVisibleHeight : lastWritingAreaHeight)
-                    : size.height
 
                 ZStack(alignment: .topLeading) {
                     // Auto-scrolling text editor (hidden when releasing)
@@ -847,48 +870,24 @@ struct WritingView: View {
                     }
 #endif
 
-                    // Animatable text overlay - starts at the same position as the text editor
-                    // Top padding matches UITextView's textContainerInset when unscrolled,
-                    // but reduces to 0 when scrolled (since scrolled text appears at y=0)
-                    // Note: On macOS, this is rendered as a top-level overlay (macOSAnimatedTextOverlay)
-                    // to ensure it floats above the dandelion
-#if os(iOS)
-                    AnimatableTextView(
-                        text: showAnimatedText ? releaseTextSnapshot : viewModel.writtenText,
-                        font: .dandelionWriting,
-                        uiFont: .dandelionWriting,
-                        textColor: theme.text,
-                        lineWidth: lineWidth,
-                        isAnimating: animateLetters,
-                        fadeOutTrigger: fadeOutLetters,
-                        screenSize: fullScreenSize,
-                        visibleHeight: overlayVisibleHeight,
-                        scrollOffset: capturedScrollOffset
-                    )
-                    .padding(.top, max(0, 8 - capturedScrollOffset))
-                    // Clip mask that starts at view bounds, then expands upward to release characters
-                    // Uses gradient at top edge for smooth fade-in rather than hard clip
-                    .mask(
-                        GeometryReader { geo in
-                            VStack(spacing: 0) {
-                                // Soft gradient edge at top
-                                LinearGradient(
-                                    colors: [.clear, .black],
-                                    startPoint: .top,
-                                    endPoint: .bottom
+                    // Measure editor bounds via a sibling (not a UITextView background).
+                    // Attaching GeometryReader as the representable's background can cause
+                    // ghost carets/spell-underlines on iOS (duplicate UIKit decoration drawing).
+                    Color.clear
+                        .frame(width: lineWidth, height: geometry.size.height)
+                        .allowsHitTesting(false)
+                        .background {
+                            GeometryReader { geo in
+                                Color.clear.preference(
+                                    key: WritingEditorFrameKey.self,
+                                    value: geo.frame(in: .named("writingRoot"))
                                 )
-                                .frame(height: 0.3)
-                                // Solid visible area below
-                                Rectangle()
                             }
-                            .frame(height: geo.size.height + releaseClipOffset)
-                            .offset(y: -releaseClipOffset)
                         }
-                    )
-                    .opacity(showAnimatedText ? 1 : 0)
-                    .allowsHitTesting(false)
-                    .zIndex(1)
-#endif
+                        .accessibilityHidden(true)
+
+                    // Release letter animation is rendered in `releaseAnimatedTextOverlay`
+                    // above the dandelion so floating words aren't clipped underneath it.
                 }
                 .padding(.horizontal, horizontalPadding)
                 .opacity((isWriting || isReleasing) ? 1 : 0)
@@ -898,7 +897,6 @@ struct WritingView: View {
                 .overlay(alignment: .topLeading) {
                     if Self.debugShowReleaseMetrics {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("overlayVisibleHeight: \(Int(overlayVisibleHeight))")
                             Text("releaseVisibleHeight: \(Int(releaseVisibleHeight))")
                             Text("lastWritingAreaHeight: \(Int(lastWritingAreaHeight))")
                             Text("capturedScrollOffset: \(Int(capturedScrollOffset))")
@@ -918,12 +916,12 @@ struct WritingView: View {
                 Color.clear
                     .onAppear {
                         guard !isReleasing else { return }
-                        let height = size.height
+                        let height = geometry.size.height
                         if abs(lastWritingAreaHeight - height) > 0.5 {
                             lastWritingAreaHeight = height
                         }
                     }
-                    .onChange(of: size.height) { _, newValue in
+                    .onChange(of: geometry.size.height) { _, newValue in
                         guard !isReleasing else { return }
                         if abs(lastWritingAreaHeight - newValue) > 0.5 {
                             lastWritingAreaHeight = newValue
@@ -932,7 +930,7 @@ struct WritingView: View {
                     .onChange(of: isReleasing) { _, newValue in
                         if WritingViewModel.debugReleaseFlow {
                             debugLog(
-                                "[ReleaseFlow] writingArea size=\(size.height) last=\(lastWritingAreaHeight) releasing=\(newValue)"
+                                "[ReleaseFlow] writingArea size=\(geometry.size.height) last=\(lastWritingAreaHeight) releasing=\(newValue)"
                             )
                         }
                     }
@@ -1189,294 +1187,6 @@ struct WritingView: View {
         }
     }
 
-    // MARK: - Bottom Bar
-
-    private func bottomBar(bottomInset: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            if (isWriting || isReleasing)
-                && viewModel.blowDetection.hasPermission
-                && viewModel.blowDetection.isEnabled {
-                blowProgressBar
-                    .padding(.bottom, DandelionSpacing.md)
-                    .opacity(isWriting ? 1 : 0)
-                    .animation(.easeOut(duration: 0.2), value: isWriting)
-            }
-
-            // Bottom bar with persistent background
-            ZStack {
-                // Background stays visible during release
-                theme.background
-                    .ignoresSafeArea(edges: .bottom)
-
-                // Content hides during release
-                HStack(spacing: DandelionSpacing.md) {
-                    ambientToggleButton
-
-                    Spacer()
-
-                    // Info button to show hint
-                    Button {
-                        withAnimation(.easeOut(duration: 0.3)) {
-                            showLetGoHint = true
-                        }
-                    } label: {
-                        Image(systemName: "questionmark.circle")
-                            .font(.system(size: 20))
-                            .foregroundColor(theme.secondary)
-                    }
-                    .accessibilityLabel("Help")
-                    .accessibilityHint("Learn how to release your writing")
-#if os(macOS)
-                    .buttonStyle(.plain)
-#endif
-
-                    // Manual release button
-                    Button {
-                        // Capture scroll offset BEFORE dismissing keyboard to prevent text shift
-                        capturedScrollOffset = textScrollOffset
-                        isTextEditorFocused = false
-                        viewModel.manualRelease()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "wind")
-                                .font(.system(size: 15))
-                            Text("Let Go")
-                                .font(.system(size: 16, weight: .semibold, design: .serif))
-                        }
-                        .foregroundColor(theme.background)
-                        .padding(.horizontal, DandelionSpacing.md)
-                        .padding(.vertical, DandelionSpacing.md)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(theme.primary)
-                        )
-                    }
-                    .accessibilityLabel("Let Go")
-                    .accessibilityHint("Release your writing and watch it drift away like dandelion seeds")
-                    .accessibilityAddTraits(viewModel.canRelease ? [] : .isStaticText)
-                    .disabled(!viewModel.canRelease)
-                    .opacity(viewModel.canRelease ? 1.0 : 0.5)
-#if os(macOS)
-                    .buttonStyle(.plain)
-#endif
-                }
-                .padding(.horizontal, DandelionSpacing.md)
-                .opacity(isWriting ? 1 : 0)
-            }
-            .frame(height: 56) // Fixed height for consistent layout
-            .padding(.bottom, isTextEditorFocused ? DandelionSpacing.sm : bottomInset)
-            .animation(nil, value: isTextEditorFocused)
-        }
-        .opacity((isWriting || isReleasing) ? 1 : 0)
-        .allowsHitTesting(isWriting)
-    }
-
-    // MARK: - Microphone Status
-
-    @ViewBuilder
-    private var microphoneStatusView: some View {
-        if !viewModel.blowDetection.permissionDetermined {
-            // Prompt to enable blow detection
-            Button {
-                Task {
-                    await viewModel.requestMicrophonePermission()
-                }
-            } label: {
-                HStack(spacing: DandelionSpacing.xs) {
-                    Image(systemName: "mic")
-                    Text("Enable blow")
-                }
-                .font(.dandelionCaption)
-                .foregroundColor(theme.secondary)
-            }
-        } else if viewModel.blowDetection.hasPermission {
-            // Instruction text with mic indicator
-            HStack(spacing: 4) {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 11))
-                    .foregroundColor(theme.accent)
-                Text("Or blow gently into your microphone")
-                    .font(.system(size: 13))
-                    .foregroundColor(theme.secondary)
-            }
-        } else {
-            // Permission denied - offer Settings link
-            HStack(spacing: 4) {
-                Image(systemName: "mic.slash")
-                    .font(.system(size: 11))
-                    .foregroundColor(theme.secondary)
-                Text("Microphone access is off.")
-                    .font(.system(size: 13))
-                    .foregroundColor(theme.secondary)
-                Button("Open Settings") {
-                    openAppSettings()
-                }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(theme.accent)
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    // MARK: - Blow Indicator
-
-    private var blowIndicator: some View {
-        HStack {
-            Image(systemName: "wind")
-                .foregroundColor(theme.accent)
-
-            Text("Keep blowing...")
-                .font(.dandelionSecondary)
-                .foregroundColor(theme.text)
-        }
-        .padding(.horizontal, DandelionSpacing.lg)
-        .padding(.vertical, DandelionSpacing.sm)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(theme.primary.opacity(0.5))
-        )
-        .transition(.opacity.combined(with: .scale))
-        .accessibilityLabel("Keep blowing into the microphone to release your writing")
-    }
-
-    private var blowProgressBar: some View {
-        let progress = CGFloat(max(0, min(1, viewModel.blowDetection.blowProgress)))
-        return VStack(spacing: DandelionSpacing.xs) {
-            Text("Blow to release")
-                .font(.dandelionSecondary)
-                .foregroundColor(theme.secondary)
-
-            GeometryReader { geometry in
-                let width = max(0, geometry.size.width)
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(theme.primary.opacity(0.2))
-                    Capsule()
-                        .fill(theme.accent)
-                        .frame(width: width * progress)
-                        .animation(.easeOut(duration: 0.15), value: progress)
-                }
-            }
-            .frame(height: 6)
-        }
-        .frame(maxWidth: 240)
-        .opacity(progress > 0 ? 1 : 0.6)
-        .transition(.opacity)
-        .accessibilityLabel("Blow progress")
-        .accessibilityValue("\(Int(progress * 100)) percent")
-    }
-
-    // MARK: - Let Go Hint Overlay
-
-    private var letGoHintOverlay: some View {
-        ZStack {
-            // Dimmed background
-            Color.black.opacity(0.5)
-                .ignoresSafeArea()
-                .onTapGesture {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        showLetGoHint = false
-                    }
-                }
-
-            // Hint card
-            VStack(spacing: DandelionSpacing.lg) {
-                // Title
-                Text("When you're ready,\nlet go")
-                    .font(.system(size: 26, weight: .medium, design: .serif))
-                    .foregroundColor(theme.text)
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(4)
-
-                // Combined instruction and privacy message
-                VStack(alignment: .leading, spacing: DandelionSpacing.md) {
-                    HStack(alignment: .top, spacing: DandelionSpacing.sm) {
-                        Image(systemName: "wind")
-                            .font(.system(size: 16))
-                            .foregroundColor(theme.accent)
-                            .frame(width: 20)
-                        Text("Tap **Let Go** or blow gently into the microphone.")
-                            .font(.system(size: 16, design: .serif))
-                            .foregroundColor(theme.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    HStack(alignment: .top, spacing: DandelionSpacing.sm) {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(theme.accent)
-                            .frame(width: 20)
-                        Text("Your words will drift away—never saved, never shared.")
-                            .font(.system(size: 16, design: .serif))
-                            .foregroundColor(theme.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                // Mic permission - only show when needed
-                if viewModel.blowDetection.permissionDetermined && !viewModel.blowDetection.hasPermission {
-                    HStack(spacing: 4) {
-                        Text("Microphone is off.")
-                        Button("Open Settings") {
-                            openAppSettings()
-                        }
-                        .foregroundColor(theme.accent)
-                        .buttonStyle(.plain)
-                    }
-                    .font(.system(size: 13, design: .serif))
-                    .foregroundColor(theme.secondary)
-                } else if !viewModel.blowDetection.permissionDetermined {
-                    HStack(spacing: 4) {
-                        Text("Microphone required to blow.")
-                        Button("Enable") {
-                            Task {
-                                await viewModel.requestMicrophonePermission()
-                            }
-                        }
-                        .foregroundColor(theme.accent)
-                        .buttonStyle(.plain)
-                    }
-                    .font(.system(size: 13, design: .serif))
-                    .foregroundColor(theme.secondary)
-                }
-
-                // Button
-                Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        showLetGoHint = false
-                    }
-                } label: {
-                    Text("Got it")
-                        .font(.system(size: 16, weight: .medium, design: .serif))
-                        .foregroundColor(theme.background)
-                        .padding(.horizontal, DandelionSpacing.xl)
-                        .padding(.vertical, DandelionSpacing.sm)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(theme.primary)
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Got it")
-                .accessibilityHint("Dismiss this help dialog")
-            }
-            .padding(.horizontal, DandelionSpacing.xl)
-            .padding(.vertical, DandelionSpacing.xxl)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(theme.card)
-            )
-            .frame(maxWidth: 340)
-            .padding(.horizontal, DandelionSpacing.lg)
-            .accessibilityElement(children: .contain)
-            .accessibilityAddTraits(.isModal)
-            .accessibilityLabel("How to let go of your writing")
-        }
-        .transition(.opacity)
-    }
-
     // MARK: - Dandelion Illustration
 
     private func dandelionIllustration(height: CGFloat) -> some View {
@@ -1509,59 +1219,18 @@ struct WritingView: View {
             }
             .allowsHitTesting(false)
     }
-
-    private func openAppSettings() {
-#if os(iOS)
-        if let url = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(url)
-        }
-#elseif os(macOS)
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
-            openURL(url)
-        }
-#endif
-    }
-
-    private var ambientToggleButton: some View {
-        Button {
-            if premium.isBloomUnlocked {
-                ambientSound.isEnabled.toggle()
-                handleAmbientSound(for: viewModel.writingState)
-            } else {
-                showBloomPaywall = true
-            }
-        } label: {
-            Image(systemName: ambientSound.isEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                .font(.system(size: 16, weight: .regular))
-                .foregroundColor(premium.isBloomUnlocked ? theme.secondary : theme.subtle)
-        }
-        .accessibilityLabel("Ambient sound")
-        .accessibilityValue(ambientSound.isEnabled ? "On" : "Off")
-        .accessibilityHint(premium.isBloomUnlocked ? "Toggle calming background sounds" : "Unlock Dandelion Bloom for ambient sounds")
-        .buttonStyle(.plain)
-    }
-
 }
 
-private struct OdometerCountText: View {
-    let value: Int
+/// Reports the writing editor's on-screen frame for release-letter alignment.
+private struct WritingEditorFrameKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
 
-    var body: some View {
-        Text(Self.countFormatter.string(from: NSNumber(value: value)) ?? "\(value)")
-            .monospacedDigit()
-            .contentTransition(.numericText(value: Double(value)))
-            .animation(.easeInOut(duration: 0.8), value: value)
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next.width > 0, next.height > 0 {
+            value = next
+        }
     }
-
-    static func formatted(_ value: Int) -> String {
-        countFormatter.string(from: NSNumber(value: value)) ?? "\(value)"
-    }
-
-    private static let countFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        return formatter
-    }()
 }
 
 #Preview {

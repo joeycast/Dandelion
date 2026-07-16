@@ -52,23 +52,77 @@ struct GlobalReleaseCounts: Codable, Equatable {
     }
 }
 
+/// In-memory TTL cache for global release counts.
+struct GlobalCountsCache: Equatable {
+    static let defaultTTL: TimeInterval = 45
+
+    private(set) var value: GlobalReleaseCounts?
+    private(set) var fetchedAt: Date?
+    var ttl: TimeInterval
+
+    init(ttl: TimeInterval = GlobalCountsCache.defaultTTL) {
+        self.ttl = ttl
+    }
+
+    func get(now: Date = Date(), forceRefresh: Bool) -> GlobalReleaseCounts? {
+        guard !forceRefresh else { return nil }
+        guard let value, let fetchedAt else { return nil }
+        guard now.timeIntervalSince(fetchedAt) < ttl else { return nil }
+        return value
+    }
+
+    mutating func store(_ counts: GlobalReleaseCounts, at date: Date = Date()) {
+        value = counts
+        fetchedAt = date
+    }
+
+    mutating func clear() {
+        value = nil
+        fetchedAt = nil
+    }
+}
+
 final class GlobalReleaseCountService {
+    /// Matches `com.apple.developer.icloud-container-identifiers` in app entitlements.
+    /// Prefer this over `CKContainer.default()`, which can crash with
+    /// `containerIdentifier can not be nil` when entitlements are missing
+    /// (e.g. some ad-hoc / CI simulator builds).
+    static let cloudKitContainerID = "iCloud.app.brink13labs.Dandelion"
+
     private let containerProvider: () -> CKContainer
     private lazy var container: CKContainer = containerProvider()
     private lazy var database: CKDatabase = container.publicCloudDatabase
+    private var cache = GlobalCountsCache()
+    private let nowProvider: () -> Date
 
     init(
-        containerProvider: @escaping () -> CKContainer = { CKContainer.default() }
+        containerProvider: @escaping () -> CKContainer = {
+            CKContainer(identifier: GlobalReleaseCountService.cloudKitContainerID)
+        },
+        nowProvider: @escaping () -> Date = Date.init,
+        cacheTTL: TimeInterval = GlobalCountsCache.defaultTTL
     ) {
         self.containerProvider = containerProvider
+        self.nowProvider = nowProvider
+        self.cache = GlobalCountsCache(ttl: cacheTTL)
     }
 
-    func loadCounts(forceRefresh _: Bool = false) async -> GlobalReleaseCounts? {
+    func loadCounts(forceRefresh: Bool = false) async -> GlobalReleaseCounts? {
         if isRunningTests { return nil }
+        let now = nowProvider()
+        if let cached = cache.get(now: now, forceRefresh: forceRefresh) {
+            return cached
+        }
         do {
-            return try await fetchCounts()
+            let counts = try await fetchCounts()
+            cache.store(counts, at: now)
+            return counts
         } catch {
             logCloudKitError("loadCounts failed", error: error)
+            // Fall back to stale cache if a forced refresh fails.
+            if forceRefresh, let stale = cache.value {
+                return stale
+            }
             return nil
         }
     }
@@ -254,22 +308,30 @@ final class GlobalReleaseCountService {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
-    static func dayKey(for date: Date) -> String {
+    private static let dayKeyFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
-    }
+        return formatter
+    }()
 
-    static func hourKey(for date: Date) -> String {
+    private static let hourKeyFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd-HH"
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    static func dayKey(for date: Date) -> String {
+        dayKeyFormatter.string(from: date)
+    }
+
+    static func hourKey(for date: Date) -> String {
+        hourKeyFormatter.string(from: date)
     }
 
     static func hourKeysForLocalToday(

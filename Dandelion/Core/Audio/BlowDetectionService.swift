@@ -162,6 +162,12 @@ final class BlowDetectionService {
     // FFT setup
     private var fftSetup: vDSP_DFT_Setup?
     private let fftSize: Int = 1024
+    /// Reused buffers for the audio-thread FFT path (avoids per-buffer allocations).
+    private var realInput: [Float]
+    private var imagInput: [Float]
+    private var realOutput: [Float]
+    private var imagOutput: [Float]
+    private var magnitudes: [Float]
 
     /// Minimum overall level to consider (filters out silence)
     private let minimumLevel: Float = 0.05
@@ -199,6 +205,11 @@ final class BlowDetectionService {
 
     init() {
         BlowDetectionSensitivity.ensureDefaultExists()
+        realInput = [Float](repeating: 0, count: fftSize)
+        imagInput = [Float](repeating: 0, count: fftSize)
+        realOutput = [Float](repeating: 0, count: fftSize)
+        imagOutput = [Float](repeating: 0, count: fftSize)
+        magnitudes = [Float](repeating: 0, count: fftSize / 2)
         // Create FFT setup for frequency analysis
         fftSetup = vDSP_DFT_zop_CreateSetup(
             nil,
@@ -323,22 +334,36 @@ final class BlowDetectionService {
 
         do {
             #if os(iOS)
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetoothA2DP])
-            try audioSession.setActive(true)
+            try AudioSessionCoordinator.acquireBlowDetection()
             #endif
 
             audioEngine = AVAudioEngine()
-            guard let audioEngine = audioEngine else { return }
+            guard let audioEngine = audioEngine else {
+                #if os(iOS)
+                AudioSessionCoordinator.releaseBlowDetection()
+                #endif
+                return
+            }
 
             inputNode = audioEngine.inputNode
-            guard let inputNode = inputNode else { return }
+            guard let inputNode = inputNode else {
+                self.audioEngine = nil
+                #if os(iOS)
+                AudioSessionCoordinator.releaseBlowDetection()
+                #endif
+                return
+            }
 
             let format = inputNode.outputFormat(forBus: 0)
 
             // Ensure format is valid
             guard format.sampleRate > 0 else {
                 debugLog("Invalid audio format")
+                self.audioEngine = nil
+                self.inputNode = nil
+                #if os(iOS)
+                AudioSessionCoordinator.releaseBlowDetection()
+                #endif
                 return
             }
 
@@ -354,12 +379,20 @@ final class BlowDetectionService {
 
         } catch {
             debugLog("Failed to start audio engine: \(error)")
+            inputNode?.removeTap(onBus: 0)
+            audioEngine?.stop()
+            audioEngine = nil
+            inputNode = nil
             isListening = false
+            #if os(iOS)
+            AudioSessionCoordinator.releaseBlowDetection()
+            #endif
         }
     }
 
     /// Stop listening
     func stopListening() {
+        let wasListening = isListening
         inputNode?.removeTap(onBus: 0)
         audioEngine?.stop()
         audioEngine = nil
@@ -373,6 +406,15 @@ final class BlowDetectionService {
         consecutiveBlowFrames = 0
         blowCandidateStartTime = nil
         blowProgress = 0
+
+        #if os(iOS)
+        // Only release if we actually held a session claim (or believed we were listening).
+        // startListeningOverride in tests sets isListening without acquiring.
+        if wasListening {
+            // In unit tests, startListeningOverride may skip acquire — release is harmless (clamped).
+            AudioSessionCoordinator.releaseBlowDetection()
+        }
+        #endif
     }
 
     // MARK: - Audio Processing
@@ -397,22 +439,16 @@ final class BlowDetectionService {
             return
         }
 
-        // Prepare data for FFT
-        var realInput = [Float](repeating: 0, count: fftSize)
-        var imagInput = [Float](repeating: 0, count: fftSize)
-        var realOutput = [Float](repeating: 0, count: fftSize)
-        var imagOutput = [Float](repeating: 0, count: fftSize)
-
-        // Copy audio data to real input
+        // Reuse preallocated FFT buffers (no per-callback allocations).
         for i in 0..<fftSize {
             realInput[i] = channelData[i]
+            imagInput[i] = 0
         }
 
         // Perform FFT
         vDSP_DFT_Execute(fftSetup, &realInput, &imagInput, &realOutput, &imagOutput)
 
-        // Calculate magnitude spectrum
-        var magnitudes = [Float](repeating: 0, count: fftSize / 2)
+        // Calculate magnitude spectrum into reused buffer
         for i in 0..<(fftSize / 2) {
             let real = realOutput[i]
             let imag = imagOutput[i]

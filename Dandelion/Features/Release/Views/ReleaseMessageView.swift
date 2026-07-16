@@ -22,6 +22,7 @@ struct ReleaseMessageView: View {
 
     @State private var showMessage = false
     @State private var messageOpacity: Double = 0
+    @State private var sequenceTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -45,6 +46,10 @@ struct ReleaseMessageView: View {
         .onAppear {
             startSequence()
         }
+        .onDisappear {
+            sequenceTask?.cancel()
+            sequenceTask = nil
+        }
         .accessibilityElement(children: .contain)
     }
 
@@ -61,29 +66,39 @@ struct ReleaseMessageView: View {
     }
 
     private func startSequence() {
+        sequenceTask?.cancel()
+
         // Show message after letters are mostly gone
         let showDelay: TimeInterval = 4.0
         let fadeDelay: TimeInterval = 8.0
         let completeDelay: TimeInterval = 9.0
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + showDelay) {
+        sequenceTask = Task { @MainActor in
+            // Show message
+            try? await Task.sleep(for: .seconds(showDelay))
+            guard !Task.isCancelled else { return }
+
             showMessage = true
             onMessageAppear()
             withAnimation(.easeIn(duration: 0.8)) {
                 messageOpacity = 1.0
             }
-        }
 
-        // Fade out message and notify
-        DispatchQueue.main.asyncAfter(deadline: .now() + fadeDelay) {
+            // Fade out message and notify
+            let remainingToFade = fadeDelay - showDelay
+            try? await Task.sleep(for: .seconds(remainingToFade))
+            guard !Task.isCancelled else { return }
+
             onMessageFadeStart()
             withAnimation(.easeOut(duration: 1.0)) {
                 messageOpacity = 0
             }
-        }
 
-        // Complete
-        DispatchQueue.main.asyncAfter(deadline: .now() + completeDelay) {
+            // Complete
+            let remainingToComplete = completeDelay - fadeDelay
+            try? await Task.sleep(for: .seconds(remainingToComplete))
+            guard !Task.isCancelled else { return }
+
             onComplete()
         }
     }

@@ -71,7 +71,8 @@ final class WritingViewModel {
     private(set) var releaseStartTime: TimeInterval?
     let seedRestoreDuration: TimeInterval = 8.0
     private let dandelionReturnDuration: TimeInterval = 1.5  // Position animation before regrowth begins
-    static let debugReleaseFlow = true
+    /// Release-flow debug logging. Off by default; enable temporarily when diagnosing release timing.
+    static let debugReleaseFlow = false
 
     // MARK: - Computed Properties
 
@@ -321,6 +322,7 @@ final class WritingViewModel {
             guard let self else { return }
             Task { @MainActor in
                 guard self.writingState == .writing else { return }
+                self.blowLevel = self.blowDetection.currentLevel
                 if self.canRelease {
                     self.triggerRelease()
                 }
@@ -331,7 +333,13 @@ final class WritingViewModel {
             guard let self else { return }
             Task { @MainActor in
                 guard self.writingState == .writing else { return }
+                self.blowLevel = self.blowDetection.currentLevel
                 self.showBlowIndicator = true
+                // Progressive detach: nibble seeds off while the user sustains a blow.
+                // Full release still detaches any remaining seeds at once.
+                if self.canRelease {
+                    self.startDetachingSeeds()
+                }
             }
         }
 
@@ -339,6 +347,7 @@ final class WritingViewModel {
             guard let self else { return }
             Task { @MainActor in
                 self.showBlowIndicator = false
+                self.blowLevel = 0
                 self.stopDetachingSeeds()
             }
         }

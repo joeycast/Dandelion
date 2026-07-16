@@ -38,12 +38,17 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
         textView.alwaysBounceVertical = true
         textView.keyboardDismissMode = .interactive
         textView.tintColor = textColor
+        // Keep system caret/spell decorations inside this view only.
+        textView.clipsToBounds = true
 
         // Disable automatic content inset adjustment
         textView.contentInsetAdjustmentBehavior = .never
 
         textView.textContainerInset = UIEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
         textView.textContainer.lineFragmentPadding = 5
+        // Font is applied explicitly from Theme (already Dynamic Type scaled).
+        // Leaving this true can fight manual font updates and mis-draw caret/underlines.
+        textView.adjustsFontForContentSizeCategory = false
 
         textView.text = text
         context.coordinator.textView = textView
@@ -74,9 +79,17 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
 
         textView.isEditable = isEditable
         textView.isSelectable = true
-        textView.font = font
-        textView.textColor = textColor
-        textView.tintColor = textColor
+        // Only re-apply font when metrics change to avoid layout thrash / caret glitches.
+        if textView.font?.pointSize != font.pointSize
+            || textView.font?.fontName != font.fontName {
+            textView.font = font
+        }
+        if textView.textColor != textColor {
+            textView.textColor = textColor
+        }
+        if textView.tintColor != textColor {
+            textView.tintColor = textColor
+        }
 
         if !coordinator.isProcessingFocusChange {
             if shouldBeFocused && !textView.isFirstResponder && isEditable {
