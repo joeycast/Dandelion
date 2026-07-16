@@ -83,6 +83,12 @@ struct GlobalCountsCache: Equatable {
 }
 
 final class GlobalReleaseCountService {
+    /// Matches `com.apple.developer.icloud-container-identifiers` in app entitlements.
+    /// Prefer this over `CKContainer.default()`, which can crash with
+    /// `containerIdentifier can not be nil` when entitlements are missing
+    /// (e.g. some ad-hoc / CI simulator builds).
+    static let cloudKitContainerID = "iCloud.app.brink13labs.Dandelion"
+
     private let containerProvider: () -> CKContainer
     private lazy var container: CKContainer = containerProvider()
     private lazy var database: CKDatabase = container.publicCloudDatabase
@@ -90,7 +96,9 @@ final class GlobalReleaseCountService {
     private let nowProvider: () -> Date
 
     init(
-        containerProvider: @escaping () -> CKContainer = { CKContainer.default() },
+        containerProvider: @escaping () -> CKContainer = {
+            CKContainer(identifier: GlobalReleaseCountService.cloudKitContainerID)
+        },
         nowProvider: @escaping () -> Date = Date.init,
         cacheTTL: TimeInterval = GlobalCountsCache.defaultTTL
     ) {
