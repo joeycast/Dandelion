@@ -178,4 +178,42 @@ final class GlobalReleaseCountServiceTests: XCTestCase {
             XCTAssertEqual(counts.todayWords, 0)
         }
     }
+
+    // MARK: - Cache
+
+    func testGlobalCountsCacheReturnsWithinTTL() {
+        var cache = GlobalCountsCache(ttl: 45)
+        let now = Date(timeIntervalSince1970: 1_740_000_000)
+        let counts = GlobalReleaseCounts(
+            dayKey: "2026-02-06",
+            total: 10,
+            today: 2,
+            totalWords: 100,
+            todayWords: 20,
+            updatedAt: now
+        )
+        cache.store(counts, at: now)
+
+        XCTAssertEqual(cache.get(now: now.addingTimeInterval(10), forceRefresh: false), counts)
+        XCTAssertNil(cache.get(now: now.addingTimeInterval(10), forceRefresh: true))
+        XCTAssertNil(cache.get(now: now.addingTimeInterval(46), forceRefresh: false))
+    }
+
+    func testGlobalCountsCacheClear() {
+        var cache = GlobalCountsCache(ttl: 45)
+        let now = Date(timeIntervalSince1970: 1_740_000_000)
+        cache.store(
+            GlobalReleaseCounts(
+                dayKey: "2026-02-06",
+                total: 1,
+                today: 1,
+                totalWords: 10,
+                todayWords: 10,
+                updatedAt: now
+            ),
+            at: now
+        )
+        cache.clear()
+        XCTAssertNil(cache.get(now: now, forceRefresh: false))
+    }
 }
