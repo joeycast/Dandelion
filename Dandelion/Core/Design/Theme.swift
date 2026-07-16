@@ -18,31 +18,35 @@ import AppKit
 // MARK: - Typography
 
 extension Font {
-    /// Large title for prompts and messages - serif
+    /// Large title for prompts and messages - serif (Dynamic Type)
     static let dandelionTitle = Font.system(.largeTitle, design: .serif)
 
-    /// Main writing font - serif for elegance
+    /// Main writing font - serif for elegance (Dynamic Type)
     static let dandelionBody = Font.system(.title2, design: .serif)
 
-    /// Writing text - larger size for comfortable writing
-    static let dandelionWriting = Font.system(size: 22, weight: .regular, design: .serif)
+    /// Writing text - title2 serif so it scales with Dynamic Type (~22pt at default)
+    static let dandelionWriting = Font.system(.title2, design: .serif)
 
-    /// Secondary text - prompts, hints
+    /// Secondary text - prompts, hints (Dynamic Type)
     static let dandelionSecondary = Font.system(.body, design: .serif)
 
-    /// Small caption text
+    /// Small caption text (Dynamic Type)
     static let dandelionCaption = Font.system(.caption, design: .serif)
 
-    /// Button text
+    /// Button text (Dynamic Type)
     static let dandelionButton = Font.system(.headline, design: .serif)
 }
 
 #if canImport(UIKit)
 extension UIFont {
+    /// Base point size for writing at the default content size category.
+    private static let writingBasePointSize: CGFloat = 22
+
     static var dandelionWriting: UIFont {
-        let base = UIFont.systemFont(ofSize: 22, weight: .regular)
+        let base = UIFont.systemFont(ofSize: writingBasePointSize, weight: .regular)
         let descriptor = base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor
-        return UIFont(descriptor: descriptor, size: 22)
+        let serif = UIFont(descriptor: descriptor, size: writingBasePointSize)
+        return UIFontMetrics(forTextStyle: .title2).scaledFont(for: serif)
     }
 
     static var dandelionTitle: UIFont {
@@ -59,10 +63,16 @@ extension UIFont {
 }
 #elseif canImport(AppKit)
 extension NSFont {
+    private static let writingBasePointSize: CGFloat = 22
+
     static var dandelionWriting: NSFont {
-        let base = NSFont.systemFont(ofSize: 22, weight: .regular)
+        // macOS text styles scale with accessibility text size when available.
+        let basePreferred = NSFont.preferredFont(forTextStyle: .title2)
+        let scale = basePreferred.pointSize / 22.0
+        let scaledSize = max(writingBasePointSize * scale, writingBasePointSize * 0.85)
+        let base = NSFont.systemFont(ofSize: scaledSize, weight: .regular)
         let descriptor = base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor
-        return NSFont(descriptor: descriptor, size: 22) ?? base
+        return NSFont(descriptor: descriptor, size: scaledSize) ?? base
     }
 
     static var dandelionTitle: NSFont {
