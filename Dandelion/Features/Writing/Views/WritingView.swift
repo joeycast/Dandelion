@@ -847,16 +847,6 @@ struct WritingView: View {
                             transaction.animation = nil
                         }
                     }
-                    // Measure the editor itself (not the padded outer container) so release
-                    // letters inherit the same horizontal inset as the written text.
-                    .background {
-                        GeometryReader { geo in
-                            Color.clear.preference(
-                                key: WritingEditorFrameKey.self,
-                                value: geo.frame(in: .named("writingRoot"))
-                            )
-                        }
-                    }
                     .zIndex(0)
 #else
                     AutoScrollingTextEditor(
@@ -878,15 +868,23 @@ struct WritingView: View {
                             transaction.animation = nil
                         }
                     }
-                    .background {
-                        GeometryReader { geo in
-                            Color.clear.preference(
-                                key: WritingEditorFrameKey.self,
-                                value: geo.frame(in: .named("writingRoot"))
-                            )
-                        }
-                    }
 #endif
+
+                    // Measure editor bounds via a sibling (not a UITextView background).
+                    // Attaching GeometryReader as the representable's background can cause
+                    // ghost carets/spell-underlines on iOS (duplicate UIKit decoration drawing).
+                    Color.clear
+                        .frame(width: lineWidth, height: geometry.size.height)
+                        .allowsHitTesting(false)
+                        .background {
+                            GeometryReader { geo in
+                                Color.clear.preference(
+                                    key: WritingEditorFrameKey.self,
+                                    value: geo.frame(in: .named("writingRoot"))
+                                )
+                            }
+                        }
+                        .accessibilityHidden(true)
 
                     // Release letter animation is rendered in `releaseAnimatedTextOverlay`
                     // above the dandelion so floating words aren't clipped underneath it.
