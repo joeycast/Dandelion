@@ -162,6 +162,12 @@ final class BlowDetectionService {
     // FFT setup
     private var fftSetup: vDSP_DFT_Setup?
     private let fftSize: Int = 1024
+    /// Reused buffers for the audio-thread FFT path (avoids per-buffer allocations).
+    private var realInput: [Float]
+    private var imagInput: [Float]
+    private var realOutput: [Float]
+    private var imagOutput: [Float]
+    private var magnitudes: [Float]
 
     /// Minimum overall level to consider (filters out silence)
     private let minimumLevel: Float = 0.05
@@ -199,6 +205,11 @@ final class BlowDetectionService {
 
     init() {
         BlowDetectionSensitivity.ensureDefaultExists()
+        realInput = [Float](repeating: 0, count: fftSize)
+        imagInput = [Float](repeating: 0, count: fftSize)
+        realOutput = [Float](repeating: 0, count: fftSize)
+        imagOutput = [Float](repeating: 0, count: fftSize)
+        magnitudes = [Float](repeating: 0, count: fftSize / 2)
         // Create FFT setup for frequency analysis
         fftSetup = vDSP_DFT_zop_CreateSetup(
             nil,
@@ -397,22 +408,16 @@ final class BlowDetectionService {
             return
         }
 
-        // Prepare data for FFT
-        var realInput = [Float](repeating: 0, count: fftSize)
-        var imagInput = [Float](repeating: 0, count: fftSize)
-        var realOutput = [Float](repeating: 0, count: fftSize)
-        var imagOutput = [Float](repeating: 0, count: fftSize)
-
-        // Copy audio data to real input
+        // Reuse preallocated FFT buffers (no per-callback allocations).
         for i in 0..<fftSize {
             realInput[i] = channelData[i]
+            imagInput[i] = 0
         }
 
         // Perform FFT
         vDSP_DFT_Execute(fftSetup, &realInput, &imagInput, &realOutput, &imagOutput)
 
-        // Calculate magnitude spectrum
-        var magnitudes = [Float](repeating: 0, count: fftSize / 2)
+        // Calculate magnitude spectrum into reused buffer
         for i in 0..<(fftSize / 2) {
             let real = realOutput[i]
             let imag = imagOutput[i]
