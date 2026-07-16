@@ -26,7 +26,6 @@ struct WritingView: View {
     @Environment(PremiumManager.self) private var premium
     @Environment(AmbientSoundService.self) private var ambientSound
     @Environment(ReminderNotificationService.self) private var reminderService
-    @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Release.timestamp) private var allReleases: [Release]
