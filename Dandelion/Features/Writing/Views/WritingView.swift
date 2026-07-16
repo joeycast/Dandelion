@@ -274,6 +274,7 @@ struct WritingView: View {
                                 isTextEditorFocused: isTextEditorFocused,
                                 bottomInset: layout.safeAreaBottom,
                                 canRelease: viewModel.canRelease,
+                                showBlowIndicator: viewModel.showBlowIndicator,
                                 blowDetection: viewModel.blowDetection,
                                 onShowHelp: {
                                     withAnimation(.easeOut(duration: 0.3)) {

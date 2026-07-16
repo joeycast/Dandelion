@@ -322,6 +322,7 @@ final class WritingViewModel {
             guard let self else { return }
             Task { @MainActor in
                 guard self.writingState == .writing else { return }
+                self.blowLevel = self.blowDetection.currentLevel
                 if self.canRelease {
                     self.triggerRelease()
                 }
@@ -332,7 +333,13 @@ final class WritingViewModel {
             guard let self else { return }
             Task { @MainActor in
                 guard self.writingState == .writing else { return }
+                self.blowLevel = self.blowDetection.currentLevel
                 self.showBlowIndicator = true
+                // Progressive detach: nibble seeds off while the user sustains a blow.
+                // Full release still detaches any remaining seeds at once.
+                if self.canRelease {
+                    self.startDetachingSeeds()
+                }
             }
         }
 
@@ -340,6 +347,7 @@ final class WritingViewModel {
             guard let self else { return }
             Task { @MainActor in
                 self.showBlowIndicator = false
+                self.blowLevel = 0
                 self.stopDetachingSeeds()
             }
         }

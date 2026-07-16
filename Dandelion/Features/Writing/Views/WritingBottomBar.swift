@@ -21,6 +21,7 @@ struct WritingBottomBar: View {
     let isTextEditorFocused: Bool
     let bottomInset: CGFloat
     let canRelease: Bool
+    let showBlowIndicator: Bool
     let blowDetection: BlowDetectionService
     let onShowHelp: () -> Void
     let onLetGo: () -> Void
@@ -32,13 +33,26 @@ struct WritingBottomBar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if (isWriting || isReleasing)
-                && blowDetection.hasPermission
-                && blowDetection.isEnabled {
-                blowProgressBar
-                    .padding(.bottom, DandelionSpacing.md)
-                    .opacity(isWriting ? 1 : 0)
-                    .animation(.easeOut(duration: 0.2), value: isWriting)
+            if isWriting && blowDetection.isEnabled {
+                VStack(spacing: DandelionSpacing.sm) {
+                    if showBlowIndicator {
+                        blowIndicator
+                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    }
+
+                    if blowDetection.hasPermission {
+                        blowProgressBar
+                    } else {
+                        WritingMicrophoneStatusView(
+                            permissionDetermined: blowDetection.permissionDetermined,
+                            hasPermission: blowDetection.hasPermission,
+                            onRequestPermission: onRequestMicrophone
+                        )
+                    }
+                }
+                .padding(.bottom, DandelionSpacing.md)
+                .animation(.easeOut(duration: 0.2), value: showBlowIndicator)
+                .animation(.easeOut(duration: 0.2), value: blowDetection.hasPermission)
             }
 
             ZStack {
@@ -96,10 +110,30 @@ struct WritingBottomBar: View {
         .allowsHitTesting(isWriting)
     }
 
+    private var blowIndicator: some View {
+        HStack {
+            Image(systemName: "wind")
+                .foregroundColor(theme.accent)
+
+            Text("Keep blowing...")
+                .font(.dandelionSecondary)
+                .foregroundColor(theme.text)
+        }
+        .padding(.horizontal, DandelionSpacing.lg)
+        .padding(.vertical, DandelionSpacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(theme.primary.opacity(0.5))
+        )
+        .transition(.opacity.combined(with: .scale))
+        .accessibilityLabel("Keep blowing into the microphone to release your writing")
+    }
+
     private var blowProgressBar: some View {
         let progress = CGFloat(max(0, min(1, blowDetection.blowProgress)))
+        let label = showBlowIndicator ? "Keep blowing…" : "Blow to release"
         return VStack(spacing: DandelionSpacing.xs) {
-            Text("Blow to release")
+            Text(label)
                 .font(.dandelionSecondary)
                 .foregroundColor(theme.secondary)
 
@@ -117,7 +151,7 @@ struct WritingBottomBar: View {
             .frame(height: 6)
         }
         .frame(maxWidth: 240)
-        .opacity(progress > 0 ? 1 : 0.6)
+        .opacity(progress > 0 || showBlowIndicator ? 1 : 0.6)
         .transition(.opacity)
         .accessibilityLabel("Blow progress")
         .accessibilityValue("\(Int(progress * 100)) percent")
