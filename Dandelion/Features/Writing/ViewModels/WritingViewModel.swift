@@ -71,7 +71,8 @@ final class WritingViewModel {
     private(set) var releaseStartTime: TimeInterval?
     let seedRestoreDuration: TimeInterval = 8.0
     private let dandelionReturnDuration: TimeInterval = 1.5  // Position animation before regrowth begins
-    static let debugReleaseFlow = true
+    /// Release-flow debug logging. Off by default; enable temporarily when diagnosing release timing.
+    static let debugReleaseFlow = false
 
     // MARK: - Computed Properties
 
