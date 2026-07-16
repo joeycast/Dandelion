@@ -38,6 +38,10 @@ struct WritingView: View {
     @State private var mainContentOpacity: Double = 0
     @State private var textScrollOffset: CGFloat = 0
     @State private var capturedScrollOffset: CGFloat = 0
+    /// Live frame of the writing editor content (in `writingRoot` space).
+    @State private var liveWritingEditorFrame: CGRect = .zero
+    /// Frame frozen at release start so letters begin where the written text was.
+    @State private var capturedWritingEditorFrame: CGRect = .zero
     @State private var releaseDandelionTopPadding: CGFloat? = nil
     @State private var lastWritingDandelionTopPadding: CGFloat = 0
     @State private var releaseTextSnapshot: String = ""
@@ -281,7 +285,11 @@ struct WritingView: View {
                                     }
                                 },
                                 onLetGo: {
+                                    // Freeze editor geometry before keyboard dismiss shifts layout.
                                     capturedScrollOffset = textScrollOffset
+                                    if liveWritingEditorFrame != .zero {
+                                        capturedWritingEditorFrame = liveWritingEditorFrame
+                                    }
                                     isTextEditorFocused = false
                                     viewModel.manualRelease()
                                 },
@@ -323,12 +331,8 @@ struct WritingView: View {
 
                 // Floating release text sits above the dandelion so glyphs aren't clipped.
                 if showAnimatedText {
-                    releaseAnimatedTextOverlay(
-                        in: geometry.size,
-                        headerSpaceHeight: layout.headerSpaceHeight,
-                        fullScreenSize: layout.fullScreenSize
-                    )
-                    .zIndex(2)
+                    releaseAnimatedTextOverlay(fullScreenSize: layout.fullScreenSize)
+                        .zIndex(2)
                 }
 
                 // Release message overlay
@@ -339,6 +343,12 @@ struct WritingView: View {
             }
             .opacity(mainContentOpacity)
         }
+        .coordinateSpace(name: "writingRoot")
+        .onPreferenceChange(WritingEditorFrameKey.self) { frame in
+            // Keep tracking while writing so release can freeze the exact on-screen origin.
+            guard viewModel.writingState == .writing, frame.width > 0, frame.height > 0 else { return }
+            liveWritingEditorFrame = frame
+        }
         .onChange(of: viewModel.writingState) { _, newValue in
             if WritingViewModel.debugReleaseFlow {
                 debugLog(
@@ -347,14 +357,21 @@ struct WritingView: View {
             }
             if newValue == .releasing {
                 logReleaseTiming("state=releasing")
-                // Capture scroll offset only if keyboard is still up (blow-triggered release).
-                // For manual release, the button action already captured it before dismissing keyboard.
-                // On macOS, always capture since there's no keyboard.
+                // Capture scroll/frame while layout still matches the written text.
+                // Manual Let Go already frozen these before keyboard dismiss; blow still has focus here.
 #if os(macOS)
                 capturedScrollOffset = textScrollOffset
+                if liveWritingEditorFrame != .zero {
+                    capturedWritingEditorFrame = liveWritingEditorFrame
+                }
 #else
                 if isTextEditorFocused {
                     capturedScrollOffset = textScrollOffset
+                    if liveWritingEditorFrame != .zero {
+                        capturedWritingEditorFrame = liveWritingEditorFrame
+                    }
+                } else if capturedWritingEditorFrame == .zero, liveWritingEditorFrame != .zero {
+                    capturedWritingEditorFrame = liveWritingEditorFrame
                 }
 #endif
                 releaseDandelionTopPadding = lastWritingDandelionTopPadding
@@ -364,7 +381,7 @@ struct WritingView: View {
                 releaseVisibleHeight = lastWritingAreaHeight
                 if WritingViewModel.debugReleaseFlow {
                     debugLog(
-                        "[ReleaseFlow] release heights snapshot area=\(lastWritingAreaHeight) visible=\(releaseVisibleHeight)"
+                        "[ReleaseFlow] release heights snapshot area=\(lastWritingAreaHeight) visible=\(releaseVisibleHeight) frame=\(capturedWritingEditorFrame)"
                     )
                 }
                 // Note: Seed detachment is now handled in triggerRelease() for atomic state update
@@ -395,6 +412,9 @@ struct WritingView: View {
                 showWrittenText = true
                 showAnimatedText = false
                 releaseVisibleHeight = 0
+                if newValue != .writing {
+                    capturedWritingEditorFrame = .zero
+                }
             }
             if newValue == .prompt && lastWritingState == .complete {
                 suppressPromptLayoutAnimation = true
@@ -413,45 +433,41 @@ struct WritingView: View {
     }
 
     /// Release letters rendered above the dandelion layer so they aren't clipped underneath it.
+    /// Positioned from the frozen editor frame so letters start where the written text was
+    /// (no jump when the keyboard dismisses or layout reflows).
     @ViewBuilder
-    private func releaseAnimatedTextOverlay(
-        in size: CGSize,
-        headerSpaceHeight: CGFloat,
-        fullScreenSize: CGSize
-    ) -> some View {
-        let baseHorizontalPadding = DandelionSpacing.screenEdge - 5
-#if os(macOS)
-        let horizontalPadding = max(
-            baseHorizontalPadding,
-            (size.width - DandelionLayout.maxWritingWidth) / 2
-        )
-#else
-        let horizontalPadding = baseHorizontalPadding
-#endif
-        let lineWidth = size.width - (horizontalPadding * 2)
-        // Buffer so the last visible line isn't clipped at descenders.
-        let overlayVisibleHeight = (releaseVisibleHeight > 0 ? releaseVisibleHeight : lastWritingAreaHeight) + 30
+    private func releaseAnimatedTextOverlay(fullScreenSize: CGSize) -> some View {
+        let frame = capturedWritingEditorFrame
         let topOverflowForAnimation: CGFloat = 500
-
-        AnimatableTextView(
-            text: releaseTextSnapshot,
-            font: .dandelionWriting,
-            uiFont: .dandelionWriting,
-            textColor: theme.text,
-            lineWidth: lineWidth,
-            isAnimating: animateLetters,
-            fadeOutTrigger: fadeOutLetters,
-            screenSize: fullScreenSize,
-            visibleHeight: overlayVisibleHeight,
-            scrollOffset: capturedScrollOffset,
-            horizontalOffset: horizontalPadding
+        // Buffer so the last visible line isn't clipped at descenders.
+        let overlayVisibleHeight = max(
+            frame.height,
+            (releaseVisibleHeight > 0 ? releaseVisibleHeight : lastWritingAreaHeight) + 30
         )
-        .padding(.top, max(0, 8 - capturedScrollOffset))
-        .allowsHitTesting(false)
-        // Anchor at writing area origin, shifted up by canvas overflow so glyphs start
-        // at the same place as the editor, then fly freely over the dandelion.
-        .padding(.top, headerSpaceHeight + 18 + DandelionSpacing.sm - topOverflowForAnimation)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        let lineWidth = max(frame.width, 1)
+
+        if frame.width > 0, frame.height > 0 {
+            AnimatableTextView(
+                text: releaseTextSnapshot,
+                font: .dandelionWriting,
+                uiFont: .dandelionWriting,
+                textColor: theme.text,
+                lineWidth: lineWidth,
+                isAnimating: animateLetters,
+                fadeOutTrigger: fadeOutLetters,
+                screenSize: fullScreenSize,
+                visibleHeight: overlayVisibleHeight,
+                scrollOffset: capturedScrollOffset,
+                horizontalOffset: 0
+            )
+            // Match UITextView textContainerInset top (8) accounting for scroll.
+            .padding(.top, max(0, 8 - capturedScrollOffset))
+            .frame(width: frame.width, alignment: .topLeading)
+            // Canvas draws resting glyphs at y = topOverflow; place view so that maps to editor top.
+            .offset(x: frame.minX, y: frame.minY - topOverflowForAnimation)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .allowsHitTesting(false)
+        }
     }
 
     private func releaseMessageOverlay(layout: LayoutMetrics) -> some View {
@@ -858,6 +874,14 @@ struct WritingView: View {
                     // above the dandelion so floating words aren't clipped underneath it.
                 }
                 .padding(.horizontal, horizontalPadding)
+                .background {
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: WritingEditorFrameKey.self,
+                            value: geo.frame(in: .named("writingRoot"))
+                        )
+                    }
+                }
                 .opacity((isWriting || isReleasing) ? 1 : 0)
                 .animation(nil, value: isWriting)
 #if os(macOS)
@@ -1186,6 +1210,18 @@ struct WritingView: View {
 #endif
             }
             .allowsHitTesting(false)
+    }
+}
+
+/// Reports the writing editor's on-screen frame for release-letter alignment.
+private struct WritingEditorFrameKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next.width > 0, next.height > 0 {
+            value = next
+        }
     }
 }
 
