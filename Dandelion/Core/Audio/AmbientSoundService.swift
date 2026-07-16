@@ -154,9 +154,11 @@ final class AmbientSoundService {
 
         do {
             #if os(iOS)
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.ambient, options: [.mixWithOthers])
-            try audioSession.setActive(true)
+            // Claim ambient before creating the player so category is correct
+            // even when blow detection is already listening.
+            if player == nil {
+                AudioSessionCoordinator.acquireAmbient()
+            }
             #endif
 
             let player = try AVAudioPlayer(contentsOf: url)
@@ -169,6 +171,12 @@ final class AmbientSoundService {
             debugLog("AmbientSoundService: playing \(sound.filename).\(sound.fileExtension)")
         } catch {
             debugLog("AmbientSoundService: failed to play \(sound.filename).\(sound.fileExtension): \(error)")
+            // Roll back ambient claim if we never successfully started.
+            #if os(iOS)
+            if self.player == nil {
+                AudioSessionCoordinator.releaseAmbient()
+            }
+            #endif
             // Ignore audio errors; ambient sound is optional.
         }
     }
@@ -187,9 +195,15 @@ final class AmbientSoundService {
         if resetPreview {
             isPreviewing = false
         }
+        let hadPlayer = player != nil
         player?.stop()
         player = nil
         currentSound = nil
+        #if os(iOS)
+        if hadPlayer {
+            AudioSessionCoordinator.releaseAmbient()
+        }
+        #endif
     }
 
     func fadeOut(duration: TimeInterval = 1.2) {
