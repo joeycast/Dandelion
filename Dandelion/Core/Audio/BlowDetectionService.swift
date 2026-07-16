@@ -323,22 +323,36 @@ final class BlowDetectionService {
 
         do {
             #if os(iOS)
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetoothA2DP])
-            try audioSession.setActive(true)
+            try AudioSessionCoordinator.acquireBlowDetection()
             #endif
 
             audioEngine = AVAudioEngine()
-            guard let audioEngine = audioEngine else { return }
+            guard let audioEngine = audioEngine else {
+                #if os(iOS)
+                AudioSessionCoordinator.releaseBlowDetection()
+                #endif
+                return
+            }
 
             inputNode = audioEngine.inputNode
-            guard let inputNode = inputNode else { return }
+            guard let inputNode = inputNode else {
+                self.audioEngine = nil
+                #if os(iOS)
+                AudioSessionCoordinator.releaseBlowDetection()
+                #endif
+                return
+            }
 
             let format = inputNode.outputFormat(forBus: 0)
 
             // Ensure format is valid
             guard format.sampleRate > 0 else {
                 debugLog("Invalid audio format")
+                self.audioEngine = nil
+                self.inputNode = nil
+                #if os(iOS)
+                AudioSessionCoordinator.releaseBlowDetection()
+                #endif
                 return
             }
 
@@ -354,12 +368,20 @@ final class BlowDetectionService {
 
         } catch {
             debugLog("Failed to start audio engine: \(error)")
+            inputNode?.removeTap(onBus: 0)
+            audioEngine?.stop()
+            audioEngine = nil
+            inputNode = nil
             isListening = false
+            #if os(iOS)
+            AudioSessionCoordinator.releaseBlowDetection()
+            #endif
         }
     }
 
     /// Stop listening
     func stopListening() {
+        let wasListening = isListening
         inputNode?.removeTap(onBus: 0)
         audioEngine?.stop()
         audioEngine = nil
@@ -373,6 +395,15 @@ final class BlowDetectionService {
         consecutiveBlowFrames = 0
         blowCandidateStartTime = nil
         blowProgress = 0
+
+        #if os(iOS)
+        // Only release if we actually held a session claim (or believed we were listening).
+        // startListeningOverride in tests sets isListening without acquiring.
+        if wasListening {
+            // In unit tests, startListeningOverride may skip acquire — release is harmless (clamped).
+            AudioSessionCoordinator.releaseBlowDetection()
+        }
+        #endif
     }
 
     // MARK: - Audio Processing
