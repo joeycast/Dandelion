@@ -44,6 +44,9 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
 
         textView.textContainerInset = UIEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
         textView.textContainer.lineFragmentPadding = 5
+        // Font is supplied already scaled via UIFontMetrics; re-applied in updateUIView
+        // when Dynamic Type / content size category changes.
+        textView.adjustsFontForContentSizeCategory = true
 
         textView.text = text
         context.coordinator.textView = textView
