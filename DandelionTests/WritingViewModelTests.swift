@@ -179,4 +179,54 @@ final class WritingViewModelTests: XCTestCase {
         XCTAssertTrue(blowDetection.hasPermission, "Permission should still be granted after request")
         XCTAssertFalse(startListeningCalled, "Should not start listening when blow detection is disabled")
     }
+
+    // MARK: - Progressive Blow Feedback
+
+    func testBlowStartedDetachesSeedsProgressivelyWhenCanRelease() async {
+        let blowDetection = BlowDetectionService()
+        sut = WritingViewModel(
+            promptsManager: PromptsManager(),
+            blowDetection: blowDetection,
+            haptics: .shared
+        )
+        sut.writingState = .writing
+        sut.writtenText = "Something to let go"
+        XCTAssertTrue(sut.detachedSeedTimes.isEmpty)
+
+        blowDetection.onBlowStarted?()
+        try? await Task.sleep(nanoseconds: 350_000_000)
+
+        XCTAssertTrue(sut.showBlowIndicator, "Should show blow indicator while blowing")
+        XCTAssertFalse(sut.detachedSeedTimes.isEmpty, "Seeds should begin detaching during a sustained blow")
+        XCTAssertLessThan(sut.detachedSeedTimes.count, sut.dandelionSeedCount, "Should not detach all seeds instantly")
+
+        blowDetection.onBlowEnded?()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertFalse(sut.showBlowIndicator)
+        let detachedAfterEnd = sut.detachedSeedTimes.count
+
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertEqual(
+            sut.detachedSeedTimes.count,
+            detachedAfterEnd,
+            "Detachment should stop when blow ends"
+        )
+    }
+
+    func testBlowStartedDoesNotDetachWithoutText() async {
+        let blowDetection = BlowDetectionService()
+        sut = WritingViewModel(
+            promptsManager: PromptsManager(),
+            blowDetection: blowDetection,
+            haptics: .shared
+        )
+        sut.writingState = .writing
+        sut.writtenText = ""
+
+        blowDetection.onBlowStarted?()
+        try? await Task.sleep(nanoseconds: 200_000_000)
+
+        XCTAssertTrue(sut.showBlowIndicator)
+        XCTAssertTrue(sut.detachedSeedTimes.isEmpty, "Should not detach seeds when there is nothing to release")
+    }
 }
