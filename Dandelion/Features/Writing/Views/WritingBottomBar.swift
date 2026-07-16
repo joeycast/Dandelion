@@ -33,13 +33,9 @@ struct WritingBottomBar: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Single blow cue: progress label flips to "Keep blowing…" (no extra chip).
             if isWriting && blowDetection.isEnabled {
-                VStack(spacing: DandelionSpacing.sm) {
-                    if showBlowIndicator {
-                        blowIndicator
-                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                    }
-
+                Group {
                     if blowDetection.hasPermission {
                         blowProgressBar
                     } else {
@@ -110,25 +106,6 @@ struct WritingBottomBar: View {
         .allowsHitTesting(isWriting)
     }
 
-    private var blowIndicator: some View {
-        HStack {
-            Image(systemName: "wind")
-                .foregroundColor(theme.accent)
-
-            Text("Keep blowing...")
-                .font(.dandelionSecondary)
-                .foregroundColor(theme.text)
-        }
-        .padding(.horizontal, DandelionSpacing.lg)
-        .padding(.vertical, DandelionSpacing.sm)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(theme.primary.opacity(0.5))
-        )
-        .transition(.opacity.combined(with: .scale))
-        .accessibilityLabel("Keep blowing into the microphone to release your writing")
-    }
-
     private var blowProgressBar: some View {
         let progress = CGFloat(max(0, min(1, blowDetection.blowProgress)))
         let label = showBlowIndicator ? "Keep blowing…" : "Blow to release"
@@ -136,6 +113,11 @@ struct WritingBottomBar: View {
             Text(label)
                 .font(.dandelionSecondary)
                 .foregroundColor(theme.secondary)
+                .accessibilityLabel(
+                    showBlowIndicator
+                        ? "Keep blowing into the microphone to release your writing"
+                        : "Blow to release"
+                )
 
             GeometryReader { geometry in
                 let width = max(0, geometry.size.width)

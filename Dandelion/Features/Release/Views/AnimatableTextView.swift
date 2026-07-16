@@ -47,11 +47,9 @@ struct AnimatableTextView: View {
 
     /// Extra space above text so characters can fly upward without clipping.
     /// macOS uses a larger overflow because the overlay is positioned higher.
-#if os(macOS)
+    /// Extra canvas height above the text origin so glyphs can fly upward
+    /// without being clipped by the Canvas frame.
     private let topOverflowForAnimation: CGFloat = 500
-#else
-    private let topOverflowForAnimation: CGFloat = 0
-#endif
 
     var body: some View {
         // Compute layout synchronously on first render to avoid frame jumps

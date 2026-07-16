@@ -95,25 +95,28 @@ enum AudioSessionCoordinator {
 
         guard wantsAmbient || wantsBlow else {
             // Step down to ambient mixable category when nothing needs the session.
+            // Prefer not interrupting other audio apps when we fully release.
             try session.setCategory(.ambient, options: [.mixWithOthers])
             return
         }
 
-        if wantsBlow {
-            // playAndRecord allows mic + speaker simultaneously.
-            // mixWithOthers keeps ambient AVAudioPlayer audible while listening.
-            // Prefer .default mode when ambient is also active so playback is not
-            // aggressively optimized away by .measurement.
-            let mode: AVAudioSession.Mode = wantsAmbient ? .default : .measurement
-            try session.setCategory(
-                .playAndRecord,
-                mode: mode,
-                options: [.defaultToSpeaker, .mixWithOthers, .allowBluetoothA2DP]
-            )
-        } else {
-            try session.setCategory(.ambient, options: [.mixWithOthers])
-        }
+        // Keep playAndRecord whenever mic OR ambient is active.
+        // Switching category when blow detection stops (while ambient still plays)
+        // briefly interrupts AVAudioPlayer — heard as a short gap at release.
+        let mode: AVAudioSession.Mode = wantsBlow && !wantsAmbient ? .measurement : .default
+        let desiredCategory: AVAudioSession.Category = .playAndRecord
+        let desiredOptions: AVAudioSession.CategoryOptions = [
+            .defaultToSpeaker, .mixWithOthers, .allowBluetoothA2DP
+        ]
 
+        let categoryAlreadyConfigured =
+            session.category == desiredCategory
+            && session.mode == mode
+            && session.categoryOptions.isSuperset(of: desiredOptions)
+
+        if !categoryAlreadyConfigured {
+            try session.setCategory(desiredCategory, mode: mode, options: desiredOptions)
+        }
         try session.setActive(true, options: [])
 #else
         _ = ambientClients

@@ -45,7 +45,6 @@ struct WritingView: View {
     @State private var showAnimatedText: Bool = false
     @State private var releaseVisibleHeight: CGFloat = 0
     @State private var lastWritingAreaHeight: CGFloat = 0
-    @State private var releaseClipOffset: CGFloat = 0
     @State private var fadeOutLetters: Bool = false
     @State private var lastWritingState: WritingState = .prompt
     @State private var suppressPromptLayoutAnimation: Bool = false
@@ -322,6 +321,16 @@ struct WritingView: View {
                 .allowsHitTesting(false)
                 .zIndex(1)
 
+                // Floating release text sits above the dandelion so glyphs aren't clipped.
+                if showAnimatedText {
+                    releaseAnimatedTextOverlay(
+                        in: geometry.size,
+                        headerSpaceHeight: layout.headerSpaceHeight,
+                        fullScreenSize: layout.fullScreenSize
+                    )
+                    .zIndex(2)
+                }
+
                 // Release message overlay
                 if isReleasing {
                     releaseMessageOverlay(layout: layout)
@@ -330,19 +339,6 @@ struct WritingView: View {
             }
             .opacity(mainContentOpacity)
         }
-#if os(macOS)
-        // macOS: Render animated text as overlay to ensure it floats above dandelion
-        // Only render when needed to avoid first-release initialization glitches
-        .overlay {
-            if showAnimatedText {
-                macOSAnimatedTextOverlay(
-                    in: geometry.size,
-                    headerSpaceHeight: layout.headerSpaceHeight,
-                    fullScreenSize: layout.fullScreenSize
-                )
-            }
-        }
-#endif
         .onChange(of: viewModel.writingState) { _, newValue in
             if WritingViewModel.debugReleaseFlow {
                 debugLog(
@@ -377,23 +373,6 @@ struct WritingView: View {
                 animateLetters = true
                 logReleaseTiming("animatedText=visible")
                 showWrittenText = false
-                // Start with clip at bounds, then animate it open to release characters upward
-                releaseClipOffset = 0
-                let releaseClipDuration: Double = {
-#if os(macOS)
-                    return 3.2
-#else
-                    return 2.0
-#endif
-                }()
-                withAnimation(.easeInOut(duration: releaseClipDuration)) {
-#if os(macOS)
-                    // macOS needs more headroom for characters to float past the header
-                    releaseClipOffset = 1000
-#else
-                    releaseClipOffset = 200
-#endif
-                }
             }
             // Update focus state after releasing check (so we can detect if keyboard was up)
             isTextEditorFocused = newValue == .writing
@@ -416,7 +395,6 @@ struct WritingView: View {
                 showWrittenText = true
                 showAnimatedText = false
                 releaseVisibleHeight = 0
-                releaseClipOffset = 0
             }
             if newValue == .prompt && lastWritingState == .complete {
                 suppressPromptLayoutAnimation = true
@@ -434,22 +412,25 @@ struct WritingView: View {
         }
     }
 
-#if os(macOS)
+    /// Release letters rendered above the dandelion layer so they aren't clipped underneath it.
     @ViewBuilder
-    private func macOSAnimatedTextOverlay(
+    private func releaseAnimatedTextOverlay(
         in size: CGSize,
         headerSpaceHeight: CGFloat,
         fullScreenSize: CGSize
     ) -> some View {
         let baseHorizontalPadding = DandelionSpacing.screenEdge - 5
+#if os(macOS)
         let horizontalPadding = max(
             baseHorizontalPadding,
             (size.width - DandelionLayout.maxWritingWidth) / 2
         )
+#else
+        let horizontalPadding = baseHorizontalPadding
+#endif
         let lineWidth = size.width - (horizontalPadding * 2)
-        // Add buffer to prevent bottom row cutoff
+        // Buffer so the last visible line isn't clipped at descenders.
         let overlayVisibleHeight = (releaseVisibleHeight > 0 ? releaseVisibleHeight : lastWritingAreaHeight) + 30
-
         let topOverflowForAnimation: CGFloat = 500
 
         AnimatableTextView(
@@ -467,16 +448,11 @@ struct WritingView: View {
         )
         .padding(.top, max(0, 8 - capturedScrollOffset))
         .allowsHitTesting(false)
-        // No horizontal padding - let particles float freely across the full window
-        // Position at top of writing area:
-        // - headerSpaceHeight: space for dandelion
-        // - ~18pt: height adjustment for prompt text line
-        // - DandelionSpacing.sm: writingArea top padding
-        // - minus 500pt for the overflow built into AnimatableTextView
+        // Anchor at writing area origin, shifted up by canvas overflow so glyphs start
+        // at the same place as the editor, then fly freely over the dandelion.
         .padding(.top, headerSpaceHeight + 18 + DandelionSpacing.sm - topOverflowForAnimation)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
-#endif
 
     private func releaseMessageOverlay(layout: LayoutMetrics) -> some View {
         #if os(macOS)
@@ -829,11 +805,7 @@ struct WritingView: View {
 #else
                 let horizontalPadding = baseHorizontalPadding
 #endif
-                let size = geometry.size
                 let lineWidth = geometry.size.width - (horizontalPadding * 2)
-                let overlayVisibleHeight = isReleasing
-                    ? (releaseVisibleHeight > 0 ? releaseVisibleHeight : lastWritingAreaHeight)
-                    : size.height
 
                 ZStack(alignment: .topLeading) {
                     // Auto-scrolling text editor (hidden when releasing)
@@ -882,48 +854,8 @@ struct WritingView: View {
                     }
 #endif
 
-                    // Animatable text overlay - starts at the same position as the text editor
-                    // Top padding matches UITextView's textContainerInset when unscrolled,
-                    // but reduces to 0 when scrolled (since scrolled text appears at y=0)
-                    // Note: On macOS, this is rendered as a top-level overlay (macOSAnimatedTextOverlay)
-                    // to ensure it floats above the dandelion
-#if os(iOS)
-                    AnimatableTextView(
-                        text: showAnimatedText ? releaseTextSnapshot : viewModel.writtenText,
-                        font: .dandelionWriting,
-                        uiFont: .dandelionWriting,
-                        textColor: theme.text,
-                        lineWidth: lineWidth,
-                        isAnimating: animateLetters,
-                        fadeOutTrigger: fadeOutLetters,
-                        screenSize: fullScreenSize,
-                        visibleHeight: overlayVisibleHeight,
-                        scrollOffset: capturedScrollOffset
-                    )
-                    .padding(.top, max(0, 8 - capturedScrollOffset))
-                    // Clip mask that starts at view bounds, then expands upward to release characters
-                    // Uses gradient at top edge for smooth fade-in rather than hard clip
-                    .mask(
-                        GeometryReader { geo in
-                            VStack(spacing: 0) {
-                                // Soft gradient edge at top
-                                LinearGradient(
-                                    colors: [.clear, .black],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                                .frame(height: 0.3)
-                                // Solid visible area below
-                                Rectangle()
-                            }
-                            .frame(height: geo.size.height + releaseClipOffset)
-                            .offset(y: -releaseClipOffset)
-                        }
-                    )
-                    .opacity(showAnimatedText ? 1 : 0)
-                    .allowsHitTesting(false)
-                    .zIndex(1)
-#endif
+                    // Release letter animation is rendered in `releaseAnimatedTextOverlay`
+                    // above the dandelion so floating words aren't clipped underneath it.
                 }
                 .padding(.horizontal, horizontalPadding)
                 .opacity((isWriting || isReleasing) ? 1 : 0)
@@ -933,7 +865,6 @@ struct WritingView: View {
                 .overlay(alignment: .topLeading) {
                     if Self.debugShowReleaseMetrics {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("overlayVisibleHeight: \(Int(overlayVisibleHeight))")
                             Text("releaseVisibleHeight: \(Int(releaseVisibleHeight))")
                             Text("lastWritingAreaHeight: \(Int(lastWritingAreaHeight))")
                             Text("capturedScrollOffset: \(Int(capturedScrollOffset))")
@@ -953,12 +884,12 @@ struct WritingView: View {
                 Color.clear
                     .onAppear {
                         guard !isReleasing else { return }
-                        let height = size.height
+                        let height = geometry.size.height
                         if abs(lastWritingAreaHeight - height) > 0.5 {
                             lastWritingAreaHeight = height
                         }
                     }
-                    .onChange(of: size.height) { _, newValue in
+                    .onChange(of: geometry.size.height) { _, newValue in
                         guard !isReleasing else { return }
                         if abs(lastWritingAreaHeight - newValue) > 0.5 {
                             lastWritingAreaHeight = newValue
@@ -967,7 +898,7 @@ struct WritingView: View {
                     .onChange(of: isReleasing) { _, newValue in
                         if WritingViewModel.debugReleaseFlow {
                             debugLog(
-                                "[ReleaseFlow] writingArea size=\(size.height) last=\(lastWritingAreaHeight) releasing=\(newValue)"
+                                "[ReleaseFlow] writingArea size=\(geometry.size.height) last=\(lastWritingAreaHeight) releasing=\(newValue)"
                             )
                         }
                     }
