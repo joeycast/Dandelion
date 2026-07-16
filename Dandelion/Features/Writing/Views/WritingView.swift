@@ -847,6 +847,16 @@ struct WritingView: View {
                             transaction.animation = nil
                         }
                     }
+                    // Measure the editor itself (not the padded outer container) so release
+                    // letters inherit the same horizontal inset as the written text.
+                    .background {
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: WritingEditorFrameKey.self,
+                                value: geo.frame(in: .named("writingRoot"))
+                            )
+                        }
+                    }
                     .zIndex(0)
 #else
                     AutoScrollingTextEditor(
@@ -868,20 +878,20 @@ struct WritingView: View {
                             transaction.animation = nil
                         }
                     }
+                    .background {
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: WritingEditorFrameKey.self,
+                                value: geo.frame(in: .named("writingRoot"))
+                            )
+                        }
+                    }
 #endif
 
                     // Release letter animation is rendered in `releaseAnimatedTextOverlay`
                     // above the dandelion so floating words aren't clipped underneath it.
                 }
                 .padding(.horizontal, horizontalPadding)
-                .background {
-                    GeometryReader { geo in
-                        Color.clear.preference(
-                            key: WritingEditorFrameKey.self,
-                            value: geo.frame(in: .named("writingRoot"))
-                        )
-                    }
-                }
                 .opacity((isWriting || isReleasing) ? 1 : 0)
                 .animation(nil, value: isWriting)
 #if os(macOS)
