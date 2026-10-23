@@ -33,6 +33,7 @@ struct ReleaseMessageView: View {
                         .opacity(messageOpacity)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, DandelionSpacing.xl)
+                        .frame(maxWidth: DandelionLayout.maxPromptWidth + DandelionSpacing.xl * 2)
                         .frame(height: messageAreaHeight, alignment: .top)
                         .accessibilityLabel(releaseMessage)
                         .accessibilityAddTraits(.updatesFrequently)

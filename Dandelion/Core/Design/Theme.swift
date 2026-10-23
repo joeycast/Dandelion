@@ -131,10 +131,25 @@ enum DandelionLayout {
     /// Top safe area inset offset used for buttons (history/settings)
     static let topButtonsHeight: CGFloat = 32
 
-    /// Maximum writing line width on macOS to keep text readable in wide windows.
+    /// Maximum writing line width to keep text readable in wide windows and on
+    /// expansive displays (iPad, the iPhone Duo inner display, macOS).
     static let maxWritingWidth: CGFloat = 720
 
+    /// Maximum width for the prompt and release message titles.
+    static let maxPromptWidth: CGFloat = 560
+
     // MARK: - Positioning Helpers
+
+    /// Horizontal padding that keeps content at least `minimum` from each edge while
+    /// centering it in a column no wider than `maxContentWidth`. Narrow containers
+    /// (iPhone, outer iPhone Duo display) get `minimum`; wide ones get a centered column.
+    static func readableHorizontalPadding(
+        containerWidth: CGFloat,
+        minimum: CGFloat,
+        maxContentWidth: CGFloat = maxWritingWidth
+    ) -> CGFloat {
+        max(minimum, (containerWidth - maxContentWidth) / 2)
+    }
 
     /// Calculate the proportional offset used to center the dandelion on prompt/release states.
     /// iOS: Capped at 80pt to prevent excessive offset on large screens (iPads).

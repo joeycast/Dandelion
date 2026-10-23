@@ -58,7 +58,8 @@ struct AutoScrollingTextEditor: UIViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
         // Accept whatever size SwiftUI proposes - fill the available space
-        let width = proposal.width ?? UIScreen.main.bounds.width
+        // Avoid UIScreen.main: it's ambiguous on multi-display devices like iPhone Duo.
+        let width = proposal.width ?? uiView.window?.bounds.width ?? uiView.bounds.width
         let height = proposal.height ?? 400
         return CGSize(width: width, height: height)
     }
