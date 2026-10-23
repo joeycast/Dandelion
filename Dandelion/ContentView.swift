@@ -22,6 +22,12 @@ struct ContentView: View {
         GeometryReader { geometry in
             let topSafeArea = geometry.safeAreaInsets.top
             let bottomSafeArea = geometry.safeAreaInsets.bottom
+            // Horizontal safe areas can be asymmetric (e.g. the status bar strip on the
+            // iPhone Duo inner display). Pad the narrower side to match so the centered
+            // writing layout stays centered on the screen, not just within the safe area.
+            let leadingSafeArea = geometry.safeAreaInsets.leading
+            let trailingSafeArea = geometry.safeAreaInsets.trailing
+            let horizontalSafeArea = max(leadingSafeArea, trailingSafeArea)
 
             ZStack {
                 WritingView(
@@ -34,6 +40,8 @@ struct ContentView: View {
                     },
                     onSwipeEligibilityChange: { _ in }
                 )
+                .padding(.leading, horizontalSafeArea - leadingSafeArea)
+                .padding(.trailing, horizontalSafeArea - trailingSafeArea)
                 .sheet(isPresented: $isHistoryPresented) {
                     ReleaseHistoryView(
                         topSafeArea: 0,
