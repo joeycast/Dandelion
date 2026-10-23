@@ -21,25 +21,40 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_26.3.app
+        run: |
+          # Prefer the newest Xcode 27.x (iOS 27 SDK, iPhone Duo simulator) when the runner
+          # image has one; fall back to Xcode 26.3 so CI keeps working until it does.
+          XCODE=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -1 || true)
+          if [ -z "${XCODE}" ]; then
+            XCODE=/Applications/Xcode_26.3.app
+          fi
+          echo "Using ${XCODE}"
+          sudo xcode-select -s "${XCODE}"
+          xcodebuild -version
 
       - name: Resolve iOS Simulator destination
         id: destination
         run: |
-          # Xcode 26.3 GitHub runners ship iPhone 17 family simulators (not iPhone 16).
-          # Prefer a concrete device when available; otherwise build for the simulator SDK.
+          # Prefer the iPhone Duo simulator (Xcode 27.1+), then the iPhone 17 family
+          # (Xcode 26.3 runners), then any iPhone; otherwise build for the simulator SDK.
           set +e
           SHOW=$(xcodebuild -project Dandelion.xcodeproj -scheme Dandelion -showdestinations 2>/dev/null)
           set -e
 
-          DEST=$(printf '%s\n' "$SHOW" \
-            | tr -d '\r' \
-            | grep 'platform:iOS Simulator' \
-            | grep 'name:iPhone 17' \
-            | grep -v 'placeholder' \
-            | grep 'arch:arm64' \
-            | head -1 \
-            | sed -E 's/.*id:([^,}]+).*/platform=iOS Simulator,id=\1/' || true)
+          DEST=""
+          for NAME in 'name:iPhone Duo' 'name:iPhone 17'; do
+            DEST=$(printf '%s\n' "$SHOW" \
+              | tr -d '\r' \
+              | grep 'platform:iOS Simulator' \
+              | grep "${NAME}" \
+              | grep -v 'placeholder' \
+              | grep 'arch:arm64' \
+              | head -1 \
+              | sed -E 's/.*id:([^,}]+).*/platform=iOS Simulator,id=\1/' || true)
+            if [ -n "${DEST}" ]; then
+              break
+            fi
+          done
 
           if [ -z "${DEST}" ]; then
             DEST=$(printf '%s\n' "$SHOW" \

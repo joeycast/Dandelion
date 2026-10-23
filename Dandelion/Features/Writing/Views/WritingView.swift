@@ -283,7 +283,9 @@ struct WritingView: View {
                 .animation(.easeInOut(duration: 1.2), value: viewModel.isDandelionReturning)
                 .animation(.easeInOut(duration: 1.2), value: releaseDandelionTopPadding)
                 .animation(nil, value: viewModel.writingState)
-                .ignoresSafeArea()
+                // Only extend vertically: horizontal safe areas can be asymmetric (e.g. iPhone Duo
+                // inner display), and the dandelion must stay centered over the prompt text.
+                .ignoresSafeArea(edges: .vertical)
                 .allowsHitTesting(false)
                 .zIndex(1)
 
@@ -406,10 +408,9 @@ struct WritingView: View {
         headerSpaceHeight: CGFloat,
         fullScreenSize: CGSize
     ) -> some View {
-        let baseHorizontalPadding = DandelionSpacing.screenEdge - 5
-        let horizontalPadding = max(
-            baseHorizontalPadding,
-            (size.width - DandelionLayout.maxWritingWidth) / 2
+        let horizontalPadding = DandelionLayout.readableHorizontalPadding(
+            containerWidth: size.width,
+            minimum: DandelionSpacing.screenEdge - 5
         )
         let lineWidth = size.width - (horizontalPadding * 2)
         // Add buffer to prevent bottom row cutoff
@@ -478,7 +479,8 @@ struct WritingView: View {
             },
             onComplete: {}
         )
-        .ignoresSafeArea()
+        // Vertical only, so the message stays centered within asymmetric horizontal safe areas.
+        .ignoresSafeArea(edges: .vertical)
         #endif
 
         return base
@@ -702,22 +704,24 @@ struct WritingView: View {
         // Spacing above text is handled by headerSpaceHeight from DandelionLayout
         if let prompt = viewModel.currentPrompt {
             let promptMatchId = "promptText-\(prompt.id)"
+            let horizontalPadding = DandelionLayout.readableHorizontalPadding(
+                containerWidth: size.width,
+                minimum: isPromptState ? DandelionSpacing.xl : DandelionSpacing.screenEdge,
+                maxContentWidth: isPromptState ? DandelionLayout.maxPromptWidth : DandelionLayout.maxWritingWidth
+            )
             WordAnimatedTextView(
                 text: prompt.text,
                 font: isPromptState ? .dandelionTitle : .dandelionCaption,
                 uiFont: isPromptState ? .dandelionTitle : .dandelionCaption,
                 textColor: isPromptState ? theme.text : theme.secondary,
-                lineWidth: max(
-                    0,
-                    size.width - ((isPromptState ? DandelionSpacing.xl : DandelionSpacing.screenEdge) * 2)
-                ),
+                lineWidth: max(0, size.width - (horizontalPadding * 2)),
                 isAnimating: false,
                 maxLines: isPromptState ? nil : 1,
                 lineBreakMode: isPromptState ? .byWordWrapping : .byTruncatingTail,
                 layoutIDPrefix: prompt.id
             )
             .matchedGeometryEffect(id: promptMatchId, in: promptNamespace)
-            .padding(.horizontal, isPromptState ? DandelionSpacing.xl : DandelionSpacing.screenEdge)
+            .padding(.horizontal, horizontalPadding)
             .padding(.top, isPromptState ? 0 : DandelionSpacing.xs)
             .opacity(isPromptHeaderVisible && !isReleasing ? (isPromptVisible ? promptOpacity : 1) : 0)
             .animation(.easeInOut(duration: 1.0), value: isReleasing)
@@ -785,15 +789,12 @@ struct WritingView: View {
         VStack(spacing: 0) {
             // Text editor fills available space
             GeometryReader { geometry in
-                let baseHorizontalPadding = DandelionSpacing.screenEdge - 5
-#if os(macOS)
-                let horizontalPadding = max(
-                    baseHorizontalPadding,
-                    (geometry.size.width - DandelionLayout.maxWritingWidth) / 2
+                // Cap the writing column so lines stay readable on wide layouts
+                // (iPad, iPhone Duo inner display, macOS). No effect on narrow iPhones.
+                let horizontalPadding = DandelionLayout.readableHorizontalPadding(
+                    containerWidth: geometry.size.width,
+                    minimum: DandelionSpacing.screenEdge - 5
                 )
-#else
-                let horizontalPadding = baseHorizontalPadding
-#endif
                 let size = geometry.size
                 let lineWidth = geometry.size.width - (horizontalPadding * 2)
                 let overlayVisibleHeight = isReleasing
@@ -1261,6 +1262,10 @@ struct WritingView: View {
 #endif
                 }
                 .padding(.horizontal, DandelionSpacing.md)
+#if os(iOS)
+                // Keep controls aligned with the writing column on wide layouts.
+                .frame(maxWidth: DandelionLayout.maxWritingWidth)
+#endif
                 .opacity(isWriting ? 1 : 0)
             }
             .frame(height: 56) // Fixed height for consistent layout
