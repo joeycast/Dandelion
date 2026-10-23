@@ -27,6 +27,10 @@ final class DandelionUITests: XCTestCase {
         }
 
         app.launch()
+        XCTAssertTrue(
+            app.wait(for: .runningForeground, timeout: 30),
+            "App did not reach the foreground (state: \(app.state.rawValue))"
+        )
     }
 
     override func tearDownWithError() throws {
