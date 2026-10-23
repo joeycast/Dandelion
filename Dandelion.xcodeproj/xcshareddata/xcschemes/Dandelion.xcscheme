@@ -8,12 +8,18 @@
       <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES">
         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="C518D6C435FEAFBF5DAAEEE0" BuildableName="DandelionTests.xctest" BlueprintName="DandelionTests" ReferencedContainer="container:Dandelion.xcodeproj"/>
       </BuildActionEntry>
+      <BuildActionEntry buildForTesting="YES" buildForRunning="NO" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES">
+        <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8DD4205BF74F946BD2FD9238" BuildableName="DandelionUITests.xctest" BlueprintName="DandelionUITests" ReferencedContainer="container:Dandelion.xcodeproj"/>
+      </BuildActionEntry>
     </BuildActionEntries>
   </BuildAction>
   <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES">
     <Testables>
       <TestableReference skipped="NO">
         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="C518D6C435FEAFBF5DAAEEE0" BuildableName="DandelionTests.xctest" BlueprintName="DandelionTests" ReferencedContainer="container:Dandelion.xcodeproj"/>
+      </TestableReference>
+      <TestableReference skipped="NO" parallelizable="NO">
+        <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8DD4205BF74F946BD2FD9238" BuildableName="DandelionUITests.xctest" BlueprintName="DandelionUITests" ReferencedContainer="container:Dandelion.xcodeproj"/>
       </TestableReference>
     </Testables>
     <MacroExpansion>

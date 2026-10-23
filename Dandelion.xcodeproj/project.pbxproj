@@ -18,16 +18,29 @@
 			remoteGlobalIDString = F6B3D6DD2F0AB7F0007A5235;
 			remoteInfo = Dandelion;
 		};
+		8862A4B8E09C31DB119B3483 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F6B3D6D62F0AB7F0007A5235 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F6B3D6DD2F0AB7F0007A5235;
+			remoteInfo = Dandelion;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		167879A904D429898A59586E /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
+		26F4C116DAF2F3B0D8175EF4 /* DandelionUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DandelionUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BDFA397584F34DF20DC898A4 /* DandelionTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DandelionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6B3D6DE2F0AB7F0007A5235 /* Dandelion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dandelion.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6B3D6F72F0AB7F1007A5235 /* Config/Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Base.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		49C5BF4DC453B0C48F1C1C41 /* DandelionUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = DandelionUITests;
+			sourceTree = "<group>";
+		};
 		42CEEFCE3A8191578CBCF087 /* DandelionTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = DandelionTests;
@@ -41,6 +54,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		49BEC58FC12DB9A506D9B031 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		215B8D4D7D2F4411960AE2A9 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -73,6 +93,7 @@
 				F6B3D6F72F0AB7F1007A5235 /* Config/Base.xcconfig */,
 				F6B3D6E02F0AB7F0007A5235 /* Dandelion */,
 				42CEEFCE3A8191578CBCF087 /* DandelionTests */,
+				49C5BF4DC453B0C48F1C1C41 /* DandelionUITests */,
 				F6B3D6DF2F0AB7F0007A5235 /* Products */,
 				F61B3C8B2F206DDB0021D387 /* Recovered References */,
 			);
@@ -83,6 +104,7 @@
 			children = (
 				F6B3D6DE2F0AB7F0007A5235 /* Dandelion.app */,
 				BDFA397584F34DF20DC898A4 /* DandelionTests.xctest */,
+				26F4C116DAF2F3B0D8175EF4 /* DandelionUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -90,6 +112,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		8DD4205BF74F946BD2FD9238 /* DandelionUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18EF7207A1FCF4A7C56FAEA8 /* Build configuration list for PBXNativeTarget "DandelionUITests" */;
+			buildPhases = (
+				A263AAD39FDC7823BA530E3E /* Sources */,
+				49BEC58FC12DB9A506D9B031 /* Frameworks */,
+				4C9E091C1B5517506243CEF6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BFF2E6DF204E65BD8DE69EC3 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				49C5BF4DC453B0C48F1C1C41 /* DandelionUITests */,
+			);
+			name = DandelionUITests;
+			packageProductDependencies = (
+			);
+			productName = DandelionUITests;
+			productReference = 26F4C116DAF2F3B0D8175EF4 /* DandelionUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		C518D6C435FEAFBF5DAAEEE0 /* DandelionTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4157C0C676821B787C76E44C /* Build configuration list for PBXNativeTarget "DandelionTests" */;
@@ -145,6 +190,10 @@
 				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
+					8DD4205BF74F946BD2FD9238 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = F6B3D6DD2F0AB7F0007A5235;
+					};
 					C518D6C435FEAFBF5DAAEEE0 = {
 						CreatedOnToolsVersion = 26.2;
 					};
@@ -169,11 +218,19 @@
 			targets = (
 				F6B3D6DD2F0AB7F0007A5235 /* Dandelion */,
 				C518D6C435FEAFBF5DAAEEE0 /* DandelionTests */,
+				8DD4205BF74F946BD2FD9238 /* DandelionUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		4C9E091C1B5517506243CEF6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		9C98ACF685377F90110ED847 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -191,6 +248,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A263AAD39FDC7823BA530E3E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7F36E251E1A8B4A741E793B0 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -213,9 +277,60 @@
 			target = F6B3D6DD2F0AB7F0007A5235 /* Dandelion */;
 			targetProxy = 67F15B5764789BBF25E26F07 /* PBXContainerItemProxy */;
 		};
+		BFF2E6DF204E65BD8DE69EC3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F6B3D6DD2F0AB7F0007A5235 /* Dandelion */;
+			targetProxy = 8862A4B8E09C31DB119B3483 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		0386DB33E485FDAA15954CD7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Config/Base.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "$(TEAM_ID)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).UITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Dandelion;
+			};
+			name = Debug;
+		};
+		163E61CD04E7DCF6C85CD03F /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Config/Base.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "$(TEAM_ID)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_ID).UITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Dandelion;
+			};
+			name = Release;
+		};
 		0826194231BFA43B05C10F09 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F6B3D6F72F0AB7F1007A5235 /* Config/Base.xcconfig */;
@@ -513,6 +628,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		18EF7207A1FCF4A7C56FAEA8 /* Build configuration list for PBXNativeTarget "DandelionUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0386DB33E485FDAA15954CD7 /* Debug */,
+				163E61CD04E7DCF6C85CD03F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		4157C0C676821B787C76E44C /* Build configuration list for PBXNativeTarget "DandelionTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

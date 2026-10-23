@@ -1,0 +1,153 @@
+name: Test
+
+on:
+  pull_request:
+    branches:
+      - develop
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
+  push:
+    branches:
+      - develop
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Select Xcode
+        run: |
+          # Prefer the newest Xcode 27.x when the runner image has one; fall back to 26.3.
+          XCODE=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -1 || true)
+          if [ -z "${XCODE}" ]; then
+            XCODE=/Applications/Xcode_26.3.app
+          fi
+          echo "Using ${XCODE}"
+          sudo xcode-select -s "${XCODE}"
+          xcodebuild -version
+
+      - name: Resolve iOS Simulator
+        id: destination
+        run: |
+          # Tests need a concrete simulator (a generic destination can only build).
+          # Prefer iPhone Duo, then the iPhone 17 family, then any iPhone on the newest iOS runtime.
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, re, sys
+          devices = json.load(sys.stdin)["devices"]
+          def version(runtime):
+              match = re.search(r"iOS-(\d+)-(\d+)", runtime)
+              return tuple(int(part) for part in match.groups()) if match else None
+          candidates = []
+          for runtime, entries in devices.items():
+              runtime_version = version(runtime)
+              if runtime_version is None:
+                  continue
+              for device in entries:
+                  name = device["name"]
+                  if not name.startswith("iPhone"):
+                      continue
+                  rank = 0 if name.startswith("iPhone Duo") else 1 if name.startswith("iPhone 17") else 2
+                  candidates.append((rank, tuple(-part for part in runtime_version), name, device["udid"]))
+          if candidates:
+              candidates.sort()
+              print(candidates[0][3])
+          ')
+
+          if [ -z "${UDID}" ]; then
+            echo "::error::No available iPhone simulator found"
+            xcrun simctl list devices available
+            exit 1
+          fi
+
+          echo "Using simulator:"
+          xcrun simctl list devices available | grep "${UDID}"
+          xcrun simctl boot "${UDID}" || true
+          echo "value=platform=iOS Simulator,id=${UDID}" >> "$GITHUB_OUTPUT"
+
+      - name: Build for testing
+        run: |
+          # Sign to Run Locally (ad-hoc). Unsigned builds run unit tests fine, but the UI test
+          # runner needs a signature for XCUITest to attach to and query the app.
+          set -o pipefail
+          xcodebuild \
+            -project Dandelion.xcodeproj \
+            -scheme Dandelion \
+            -configuration Debug \
+            -destination "${{ steps.destination.outputs.value }}" \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            DEVELOPMENT_TEAM= \
+            PROVISIONING_PROFILE_SPECIFIER= \
+            build-for-testing | (command -v xcbeautify >/dev/null && xcbeautify --renderer github-actions || cat)
+
+      - name: Unit tests
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Dandelion.xcodeproj \
+            -scheme Dandelion \
+            -destination "${{ steps.destination.outputs.value }}" \
+            -derivedDataPath build/DerivedData \
+            -resultBundlePath build/UnitTests.xcresult \
+            -only-testing:DandelionTests \
+            test-without-building | (command -v xcbeautify >/dev/null && xcbeautify --renderer github-actions || cat)
+
+      - name: UI tests
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Dandelion.xcodeproj \
+            -scheme Dandelion \
+            -destination "${{ steps.destination.outputs.value }}" \
+            -derivedDataPath build/DerivedData \
+            -resultBundlePath build/UITests.xcresult \
+            -only-testing:DandelionUITests \
+            -retry-tests-on-failure \
+            -test-iterations 2 \
+            test-without-building | (command -v xcbeautify >/dev/null && xcbeautify --renderer github-actions || cat)
+
+      - name: Summarize test failures
+        if: ${{ failure() }}
+        run: |
+          for RESULT in build/*.xcresult; do
+            [ -d "${RESULT}" ] || continue
+            echo "::group::Failures in ${RESULT}"
+            xcrun xcresulttool get test-results tests --path "${RESULT}" --format json \
+              | python3 -c '
+          import json, sys
+          def walk(node, path):
+              name = node.get("name", "")
+              if node.get("nodeType") == "Failure Message":
+                  print("--- " + " / ".join(path))
+                  print(name)
+              for child in node.get("children", []):
+                  walk(child, path + [name])
+          for node in json.load(sys.stdin).get("testNodes", []):
+              walk(node, [])
+          ' || true
+            echo "::endgroup::"
+          done
+
+      - name: Upload test results
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-results
+          path: build/*.xcresult
+          retention-days: 7
+          if-no-files-found: ignore
