@@ -116,6 +116,28 @@ jobs:
             -test-iterations 2 \
             test-without-building | (command -v xcbeautify >/dev/null && xcbeautify --renderer github-actions || cat)
 
+      - name: Summarize test failures
+        if: ${{ failure() }}
+        run: |
+          for RESULT in build/*.xcresult; do
+            [ -d "${RESULT}" ] || continue
+            echo "::group::Failures in ${RESULT}"
+            xcrun xcresulttool get test-results tests --path "${RESULT}" --format json \
+              | python3 -c '
+          import json, sys
+          def walk(node, path):
+              name = node.get("name", "")
+              if node.get("nodeType") == "Failure Message":
+                  print("--- " + " / ".join(path))
+                  print(name)
+              for child in node.get("children", []):
+                  walk(child, path + [name])
+          for node in json.load(sys.stdin).get("testNodes", []):
+              walk(node, [])
+          ' || true
+            echo "::endgroup::"
+          done
+
       - name: Upload test results
         if: ${{ failure() }}
         uses: actions/upload-artifact@v6

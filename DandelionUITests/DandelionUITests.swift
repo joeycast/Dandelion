@@ -13,6 +13,9 @@ final class DandelionUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
+        // The idle wind animation redraws the dandelion continuously, which keeps the app from
+        // ever going idle for XCUITest. Turn it off through the argument domain of UserDefaults.
+        app.launchArguments += ["-com.dandelion.windAnimationEnabled", "NO"]
 
         // Dismiss any system alert (notifications, microphone) that appears mid-test.
         addUIInterruptionMonitor(withDescription: "System alert") { alert in
@@ -32,7 +35,10 @@ final class DandelionUITests: XCTestCase {
 
     func testLaunchShowsBeginWriting() throws {
         let beginWriting = app.buttons["Begin Writing"]
-        XCTAssertTrue(beginWriting.waitForExistence(timeout: 15), "Prompt screen should offer Begin Writing")
+        XCTAssertTrue(
+            beginWriting.waitForExistence(timeout: 15),
+            "Prompt screen should offer Begin Writing. Hierarchy:\n\(app.debugDescription)"
+        )
         XCTAssertTrue(app.buttons["Settings"].exists, "Settings button should be on the prompt screen")
         XCTAssertTrue(app.buttons["Release history"].exists, "History button should be on the prompt screen")
     }
